@@ -83,6 +83,8 @@
   /* tô đỏ toggle đến hạn ôn (spaced repetition) */
   details.due>summary .t-title{color:var(--red)}
   details.due>summary::marker{color:var(--red)}
+  /* chấm đỏ trên toggle cha khi có mục cần ôn nằm bên trong (đang đóng nên không thấy) */
+  details.has-due>summary .t-title::after{content:" 🔴";font-size:.6em;vertical-align:middle}
   .chk{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);font-weight:500;white-space:nowrap;flex-shrink:0}
   .chk input{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
   .next-tag{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap;flex-shrink:0}
@@ -2058,6 +2060,12 @@ function decorate(){
       tag.textContent=`${it.status||""} · ôn: ${fmtDate(it.next)}`;
       sum.appendChild(tag);
     }
+  });
+  // đánh dấu 🔴 lên các toggle cha chứa mục cần ôn, để tìm được mục due đang bị ẩn trong toggle đóng
+  document.querySelectorAll("details.has-due").forEach(el=>el.classList.remove("has-due"));
+  document.querySelectorAll("details.due").forEach(el=>{
+    let p=el.parentElement&&el.parentElement.closest("details");
+    while(p){p.classList.add("has-due");p=p.parentElement&&p.parentElement.closest("details");}
   });
 }
 
