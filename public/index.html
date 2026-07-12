@@ -81,6 +81,7 @@
   details.sub>summary:hover{background:#f7f6f3;border-radius:6px}
   details.sub .body{padding:2px 6px 10px 20px}
   /* tô đỏ toggle đến hạn ôn (spaced repetition) */
+  details.due>summary{color:var(--red)}
   details.due>summary .t-title{color:var(--red)}
   details.due>summary::marker{color:var(--red)}
   /* chấm đỏ trên toggle cha khi có mục cần ôn nằm bên trong (đang đóng nên không thấy) */
@@ -2061,11 +2062,12 @@ function decorate(){
       sum.appendChild(tag);
     }
   });
-  // đánh dấu 🔴 lên các toggle cha chứa mục cần ôn, để tìm được mục due đang bị ẩn trong toggle đóng
+  // đánh dấu 🔴 lên các toggle cha chứa mục cần ôn, và TỰ MỞ các toggle cha
+  // để mục due (tô đỏ) luôn nhìn thấy được ngay — không bị ẩn trong toggle đóng
   document.querySelectorAll("details.has-due").forEach(el=>el.classList.remove("has-due"));
   document.querySelectorAll("details.due").forEach(el=>{
     let p=el.parentElement&&el.parentElement.closest("details");
-    while(p){p.classList.add("has-due");p=p.parentElement&&p.parentElement.closest("details");}
+    while(p){p.classList.add("has-due");p.open=true;p=p.parentElement&&p.parentElement.closest("details");}
   });
 }
 
@@ -2076,8 +2078,10 @@ function updateSendBtn(){
 }
 
 function updateBadge(){
+  // chỉ đếm mục due thực sự có mặt trên trang — badge không bao giờ báo mục mà không tìm thấy đâu
+  const onPage=new Set([...document.querySelectorAll("[data-track]")].map(e=>e.getAttribute("data-track")));
   let due=0;
-  if(STATE) for(const it of Object.values(STATE.items)) if(it.due) due++;
+  if(STATE) for(const[t,it]of Object.entries(STATE.items)) if(it.due&&onPage.has(t)) due++;
   const b=document.getElementById("dueBadge");
   b.textContent=due?`🔴 ${due} mục cần ôn`:`✅ Đã ôn hết hôm nay`;
   b.classList.toggle("zero",!due);
