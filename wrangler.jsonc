@@ -1,0 +1,24 @@
+{
+  // Worker học AWS + Spaced Repetition
+  "name": "aws-learning",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-01-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SR",
+      "id": "d946c6f1e85f4656b2781cb3939fb656",
+      // Same as id → `wrangler dev --remote` on any machine shares the SAME
+      // KV namespace, so review progress syncs between company & home.
+      "preview_id": "d946c6f1e85f4656b2781cb3939fb656"
+    }
+  ],
+  "triggers": {
+    // 22:00 UTC = 05:00 sáng giờ Việt Nam (UTC+7)
+    "crons": ["0 22 * * *"]
+  },
+  "observability": { "enabled": true }
+}

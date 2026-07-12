@@ -1,0 +1,20 @@
+# Pasted lecture images + generated prompts (local authoring only)
+tools/inbox/
+
+# Wrangler / build
+.wrangler/
+node_modules/
+
+# Machine-specific generated shortcuts
+*.lnk
+
+# Local Claude Code permission settings (machine-specific)
+.claude/settings.local.json
+
+# Local secrets / env vars (never commit — use `wrangler secret put` for prod)
+.dev.vars
+.env
+.env.*
+
+# Scratch / test files
+t.mjs

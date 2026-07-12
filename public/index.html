@@ -1,0 +1,2324 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💨 AWS – Học theo Spaced Repetition</title>
+<style>
+  :root{
+    --red:#eb5757; --text:#37352f; --muted:#787774; --bg:#ffffff;
+    --code-bg:#f7f6f3; --border:#e9e9e7; --blue:#2383e2; --green:#448361;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:24px 20px 120px}
+  header.top{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+  .topbar{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:10px 20px}
+  .topbar h1{font-size:16px;margin:0;flex:1;cursor:pointer}
+  .due-badge{background:var(--red);color:#fff;border-radius:12px;padding:2px 10px;font-size:13px;font-weight:600}
+  .due-badge.zero{background:var(--green)}
+  #sendBtn{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+  #sendBtn:disabled{background:#c9c9c7;cursor:not-allowed}
+  #sendBtn:not(:disabled):hover{background:#1a6fc4}
+  /* home */
+  #home h2{font-size:28px;margin:20px 0 4px}
+  .subtitle{color:var(--muted);margin:0 0 24px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+  .card{border:1px solid var(--border);border-radius:10px;padding:18px;cursor:pointer;transition:.15s;background:#fff}
+  .card:hover{background:#f7f6f3;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+  .card .icon{font-size:30px}
+  .card .name{color:var(--text);font-weight:700;font-size:17px;margin-top:8px;text-decoration:underline;text-decoration-color:var(--border)}
+  .card .name.hot{color:var(--red);text-decoration-color:rgba(235,87,87,.4)}
+  .sec-title{color:var(--text)}
+  .sec-title.hot{color:var(--red)}
+  #editBtn,#importBtn{background:#f1f1ef;border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer}
+  #editBtn.on{background:#dbeafe;border-color:var(--blue);color:var(--blue)}
+  /* ---- Import lecture images modal ---- */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,15,15,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+  .modal-bg.on{display:flex}
+  .modal{background:#fff;border-radius:12px;width:min(680px,100%);max-height:90vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .modal h2{margin:0;padding:18px 20px;border-bottom:1px solid var(--border);font-size:18px;display:flex;align-items:center;gap:8px}
+  .modal .x{margin-left:auto;cursor:pointer;font-size:20px;color:#888;background:none;border:none}
+  .modal .mbody{padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+  .modal label.lbl{font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.03em}
+  .paste-zone{border:2px dashed var(--border);border-radius:10px;padding:22px;text-align:center;color:#888;cursor:pointer;transition:.15s}
+  .paste-zone:hover,.paste-zone.drag{border-color:var(--blue);background:#f0f6ff;color:var(--blue)}
+  .thumbs{display:flex;flex-wrap:wrap;gap:8px}
+  .thumb{position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb button{position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:16px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:12px;padding:0}
+  .pages{display:flex;flex-wrap:wrap;gap:8px}
+  .page-chip{padding:7px 13px;border-radius:20px;border:1px solid var(--border);background:#fafafa;cursor:pointer;font-size:14px;font-weight:600}
+  .page-chip.sel{background:#dbeafe;border-color:var(--blue);color:var(--blue)}
+  #newPageInput{display:none;margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:100%}
+  #newPageInput.on{display:block}
+  .modal .foot{display:flex;align-items:center;gap:12px;padding:16px 20px;border-top:1px solid var(--border)}
+  #buildBtn{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:15px;font-weight:700;cursor:pointer}
+  #buildBtn:disabled{opacity:.45;cursor:not-allowed}
+  #buildStatus{font-size:13px;color:#666}
+  #buildStatus.err{color:var(--red)}
+  #buildStatus.ok{color:#0a7d33}
+  .editing div.content{outline:2px dashed var(--blue);outline-offset:10px;border-radius:8px}
+  div.content:focus{outline:none}
+  .card .meta{color:var(--muted);font-size:13px;margin-top:6px}
+  .card .meta .d{color:var(--red);font-weight:600}
+  /* section */
+  .section{display:none}
+  .section.active{display:block}
+  #home{display:none}
+  #home.active{display:block}
+  .back{color:var(--muted);cursor:pointer;font-size:14px;display:inline-block;margin-bottom:8px}
+  .back:hover{color:var(--text)}
+  .section>h2{font-size:26px;margin:6px 0 18px}
+  /* toggles */
+  details.topic{border-bottom:1px solid var(--border);padding:2px 0}
+  details.topic>summary{cursor:pointer;padding:8px 4px;font-weight:600;font-size:16px;display:flex;align-items:center;gap:8px;list-style-position:outside}
+  details.topic>summary:hover{background:#f7f6f3;border-radius:6px}
+  details.topic[open]>summary{margin-bottom:4px}
+  details .body{padding:2px 8px 14px 26px}
+  details.sub{margin:8px 0;border-left:2px solid var(--border);padding-left:4px}
+  details.sub>summary{cursor:pointer;font-weight:600;padding:5px 4px}
+  details.sub>summary:hover{background:#f7f6f3;border-radius:6px}
+  details.sub .body{padding:2px 6px 10px 20px}
+  /* tô đỏ toggle đến hạn ôn (spaced repetition) */
+  details.due>summary .t-title{color:var(--red)}
+  details.due>summary::marker{color:var(--red)}
+  .chk{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);font-weight:500;white-space:nowrap;flex-shrink:0}
+  .chk input{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+  .next-tag{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400;white-space:nowrap;flex-shrink:0}
+  .status-tag{font-size:12px;font-weight:400;color:var(--muted)}
+  /* content */
+  .body h3{font-size:17px;margin:14px 0 6px}
+  .body h4{font-size:15px;margin:12px 0 4px}
+  pre{background:var(--code-bg);border-radius:6px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.5}
+  code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  p code,li code,td code{background:var(--code-bg);color:#eb5757;padding:1px 5px;border-radius:4px;font-size:.86em}
+  blockquote{border-left:3px solid var(--text);margin:10px 0;padding:2px 14px;color:var(--text);background:#fbfbfa}
+  table{border-collapse:collapse;margin:10px 0;width:100%;font-size:14px}
+  td,th{border:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top}
+  tr:first-child td{background:#f7f6f3;font-weight:600}
+  hr{border:none;border-top:1px solid var(--border);margin:16px 0}
+  ul,ol{margin:6px 0;padding-left:24px}
+  li{margin:3px 0}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#37352f;color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;z-index:100}
+  .toast.show{opacity:1}
+  .cron-note{color:var(--muted);font-size:12.5px;margin-top:30px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="topbar">
+    <h1 onclick="location.hash=''">💨 AWS</h1>
+    <span id="dueBadge" class="due-badge">…</span>
+    <button id="importBtn" title="Double-click để nhập ảnh bài giảng → tạo nội dung bằng AI" ondblclick="openImport()">🖼️ Nhập ảnh</button>
+    <button id="editBtn" onclick="toggleEdit()">✏️ Sửa</button>
+    <button id="sendBtn" disabled onclick="sendReviews()">📤 Send (0)</button>
+  </div>
+</header>
+
+<!-- Import lecture images → generate content via Claude -->
+<div id="importModal" class="modal-bg" onclick="if(event.target===this)closeImport()">
+  <div class="modal">
+    <h2>🖼️ Nhập ảnh bài giảng <button class="x" onclick="closeImport()">✕</button></h2>
+    <div class="mbody">
+      <div>
+        <label class="lbl">1 · Dán ảnh (Ctrl+V) hoặc chọn file</label>
+        <div id="pasteZone" class="paste-zone" tabindex="0">
+          📋 Nhấp vào đây rồi <b>Ctrl+V</b> để dán ảnh · hoặc kéo-thả · hoặc bấm để chọn file
+          <input id="fileInput" type="file" accept="image/*" multiple hidden>
+        </div>
+        <div id="thumbs" class="thumbs" style="margin-top:10px"></div>
+      </div>
+      <div>
+        <label class="lbl">2 · Chọn trang (page)</label>
+        <div id="pageChips" class="pages"></div>
+        <input id="newPageInput" placeholder="Tên trang mới, ví dụ: S3, VPC, Route 53…">
+      </div>
+    </div>
+    <div class="foot">
+      <button id="buildBtn" onclick="createContent()" disabled>🚀 Tạo nội dung</button>
+      <span id="buildStatus"></span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="home" class="active">
+    <h2>💨 AWS</h2>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <section class="section" id="sec-iam">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>🙋 <span class="sec-title" data-sec-title="IAM">IAM</span></h2>
+    <div class="content" data-sec="iam">
+    <details class="topic" data-track="AWS Availability Zone">
+      <summary><span class="t-title">AWS Availability Zone</span></summary>
+      <div class="body">
+        <p><strong>Availability Zone (AZ)</strong> là các data center vật lý nằm trong một <strong>Region</strong> (khu vực địa lý) của AWS.</p>
+        <p><strong>Cấu trúc:</strong></p>
+        <pre><code>Region (ví dụ: ap-southeast-1 – Singapore)
+├── AZ: ap-southeast-1a  (data center A)
+├── AZ: ap-southeast-1b  (data center B)
+└── AZ: ap-southeast-1c  (data center C)</code></pre>
+        <p><strong>Tại sao cần nhiều AZ?</strong></p>
+        <p>Các AZ cách nhau vài km — nếu một AZ bị mất điện hoặc thiên tai, các AZ còn lại vẫn hoạt động bình thường → đây là nền tảng của <strong>High Availability</strong> (tính sẵn sàng cao).</p>
+        <p><strong>Ví dụ thực tế:</strong></p>
+        <p>Bạn deploy app trên 3 AZ ở Singapore. Ngày hôm đó <code>1a</code> mất điện đột ngột → app vẫn chạy trên <code>1b</code> và <code>1c</code>, người dùng không bị gián đoạn.</p>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Root Account & IAM Users">
+      <summary><span class="t-title">Root Account &amp; IAM Users</span></summary>
+      <div class="body">
+        <h3>Root Account là gì?</h3>
+        <p><strong>Root Account</strong> là tài khoản được tạo ra <strong>đầu tiên</strong> khi bạn đăng ký AWS. Nó có <strong>toàn quyền tuyệt đối</strong> — không bị giới hạn bởi bất kỳ policy nào.</p>
+        <blockquote><strong>Không nên dùng Root Account</strong> cho công việc hàng ngày — chỉ dùng để setup ban đầu hoặc các tác vụ đặc biệt (như thay đổi billing). Thay vào đó, tạo IAM User để sử dụng.</blockquote>
+        <hr>
+        <h3>Một Root Account → Nhiều IAM Users</h3>
+        <pre><code>Root Account (1 tài khoản duy nhất)
+├── IAM User: trong_dev
+├── IAM User: an_devops
+├── IAM User: hoa_manager
+└── IAM User: minh_tester</code></pre>
+        <p>Mỗi IAM User có thể có <strong>quyền khác nhau</strong> tuỳ theo Policy được gán.</p>
+        <hr>
+        <h3>Cách đăng nhập với IAM User</h3>
+        <p>IAM User <strong>không đăng nhập qua trang thường</strong> của AWS. Họ phải dùng <strong>Sign-in URL riêng</strong> của Root Account:</p>
+        <pre><code>https://&lt;account-id&gt;.signin.aws.amazon.com/console</code></pre>
+        <p>Ví dụ:</p>
+        <pre><code>https://123456789012.signin.aws.amazon.com/console</code></pre>
+        <p>Hoặc bạn có thể đặt <strong>alias</strong> cho dễ nhớ:</p>
+        <pre><code>https://my-company.signin.aws.amazon.com/console</code></pre>
+        <hr>
+        <p><strong>Khi vào trang Sign-in URL, IAM User nhập 3 thông tin:</strong></p>
+        <table>
+          <tr><td>Trường</td><td>Ví dụ</td></tr>
+          <tr><td>Account ID / Alias</td><td><code>123456789012</code> hoặc <code>my-company</code></td></tr>
+          <tr><td>IAM User name</td><td><code>trong_dev</code></td></tr>
+          <tr><td>Password</td><td><code>  • •••••••</code></td></tr>
+        </table>
+        <hr>
+        <p><strong>Tóm tắt luồng:</strong></p>
+        <pre><code>Root tạo Sign-in URL
+       ↓
+Gửi URL + username + password cho IAM User
+       ↓
+IAM User truy cập URL → nhập thông tin → vào AWS Console
+       ↓
+Chỉ thấy &amp; làm được những gì Policy cho phép</code></pre>
+      </div>
+    </details>
+
+    <details class="topic" data-track="IAM: Users & Groups">
+      <summary><span class="t-title">IAM: Users &amp; Groups</span></summary>
+      <div class="body">
+        <p><strong>IAM = Identity and Access Management</strong> → Hệ thống <strong>quản lý danh tính và phân quyền</strong> trong AWS.</p>
+        <p>Nó trả lời 2 câu hỏi cốt lõi:</p>
+        <blockquote><strong>Bạn là ai?</strong> → User, Group, Role<br><strong>Bạn được phép làm gì?</strong> → Policy</blockquote>
+        <hr>
+        <h3>User</h3>
+        <p>Một tài khoản đại diện cho <strong>một người cụ thể</strong> trong AWS.</p>
+        <p>Ví dụ: user <code>dattrong</code>, user <code>annguyen</code></p>
+        <hr>
+        <h3>Group</h3>
+        <p><strong>Nhóm gom nhiều User lại</strong> để quản lý quyền tập trung. Thay vì cấp quyền từng người, bạn cấp <strong>một lần cho cả group</strong> → tất cả thành viên tự động có quyền đó.</p>
+        <pre><code>Group: Developers
+├── User: Trong   ──→ tự động có quyền của group
+├── User: An
+└── User: Minh</code></pre>
+        <blockquote>Một user <strong>có thể thuộc nhiều group</strong> cùng lúc.<br>Một user cũng <strong>có thể không thuộc group nào</strong> (gán policy trực tiếp).</blockquote>
+        <p><strong>Ví dụ thực tế — công ty có 4 nhóm:</strong></p>
+        <table>
+          <tr><td>Nhóm</td><td>Quyền được cấp</td></tr>
+          <tr><td>Backend Dev</td><td>Deploy app, xem log</td></tr>
+          <tr><td>Tester</td><td>Chỉ xem môi trường test</td></tr>
+          <tr><td>DevOps</td><td>Tạo server, cấu hình network</td></tr>
+          <tr><td>Manager</td><td>Chỉ xem billing / report</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="topic" data-track="IAM Policies – Cấu trúc đầy đủ">
+      <summary><span class="t-title">IAM Policies – Cấu trúc đầy đủ</span></summary>
+      <div class="body">
+        <h3>Cấu trúc tổng quan</h3>
+        <p>Một IAM Policy là file JSON gồm 3 phần chính:</p>
+        <table>
+          <tr><td>Trường</td><td>Bắt buộc?</td><td>Ý nghĩa</td></tr>
+          <tr><td><code>Version</code></td><td>Có</td><td>Phiên bản ngôn ngữ policy — luôn dùng <code>"2012-10-17"</code></td></tr>
+          <tr><td><code>Id</code></td><td>Không</td><td>Tên định danh cho policy (tuỳ chọn)</td></tr>
+          <tr><td><code>Statement</code></td><td>Có</td><td>Danh sách các quy tắc phân quyền</td></tr>
+        </table>
+        <hr>
+        <h3>Mỗi Statement gồm 6 trường</h3>
+        <table>
+          <tr><td>Trường</td><td>Bắt buộc?</td><td>Ý nghĩa</td></tr>
+          <tr><td><code>Sid</code></td><td>Không</td><td>Tên định danh cho statement (tuỳ chọn)</td></tr>
+          <tr><td><code>Effect</code></td><td>Có</td><td><code>Allow</code> (cho phép) hoặc <code>Deny</code> (từ chối)</td></tr>
+          <tr><td><code>Principal</code></td><td>Tuỳ</td><td>Account / User / Role được áp dụng policy này</td></tr>
+          <tr><td><code>Action</code></td><td>Có</td><td>Danh sách hành động được phép hoặc bị cấm</td></tr>
+          <tr><td><code>Resource</code></td><td>Có</td><td>Tài nguyên mà Action được áp dụng lên</td></tr>
+          <tr><td><code>Condition</code></td><td>Không</td><td>Điều kiện để policy có hiệu lực (tuỳ chọn)</td></tr>
+        </table>
+        <hr>
+        <h3>Ví dụ thực tế</h3>
+        <pre><code>{
+  "Version": "2012-10-17",
+  "Id": "S3-Account-Permissions",
+  "Statement": [
+    {
+      "Sid": "1",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": ["arn:aws:iam::123456789012:root"]
+      },
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": ["arn:aws:s3:::mybucket/*"]
+    }
+  ]
+}</code></pre>
+        <p><strong>Đọc policy trên theo ngôn ngữ thường:</strong></p>
+        <blockquote>Cho phép (<code>Allow</code>) tài khoản root <code>123456789012</code> được <strong>đọc</strong> (<code>GetObject</code>) và <strong>tải lên</strong> (<code>PutObject</code>) các file trong S3 bucket tên <code>mybucket</code>.</blockquote>
+        <hr>
+        <h3>Giải thích từng trường trong ví dụ</h3>
+        <p><strong>Principal</strong> — <em>Ai</em> được áp dụng policy?</p>
+        <pre><code>arn:aws:iam::123456789012:root  →  tài khoản root của account 123456789012</code></pre>
+        <p>Có thể là user, role, hoặc cả một AWS account.</p>
+        <p><strong>Action</strong> — <em>Làm gì</em>?</p>
+        <pre><code>s3:GetObject   →  đọc / tải file từ S3
+s3:PutObject   →  upload file lên S3</code></pre>
+        <p>Dùng <code>*</code> để áp dụng tất cả action: <code>"s3:*"</code></p>
+        <p><strong>Resource</strong> — <em>Trên tài nguyên nào</em>?</p>
+        <pre><code>arn:aws:s3:::mybucket/*  →  tất cả object bên trong bucket "mybucket"</code></pre>
+        <p>Dùng <code>"*"</code> nếu muốn áp dụng cho mọi resource.</p>
+        <p><strong>Condition</strong> <em>(không có trong ví dụ trên, nhưng hay dùng)</em>:</p>
+        <pre><code>"Condition": {
+  "IpAddress": {
+    "aws:SourceIp": "203.0.113.0/24"
+  }
+}</code></pre>
+        <p>→ Chỉ cho phép nếu request đến từ dải IP <code>203.0.113.0/24</code>.</p>
+        <hr>
+        <blockquote><strong>Tóm lại:</strong> Statement = <strong>Ai</strong> (<code>Principal</code>) được <strong>làm gì</strong> (<code>Action</code>) trên <strong>tài nguyên nào</strong> (<code>Resource</code>), với điều kiện gì (<code>Condition</code>), và kết quả là <strong>Allow hay Deny</strong> (<code>Effect</code>).</blockquote>
+        <hr>
+        <details class="sub" data-track="IAM: Permission (Policy)">
+          <summary><span class="t-title">IAM: Permission (Policy)</span></summary>
+          <div class="body">
+            <p><strong>Policy = file JSON gắn vào User hoặc Group</strong>, xác định rõ quyền được phép hoặc bị cấm.</p>
+            <p>Mỗi policy trả lời 3 câu hỏi:</p>
+            <pre><code>Effect   → Cho phép hay từ chối?  (Allow / Deny)
+Action   → Được làm hành động gì?
+Resource → Trên tài nguyên nào?</code></pre>
+            <hr>
+            <p><strong>Ví dụ policy thực tế</strong> — chỉ cho quyền xem (read-only):</p>
+            <pre><code>{
+  "Effect": "Allow",
+  "Action": "ec2:Describe*",
+  "Resource": "*"
+}</code></pre>
+            <p>→ User được <strong>xem thông tin EC2</strong> (<code>DescribeInstances</code>, <code>DescribeVolumes</code>…), nhưng <strong>không được tạo/xóa</strong>.</p>
+            <hr>
+            <p><strong>Bảng tóm tắt 3 quyền phổ biến trong ví dụ:</strong></p>
+            <table>
+              <tr><td>Action</td><td>Ý nghĩa</td></tr>
+              <tr><td><code>ec2:Describe*</code></td><td>Xem thông tin EC2</td></tr>
+              <tr><td><code>elasticloadbalancing:Describe*</code></td><td>Xem thông tin Load Balancer</td></tr>
+              <tr><td><code>cloudwatch:ListMetrics</code>, <code>GetMetricStatistics</code></td><td>Xem metrics / logs CloudWatch</td></tr>
+            </table>
+            <hr>
+            <p><strong>Quyền user này CÓ:</strong></p>
+            <pre><code>✅ Xem EC2
+✅ Xem Load Balancer
+✅ Xem CloudWatch metrics</code></pre>
+            <p><strong>Quyền user này KHÔNG CÓ</strong> (vì thiếu action tương ứng):</p>
+            <pre><code>❌ Tạo EC2             (cần: ec2:RunInstances)
+❌ Xóa EC2             (cần: ec2:TerminateInstances)
+❌ Tạo Load Balancer   (cần: elasticloadbalancing:CreateLoadBalancer)</code></pre>
+            <hr>
+            <blockquote><strong>Nguyên tắc vàng:</strong> AWS áp dụng <strong>Least Privilege</strong> — chỉ cấp đúng quyền cần thiết, không hơn. Giảm thiểu rủi ro bảo mật.</blockquote>
+            <hr>
+            <details class="sub" data-track="Sơ đồ tổng quan IAM">
+              <summary><span class="t-title">Sơ đồ tổng quan IAM</span></summary>
+              <div class="body">
+                <pre><code>AWS Account
+│
+├── IAM Group: Developers
+│     ├── User: Trong   ──→ Policy: Xem EC2, Xem CloudWatch
+│     └── User: An
+│
+├── IAM Group: DevOps
+│     └── User: Minh    ──→ Policy: Tạo server, cấu hình network
+│
+└── IAM Group: Manager
+      └── User: Hoa     ──→ Policy: Chỉ xem billing</code></pre>
+                <p><strong>Tóm lại trong 1 câu:</strong></p>
+                <blockquote>IAM = hệ thống bảo vệ AWS của bạn — kiểm soát <strong>ai được vào</strong>, và <strong>được làm gì</strong> sau khi vào.</blockquote>
+              </div>
+            </details>
+          </div>
+        </details>
+        <pre><code>IAM Policy
+↓ gồm nhiều
+Statement
+↓ mỗi Statement định nghĩa
+Permission
+↓ thông qua
+Effect + Action + Resource</code></pre>
+      </div>
+    </details>
+
+    <details class="topic" data-track="AWS Console – Simultaneous Sessions">
+      <summary><span class="t-title">AWS Console – Simultaneous Sessions</span></summary>
+      <div class="body">
+        <h3>Khái niệm</h3>
+        <p><strong>Simultaneous Sessions</strong> = nhiều phiên đăng nhập AWS Console <strong>diễn ra cùng lúc</strong>, từ nhiều browser/tab/user khác nhau.</p>
+        <p>AWS Console <strong>không giới hạn</strong> số phiên đồng thời — nhiều IAM User có thể cùng đăng nhập và làm việc song song trong cùng một tài khoản AWS.</p>
+        <hr>
+        <h3>Ví dụ thực tế</h3>
+        <pre><code>Cùng một lúc:
+├── Trong (IAM User: trong_dev)     → đang xem EC2 trên Chrome
+├── An    (IAM User: an_devops)     → đang cấu hình VPC trên Firefox
+└── Hoa   (IAM User: hoa_manager)  → đang xem Billing trên Safari</code></pre>
+        <p>Tất cả 3 người <strong>cùng login vào 1 AWS account</strong> nhưng mỗi người chỉ thấy và làm được những gì <strong>Policy của mình</strong> cho phép.</p>
+        <hr>
+        <h3>Dùng nhiều tab/session cùng lúc</h3>
+        <p>Bạn cũng có thể tự mở <strong>nhiều session cùng lúc</strong> cho bản thân:</p>
+        <table>
+          <tr><td>Session</td><td>Cách mở</td><td>Dùng để</td></tr>
+          <tr><td>Tab thường</td><td>Ctrl+T</td><td>Console chính</td></tr>
+          <tr><td>Incognito / Private</td><td>Ctrl+Shift+N</td><td>Login bằng account/role khác</td></tr>
+          <tr><td>Browser khác</td><td>Chrome / Firefox</td><td>Thêm 1 account nữa</td></tr>
+        </table>
+        <blockquote>Trick thực tế: Dev thường mở <strong>Chrome</strong> cho account Development và <strong>Firefox</strong> cho account Production để tránh nhầm lẫn.</blockquote>
+        <hr>
+        <h3>Lưu ý quan trọng</h3>
+        <blockquote>Nhiều người cùng thao tác <strong>trên cùng một tài nguyên</strong> có thể gây xung đột — ví dụ 2 người cùng sửa 1 Security Group một lúc, người sau sẽ ghi đè người trước.</blockquote>
+        <p>→ Trong thực tế, các team dùng <strong>Infrastructure as Code</strong> (Terraform, CloudFormation) để tránh tình trạng này.</p>
+      </div>
+    </details>
+
+    <details class="topic" data-track="IAM – Password Policy">
+      <summary><span class="t-title">IAM – Password Policy</span></summary>
+      <div class="body">
+        <p><strong>Mật khẩu mạnh = bảo mật cao hơn cho tài khoản AWS của bạn.</strong></p>
+        <p>Root Account có thể thiết lập Password Policy áp dụng cho <strong>tất cả IAM Users</strong> trong account.</p>
+        <hr>
+        <h3>Các thiết lập có thể cấu hình</h3>
+        <table>
+          <tr><td>Thiết lập</td><td>Ý nghĩa</td></tr>
+          <tr><td>Minimum password length</td><td>Độ dài tối thiểu, ví dụ: ít nhất 8 ký tự</td></tr>
+          <tr><td>Require uppercase letters</td><td>Bắt buộc có chữ HOA (A-Z)</td></tr>
+          <tr><td>Require lowercase letters</td><td>Bắt buộc có chữ thường (a-z)</td></tr>
+          <tr><td>Require numbers</td><td>Bắt buộc có số (0-9)</td></tr>
+          <tr><td>Require non-alphanumeric characters</td><td>Bắt buộc có ký tự đặc biệt (<code>!@#$%^&amp;*</code>…)</td></tr>
+          <tr><td>Allow IAM users to change their own password</td><td>Cho phép user tự đổi mật khẩu</td></tr>
+          <tr><td>Password expiration</td><td>Bắt buộc đổi mật khẩu sau N ngày</td></tr>
+          <tr><td>Prevent password reuse</td><td>Không cho dùng lại mật khẩu cũ</td></tr>
+        </table>
+        <h3>Ví dụ thực tế</h3>
+        <p><strong>Password Policy của một công ty:</strong></p>
+        <pre><code>Độ dài tối thiểu : 12 ký tự
+Phải có          : Chữ hoa + chữ thường + số + ký tự đặc biệt
+Hết hạn sau      : 90 ngày
+Không được dùng lại: 5 mật khẩu gần nhất
+User tự đổi mật khẩu: ✅ cho phép</code></pre>
+        <p><strong>Mật khẩu hợp lệ theo policy trên:</strong></p>
+        <pre><code>✅ MyP@ssw0rd2024!   (đủ hoa, thường, số, ký tự đặc biệt, >= 12 ký tự)
+❌ password123       (không có chữ hoa, không có ký tự đặc biệt)
+❌ ABC123            (quá ngắn)</code></pre>
+        <hr>
+        <blockquote>Password Policy chỉ áp dụng cho <strong>IAM Users đăng nhập bằng Console</strong>. Không ảnh hưởng đến Access Key (dùng cho CLI/API).</blockquote>
+
+        <details class="sub" data-track="Cách truy cập AWS – 3 phương thức">
+          <summary><span class="t-title">Cách truy cập AWS – 3 phương thức</span></summary>
+          <div class="body">
+            <p>Có <strong>3 cách</strong> để tương tác với AWS:</p>
+            <table>
+              <tr><td>Phương thức</td><td>Bảo vệ bởi</td><td>Dùng khi nào</td></tr>
+              <tr><td><strong>AWS Management Console</strong></td><td>Password + MFA</td><td>Quản lý thủ công qua trình duyệt</td></tr>
+              <tr><td><strong>AWS CLI</strong> (Command Line)</td><td>Access Keys</td><td>Chạy lệnh từ terminal/script</td></tr>
+              <tr><td><strong>AWS SDK</strong> (cho code)</td><td>Access Keys</td><td>Tích hợp AWS vào ứng dụng (Python, JS, Java…)</td></tr>
+            </table>
+            <hr>
+            <h3>1. AWS Management Console</h3>
+            <p>Đăng nhập qua trình duyệt tại <code>console.aws.amazon.com</code> bằng <strong>username + password</strong> (và MFA nếu bật).</p>
+            <hr>
+            <h3>2. AWS CLI</h3>
+            <p>Gõ lệnh trực tiếp từ terminal để thao tác với AWS:</p>
+            <pre><code># Ví dụ: liệt kê tất cả S3 bucket
+aws s3 ls
+
+# Ví dụ: xem danh sách EC2 instances
+aws ec2 describe-instances</code></pre>
+            <p>Xác thực bằng <strong>Access Key ID + Secret Access Key</strong>.</p>
+            <hr>
+            <h3>3. AWS SDK</h3>
+            <p>Tích hợp AWS vào code của ứng dụng:</p>
+            <pre><code># Python – upload file lên S3
+import boto3
+s3 = boto3.client('s3')
+s3.upload_file('photo.jpg', 'mybucket', 'photo.jpg')</code></pre>
+            <p>Cũng xác thực bằng <strong>Access Key ID + Secret Access Key</strong>.</p>
+            <hr>
+            <h3>Access Keys là gì?</h3>
+            <p>Access Key gồm 2 phần — hoạt động giống như username/password:</p>
+            <table>
+              <tr><td>Thành phần</td><td>Tương đương</td><td>Ví dụ</td></tr>
+              <tr><td><strong>Access Key ID</strong></td><td>Username</td><td><code>AKIAIOSFODNN7EXAMPLE</code></td></tr>
+              <tr><td><strong>Secret Access Key</strong></td><td>Password</td><td><code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></td></tr>
+            </table>
+            <p><strong>Cách tạo:</strong> Vào AWS Console → IAM → User → Security credentials → Create access key</p>
+            <p><strong>Lưu ý quan trọng:</strong></p>
+            <blockquote>Access Key <strong>bí mật như mật khẩu</strong> — mỗi user tự quản lý key của mình, <strong>tuyệt đối không chia sẻ</strong> cho người khác và không commit lên GitHub.<br>Secret Access Key <strong>chỉ hiển thị 1 lần duy nhất</strong> khi tạo — nếu mất phải tạo key mới.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Cấu hình AWS CLI – aws configure">
+      <summary><span class="t-title">Cấu hình AWS CLI – <code>aws configure</code></span></summary>
+      <div class="body">
+        <p>Sau khi cài AWS CLI, bạn cần <strong>cấu hình thông tin xác thực</strong> để CLI biết bạn là ai và làm việc ở đâu. Lệnh chính là:</p>
+        <pre><code>aws configure</code></pre>
+        <hr>
+        <h3>4 thông tin CLI sẽ hỏi</h3>
+        <table>
+          <tr><td>Trường</td><td>Ý nghĩa</td><td>Ví dụ</td></tr>
+          <tr><td><code>AWS Access Key ID</code></td><td>Mã định danh khóa (giống username)</td><td><code>AKIAIOSFODNN7EXAMPLE</code></td></tr>
+          <tr><td><code>AWS Secret Access Key</code></td><td>Khóa bí mật (giống password, chỉ hiện 1 lần)</td><td><code>wJalrXUtn...EXAMPLEKEY</code></td></tr>
+          <tr><td><code>Default region name</code></td><td>Vùng mặc định để chạy lệnh</td><td><code>ap-southeast-1</code></td></tr>
+          <tr><td><code>Default output format</code></td><td>Định dạng kết quả trả về</td><td><code>json</code></td></tr>
+        </table>
+        <hr>
+        <h3>Thông tin được lưu ở đâu?</h3>
+        <p><code>aws configure</code> ghi vào 2 file trong thư mục home:</p>
+        <table>
+          <tr><td>File</td><td>Nội dung</td></tr>
+          <tr><td><code>~/.aws/credentials</code> (Windows: <code>C:\Users\&lt;tên&gt;\.aws\credentials</code>)</td><td>Access Key ID + Secret Access Key</td></tr>
+          <tr><td><code>~/.aws/config</code> (Windows: <code>C:\Users\&lt;tên&gt;\.aws\config</code>)</td><td>Region + output format</td></tr>
+        </table>
+        <hr>
+        <h3>Region phổ biến</h3>
+        <pre><code>ap-southeast-1  →  Singapore
+ap-southeast-2  →  Sydney
+us-east-1       →  Bắc Virginia (Mỹ)
+us-west-2       →  Oregon (Mỹ)</code></pre>
+        <h3>Output format</h3>
+        <pre><code>json   →  mặc định, máy đọc tốt
+table  →  bảng đẹp, dễ đọc bằng mắt
+text   →  gọn, hợp cho script
+yaml   →  định dạng yaml</code></pre>
+        <hr>
+        <h3>Làm việc với nhiều profile</h3>
+        <p>Nếu dùng nhiều tài khoản AWS, tạo profile riêng:</p>
+        <pre><code>aws configure --profile cong-viec
+aws configure --profile ca-nhan
+
+# Khi dùng, thêm --profile:
+aws s3 ls --profile cong-viec</code></pre>
+        <hr>
+        <h3>Kiểm tra cấu hình</h3>
+        <pre><code>aws configure list           # xem cấu hình hiện tại
+aws sts get-caller-identity  # xác nhận đang đăng nhập bằng tài khoản nào</code></pre>
+      </div>
+    </details>
+
+    <details class="topic" data-track="AWS CloudShell">
+      <summary><span class="t-title">AWS CloudShell</span></summary>
+      <div class="body">
+        <p><strong>CloudShell</strong> là một <strong>terminal chạy ngay trên trình duyệt</strong> trong AWS Console — đã được cài sẵn AWS CLI và tự động xác thực bằng chính tài khoản bạn đang đăng nhập. Không cần cài đặt hay cấu hình access key.</p>
+        <hr>
+        <h3>Đặc điểm chính</h3>
+        <table>
+          <tr><td>Đặc điểm</td><td>Chi tiết</td></tr>
+          <tr><td>Cài đặt</td><td>Không cần — AWS CLI có sẵn</td></tr>
+          <tr><td>Xác thực</td><td>Tự động dùng quyền của user đang đăng nhập (không cần <code>aws configure</code>)</td></tr>
+          <tr><td>Dung lượng lưu trữ</td><td><strong>Mỗi account được 1 GB miễn phí</strong> cho mỗi region (lưu ở thư mục home <code>~</code>)</td></tr>
+          <tr><td>Truy cập</td><td>Bấm icon CloudShell (<code>&gt;_</code>) trên thanh trên cùng của Console</td></tr>
+        </table>
+        <hr>
+        <blockquote>File lưu trong <code>~</code> (home) của CloudShell <strong>vẫn còn</strong> sau khi đóng; nhưng file ngoài thư mục home sẽ <strong>bị xóa</strong> khi phiên kết thúc.<br>Dung lượng 1 GB tính <strong>theo từng region</strong> — chuyển sang region khác là một không gian lưu trữ riêng.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="IAM Roles cho dịch vụ AWS">
+      <summary><span class="t-title">IAM Roles cho dịch vụ AWS</span></summary>
+      <div class="body">
+        <p>Một số dịch vụ AWS cần <strong>thực hiện hành động thay mặt bạn</strong> (ví dụ: EC2 cần đọc file từ S3). Thay vì nhét access key vào trong server (rất nguy hiểm), ta gán <strong>IAM Role</strong> cho dịch vụ đó.</p>
+        <hr>
+        <h3>Vì sao dùng Role thay vì Access Key?</h3>
+        <pre><code>❌ Cách cũ: lưu Access Key trong code/server  →  dễ bị lộ, khó xoay key
+✅ Cách đúng: gán IAM Role cho dịch vụ        →  AWS tự cấp credential tạm thời, an toàn</code></pre>
+        <p>Ví dụ: gán Role cho <strong>EC2 Instance</strong> → ứng dụng trên EC2 có thể gọi AWS (đọc S3, ghi log...) mà <strong>không cần lưu key</strong> nào cả.</p>
+        <hr>
+        <h3>Các Role thường gặp</h3>
+        <table>
+          <tr><td>Role</td><td>Dùng cho</td></tr>
+          <tr><td>EC2 Instance Roles</td><td>Cấp quyền cho ứng dụng chạy trên máy ảo EC2</td></tr>
+          <tr><td>Lambda Function Roles</td><td>Cấp quyền cho hàm Lambda truy cập dịch vụ khác</td></tr>
+          <tr><td>Roles for CloudFormation</td><td>Cho phép CloudFormation tạo/quản lý tài nguyên thay bạn</td></tr>
+        </table>
+        <hr>
+        <blockquote><strong>Tóm lại:</strong> Role giống một "chiếc mũ quyền hạn" mà dịch vụ AWS đeo vào để được phép làm việc — credential do AWS tự cấp tạm thời, không bao giờ lộ ra ngoài.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="IAM Security Tools">
+      <summary><span class="t-title">IAM Security Tools</span></summary>
+      <div class="body">
+        <p>Hai công cụ giúp bạn <strong>kiểm tra (audit) bảo mật</strong> tài khoản AWS:</p>
+        <table>
+          <tr><td>Công cụ</td><td>Phạm vi</td><td>Công dụng</td></tr>
+          <tr><td><strong>IAM Credentials Report</strong></td><td>Account-level</td><td>Báo cáo liệt kê <strong>tất cả user</strong> và trạng thái credential của họ (password, access key, MFA...)</td></tr>
+          <tr><td><strong>IAM Access Advisor</strong></td><td>User-level</td><td>Cho thấy <strong>những quyền dịch vụ</strong> đã cấp cho một user và <strong>lần cuối</strong> user dùng các dịch vụ đó</td></tr>
+        </table>
+        <hr>
+        <blockquote>Dùng Access Advisor để phát hiện quyền thừa (cấp nhưng không bao giờ dùng) → gỡ bớt theo nguyên tắc <strong>Least Privilege</strong>.</blockquote>
+      </div>
+    </details>
+    </div>
+  </section>
+
+  <section class="section" id="sec-ec2">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>🖥️ <span class="sec-title" data-sec-title="EC2">EC2</span></h2>
+    <div class="content" data-sec="ec2">
+    <details class="topic" data-track="Amazon EC2 – Tổng quan">
+      <summary><span class="t-title">Amazon EC2 – Tổng quan</span></summary>
+      <div class="body">
+        <p><strong>EC2 = Elastic Compute Cloud</strong> → đây là <strong>Infrastructure as a Service (IaaS)</strong> và là một trong những dịch vụ <strong>phổ biến nhất</strong> của AWS.</p>
+        <blockquote>Hiểu EC2 là <strong>nền tảng</strong> để hiểu cách Cloud hoạt động.</blockquote>
+        <hr>
+        <h3>EC2 gồm những khả năng chính nào?</h3>
+        <table>
+          <tr><td>Khả năng</td><td>Dịch vụ</td><td>Ý nghĩa</td></tr>
+          <tr><td>Thuê máy ảo</td><td><strong>EC2</strong></td><td>Renting virtual machines – thuê server ảo để chạy ứng dụng</td></tr>
+          <tr><td>Lưu dữ liệu trên ổ ảo</td><td><strong>EBS</strong></td><td>Storing data on virtual drives – ổ cứng ảo gắn vào EC2</td></tr>
+          <tr><td>Phân phối tải</td><td><strong>ELB</strong></td><td>Distributing load – chia đều request ra nhiều máy</td></tr>
+          <tr><td>Tự động co giãn</td><td><strong>ASG</strong></td><td>Auto Scaling Group – tự tăng/giảm số máy theo tải</td></tr>
+        </table>
+        <hr>
+        <h3>Hình dung cách các thành phần ghép lại</h3>
+        <pre><code>      Người dùng
+         │
+         ▼
+    ELB (chia tải)
+   /     │      \
+EC2     EC2     EC2     ← các máy ảo (nằm trong ASG, tự co giãn)
+ │       │       │
+EBS     EBS     EBS     ← mỗi máy có ổ đĩa ảo riêng</code></pre>
+        <blockquote><strong>Tóm lại:</strong> EC2 (máy ảo) + EBS (ổ đĩa) + ELB (cân bằng tải) + ASG (tự co giãn) = bộ tứ nền tảng để chạy ứng dụng trên AWS.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 User Data">
+      <summary><span class="t-title">EC2 User Data</span></summary>
+      <div class="body">
+        <p><strong>EC2 User Data</strong> là một <strong>script</strong> dùng để <strong>bootstrap</strong> instance — tức là tự động chạy các lệnh <strong>ngay khi máy khởi động lần đầu</strong>.</p>
+        <blockquote><strong>Bootstrapping</strong> = chạy các lệnh tự động khi máy bắt đầu chạy.</blockquote>
+        <hr>
+        <h3>Đặc điểm quan trọng</h3>
+        <table>
+          <tr><td>Đặc điểm</td><td>Chi tiết</td></tr>
+          <tr><td>Chạy khi nào</td><td><strong>Chỉ chạy 1 lần duy nhất</strong> — ở lần khởi động đầu tiên (first start) của instance</td></tr>
+          <tr><td>Chạy với quyền</td><td><strong>root user</strong> (toàn quyền trên máy)</td></tr>
+          <tr><td>Mục đích</td><td>Tự động hoá các tác vụ lúc boot</td></tr>
+        </table>
+        <hr>
+        <h3>Dùng để làm gì? (automate boot tasks)</h3>
+        <pre><code>✅ Cài bản cập nhật (installing updates)
+✅ Cài phần mềm (installing software)
+✅ Tải file thường dùng từ internet (downloading common files)
+✅ Bất cứ thứ gì bạn nghĩ ra (anything you can think of)</code></pre>
+        <hr>
+        <h3>Ví dụ thực tế – script cài web server khi máy khởi động</h3>
+        <pre><code>#!/bin/bash
+# Cập nhật hệ thống
+yum update -y
+# Cài Apache web server
+yum install -y httpd
+# Khởi động và bật tự chạy
+systemctl start httpd
+systemctl enable httpd
+# Tạo trang chủ
+echo "&lt;h1&gt;Hello from EC2&lt;/h1&gt;" &gt; /var/www/html/index.html</code></pre>
+        <blockquote>Vì script chạy với quyền <strong>root</strong> nên <strong>không cần</strong> <code>sudo</code>. Và vì chỉ chạy <strong>1 lần lúc first start</strong>, nên nếu sửa User Data sau đó, phải tạo instance mới (hoặc dùng cách khác) để áp dụng.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 – Các tuỳ chọn cấu hình khi Launch Instance">
+      <summary><span class="t-title">EC2 – Các tuỳ chọn cấu hình khi Launch Instance</span></summary>
+      <div class="body">
+        <p>Khi launch một EC2 instance, bạn có thể cấu hình các thành phần sau:</p>
+        <table>
+          <tr><td>Tuỳ chọn</td><td>Tên trong AWS</td><td>Ý nghĩa</td></tr>
+          <tr><td>Hệ điều hành</td><td><strong>AMI</strong> (Amazon Machine Image)</td><td>Chọn OS: Linux, Windows hoặc macOS</td></tr>
+          <tr><td>CPU &amp; RAM</td><td><strong>Instance Type</strong></td><td>Bao nhiêu compute power &amp; cores, bao nhiêu RAM (vd: <code>t2.micro</code>, <code>m5.2xlarge</code>)</td></tr>
+          <tr><td>Ổ đĩa lưu trữ</td><td><strong>Storage</strong></td><td>Network-attached: <strong>EBS</strong> &amp; <strong>EFS</strong>, hoặc gắn trực tiếp phần cứng: <strong>EC2 Instance Store</strong></td></tr>
+          <tr><td>Card mạng</td><td><strong>Network</strong></td><td>Tốc độ card mạng, Public IP có hay không</td></tr>
+          <tr><td>Tường lửa</td><td><strong>Security Group</strong></td><td>Quy định traffic nào được vào/ra instance</td></tr>
+          <tr><td>Script khởi động</td><td><strong>EC2 User Data</strong></td><td>Bootstrap script — tự chạy lệnh ở lần khởi động đầu tiên</td></tr>
+          <tr><td>Khoá SSH</td><td><strong>Key Pair</strong></td><td>Cặp khoá public/private để SSH vào instance</td></tr>
+        </table>
+        <hr>
+        <h3>Phân loại nhanh theo nhóm</h3>
+        <pre><code>🧠 Compute  → Instance Type (CPU, RAM)
+💿 OS       → AMI (Linux / Windows / macOS)
+💾 Storage  → EBS / EFS (qua mạng) | Instance Store (gắn trực tiếp)
+🌐 Network  → tốc độ card mạng, Public IP
+🔥 Firewall → Security Group
+🚀 Boot     → EC2 User Data (script chạy 1 lần đầu)</code></pre>
+        <blockquote><strong>Tóm lại:</strong> Launch instance = chọn <strong>AMI</strong> (OS) + <strong>Instance Type</strong> (CPU/RAM) + <strong>Storage</strong> + <strong>Network</strong> + <strong>Security Group</strong> + <strong>User Data</strong> + <strong>Key Pair</strong>. Tất cả đều có thể tuỳ chỉnh theo nhu cầu ứng dụng.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 Instance Types">
+      <summary><span class="t-title">EC2 Instance Types</span></summary>
+      <div class="body">
+        <p>AWS có <strong>nhiều loại instance</strong> được tối ưu cho các use case khác nhau → <a href="http://aws.amazon.com/ec2/instance-types" target="_blank">aws.amazon.com/ec2/instance-types</a></p>
+        <hr>
+        <h3>Quy tắc đặt tên (naming convention)</h3>
+        <pre><code>m5.2xlarge
+│ │    │
+│ │    └── 2xlarge : size trong instance class (càng lớn → càng nhiều CPU/RAM)
+│ └─────── 5       : generation (thế hệ — AWS cải tiến theo thời gian)
+└───────── m       : instance class (họ máy)</code></pre>
+        <hr>
+        <h3>Các họ (families) chính</h3>
+        <table>
+          <tr><td>Họ</td><td>Ví dụ</td><td>Tối ưu cho</td><td>Use case</td></tr>
+          <tr><td><strong>General Purpose</strong></td><td><code>t2.micro</code>, <code>m5</code></td><td>Cân bằng compute – memory – networking</td><td>Web server, code repository</td></tr>
+          <tr><td><strong>Compute Optimized</strong></td><td><code>c5</code>, <code>c6g</code></td><td>CPU hiệu năng cao</td><td>Batch processing, media transcoding, HPC, gaming server, ML</td></tr>
+          <tr><td><strong>Memory Optimized</strong></td><td><code>r5</code>, <code>x1</code></td><td>Nhiều RAM</td><td>Database in-memory, xử lý dataset lớn</td></tr>
+          <tr><td><strong>Accelerated Computing</strong></td><td><code>p3</code>, <code>g4</code></td><td>GPU / phần cứng tăng tốc</td><td>ML training, đồ hoạ</td></tr>
+          <tr><td><strong>Storage Optimized</strong></td><td><code>i3</code>, <code>d2</code></td><td>Đọc/ghi disk tốc độ cao</td><td>Database, data warehouse</td></tr>
+          <tr><td><strong>HPC Optimized</strong></td><td><code>hpc6a</code></td><td>High performance computing</td><td>Mô phỏng khoa học quy mô lớn</td></tr>
+        </table>
+        <blockquote>Danh sách instance type <strong>thay đổi theo thời gian</strong> — luôn check website AWS để có thông tin mới nhất.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Security Groups">
+      <summary><span class="t-title">Security Groups</span></summary>
+      <div class="body">
+        <p><strong>Security Group</strong> = <strong>tường lửa</strong> của EC2 — là <strong>nền tảng của network security</strong> trong AWS, kiểm soát traffic nào được <strong>vào (inbound)</strong> / <strong>ra (outbound)</strong> instance.</p>
+        <hr>
+        <h3>Nguyên tắc hoạt động</h3>
+        <table>
+          <tr><td>Đặc điểm</td><td>Chi tiết</td></tr>
+          <tr><td>Loại rule</td><td><strong>Chỉ chứa ALLOW rules</strong> (không có deny)</td></tr>
+          <tr><td>Tham chiếu</td><td>Rule có thể reference theo <strong>IP</strong> hoặc theo <strong>security group khác</strong></td></tr>
+          <tr><td>Inbound mặc định</td><td><strong>Block tất cả</strong> ❌</td></tr>
+          <tr><td>Outbound mặc định</td><td><strong>Cho phép tất cả</strong> ✅</td></tr>
+        </table>
+        <hr>
+        <h3>Hình dung</h3>
+        <pre><code>              ┌──────────────────────────────┐
+   Inbound    │  Security Group (firewall)   │
+Port 22 ✅ ──▶│  - lọc IP / Port theo rules  │──▶ EC2 Instance
+Port 22 ❌ ──X│  (IP không được phép)        │
+              │                              │
+   Outbound   │  mặc định: cho phép tất cả   │──▶ WWW (any IP, any port)
+              └──────────────────────────────┘</code></pre>
+        <hr>
+        <h3>Good to know</h3>
+        <pre><code>✅ 1 security group có thể gắn vào NHIỀU instances
+✅ Gắn với 1 cặp region / VPC (không dùng chéo)
+✅ Nằm "BÊN NGOÀI" EC2 — traffic bị chặn thì instance không hề thấy
+✅ Nên tách riêng 1 security group cho SSH access
+🔥 App bị TIME OUT          → lỗi security group
+🔥 App báo CONNECTION REFUSED → lỗi ứng dụng (chưa chạy / lỗi app)</code></pre>
+        <hr>
+        <h3>Reference security group khác</h3>
+        <p>Thay vì khai báo IP, rule inbound có thể <strong>cho phép instance nào gắn security group X</strong> được kết nối → các instance khác SG sẽ bị từ chối. Rất tiện khi cho các EC2 nói chuyện với nhau mà không cần quản lý IP.</p>
+        <hr>
+        <h3>Classic Ports cần nhớ</h3>
+        <table>
+          <tr><td>Port</td><td>Giao thức</td><td>Dùng để</td></tr>
+          <tr><td><strong>22</strong></td><td>SSH (Secure Shell)</td><td>Đăng nhập vào Linux instance</td></tr>
+          <tr><td><strong>21</strong></td><td>FTP</td><td>Upload file vào file share</td></tr>
+          <tr><td><strong>22</strong></td><td>SFTP</td><td>Upload file qua SSH</td></tr>
+          <tr><td><strong>80</strong></td><td>HTTP</td><td>Truy cập website không bảo mật</td></tr>
+          <tr><td><strong>443</strong></td><td>HTTPS</td><td>Truy cập website bảo mật</td></tr>
+          <tr><td><strong>3389</strong></td><td>RDP (Remote Desktop)</td><td>Đăng nhập vào Windows instance</td></tr>
+        </table>
+        <blockquote><strong>Tóm lại:</strong> Security Group = firewall chỉ-allow, sống bên ngoài EC2. Inbound chặn mặc định, outbound mở mặc định. Time out → nghĩ ngay đến security group.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="IAM Role cho EC2 Instance">
+      <summary><span class="t-title">IAM Role cho EC2 Instance</span></summary>
+      <div class="body">
+        <p>EC2 instance nhiều khi cần <strong>gọi AWS API</strong> (liệt kê instances, đọc/ghi <strong>S3</strong>, gửi log lên <strong>CloudWatch</strong>…). Muốn vậy nó phải có <strong>credentials (quyền)</strong>. Câu hỏi quan trọng: lưu credentials ở đâu cho <strong>an toàn</strong>?</p>
+        <blockquote>❌ <strong>KHÔNG BAO GIỜ</strong> chạy <code>aws configure</code> rồi nhập <strong>access key cá nhân</strong> lên EC2 — key nằm trên máy, ai vào được cũng lấy được, rò rỉ là toang.<br>✅ Cách đúng: gắn <strong>IAM Role</strong> vào instance. Role mang theo permissions, EC2 tự lấy <strong>credentials tạm thời</strong> để gọi API.</blockquote>
+        <hr>
+        <h3>Hai cách cấp quyền — chọn cách nào?</h3>
+        <table>
+          <tr><td>Cách</td><td>An toàn?</td><td>Giải thích</td></tr>
+          <tr><td>Nhập access key cá nhân lên máy</td><td>❌ Rất tệ</td><td>Key nằm trên disk; ai đọc được cũng dùng được; khó xoay vòng (rotate)</td></tr>
+          <tr><td><strong>Gắn IAM Role vào EC2</strong></td><td>✅ Chuẩn</td><td>Không lưu key trên máy; AWS tự cấp credentials tạm thời &amp; tự rotate</td></tr>
+        </table>
+        <hr>
+        <h3>Cách hoạt động</h3>
+        <pre><code>[EC2 Instance] ──(attach)──▶ [IAM Role: DemoRoleForEC2]
+                                   │
+                                   ▼
+                  Role gắn policy (vd: AmazonS3ReadOnlyAccess)
+                                   │
+          EC2 dùng quyền của Role để gọi AWS API ✅
+          (KHÔNG cần lưu access key trên máy)</code></pre>
+        <blockquote><strong>Tóm lại:</strong> EC2 cần quyền gọi API → <strong>gắn IAM Role</strong>, đừng bao giờ nhét access key cá nhân lên instance. Đổi quyền = sửa Role, không cần đụng vào máy.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 Instances Purchasing Options (Giá EC2)">
+      <summary><span class="t-title">EC2 Instances Purchasing Options (Giá EC2)</span></summary>
+      <div class="body">
+        <p>AWS có <strong>7 cách "mua"/thuê</strong> EC2, mỗi cách hợp với một kiểu workload &amp; mức cam kết khác nhau. Chọn đúng = tiết kiệm rất nhiều tiền.</p>
+        <blockquote>🧠 Nhớ nhanh: <strong>On-Demand</strong> (linh hoạt, đắt) → <strong>Reserved / Savings Plans</strong> (cam kết dài hạn, rẻ ~72%) → <strong>Spot</strong> (rẻ nhất ~90% nhưng có thể bị mất máy) → <strong>Dedicated Host / Instance</strong> (phần cứng riêng) → <strong>Capacity Reservation</strong> (giữ chỗ trong 1 AZ).</blockquote>
+        <hr>
+        <h3>Tổng quan 7 lựa chọn</h3>
+        <table>
+          <tr><td>Lựa chọn</td><td>Hợp với</td><td>Ý chính</td></tr>
+          <tr><td><strong>On-Demand</strong></td><td>Workload ngắn</td><td>Trả theo lượng dùng, giá dễ đoán, không cam kết</td></tr>
+          <tr><td><strong>Reserved</strong> (1 &amp; 3 năm)</td><td>Workload dài, ổn định</td><td>RI (cố định) &amp; Convertible RI (đổi được instance)</td></tr>
+          <tr><td><strong>Savings Plans</strong> (1 &amp; 3 năm)</td><td>Workload dài</td><td>Cam kết một mức chi tiêu ($/giờ)</td></tr>
+          <tr><td><strong>Spot Instances</strong></td><td>Workload ngắn, chịu lỗi tốt</td><td>Rẻ nhất nhưng có thể bị thu hồi máy</td></tr>
+          <tr><td><strong>Dedicated Hosts</strong></td><td>Compliance / license riêng</td><td>Thuê nguyên server vật lý, kiểm soát đặt máy</td></tr>
+          <tr><td><strong>Dedicated Instances</strong></td><td>Không share hardware</td><td>Hardware riêng cho bạn, ít quyền kiểm soát hơn Host</td></tr>
+          <tr><td><strong>Capacity Reservations</strong></td><td>Giữ chỗ trong 1 AZ</td><td>Đảm bảo luôn có capacity, trả giá On-Demand</td></tr>
+        </table>
+        <hr>
+        <details class="sub">
+          <summary>On-Demand</summary>
+          <div class="body">
+            <p>Trả tiền <strong>theo đúng mức dùng</strong>, không cam kết — linh hoạt nhất nhưng <strong>đắt nhất</strong>.</p>
+            <pre><code>💵 Linux / Windows  → tính tiền theo GIÂY (sau phút đầu tiên)
+💵 OS khác          → tính tiền theo GIỜ
+📈 Chi phí cao nhất, nhưng KHÔNG trả trước
+🔓 Không cam kết dài hạn</code></pre>
+            <blockquote>✅ Hợp với workload <strong>ngắn hạn, không gián đoạn</strong>, khi <strong>chưa đoán được</strong> ứng dụng sẽ chạy ra sao.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Reserved Instances (RI)</summary>
+          <div class="body">
+            <p><strong>Cam kết 1 hoặc 3 năm</strong> để đổi lấy giảm giá <strong>tới 72%</strong> so với On-Demand.</p>
+            <table>
+              <tr><td>Yếu tố</td><td>Chi tiết</td></tr>
+              <tr><td>Thời hạn</td><td><strong>1 năm</strong> (giảm vừa) hoặc <strong>3 năm</strong> (giảm sâu nhất)</td></tr>
+              <tr><td>Cách trả</td><td>No Upfront / Partial Upfront / All Upfront (trả trước càng nhiều → càng rẻ)</td></tr>
+              <tr><td>Cố định</td><td>Instance type, region, OS, tenancy</td></tr>
+              <tr><td>Scope</td><td>Regional hoặc Zonal (giữ chỗ trong 1 AZ)</td></tr>
+            </table>
+            <blockquote>🔁 <strong>Convertible RI</strong>: được phép <strong>đổi</strong> instance type / family / OS / tenancy — linh hoạt hơn, giảm giá tới ~66%.<br>✅ RI hợp với workload <strong>ổn định, chạy lâu dài</strong> (vd: database).</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Savings Plans</summary>
+          <div class="body">
+            <p>Giảm tới <strong>72%</strong> (như RI) nhưng cam kết theo <strong>mức chi tiêu $/giờ</strong> thay vì theo instance cụ thể.</p>
+            <pre><code>💲 Cam kết vd $10/giờ trong 1 hoặc 3 năm
+📊 Dùng vượt mức cam kết → phần dư tính giá On-Demand
+🔒 Khoá theo: instance FAMILY + REGION (vd M5 ở us-east-1)
+🔄 Linh hoạt theo: size (m5.xlarge ↔ m5.2xlarge), OS, tenancy</code></pre>
+            <blockquote>✅ Đơn giản hơn RI: chỉ cần cam kết "tiêu bao nhiêu $/giờ", không cần khoá cứng từng instance.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Spot Instances</summary>
+          <div class="body">
+            <p><strong>Rẻ nhất</strong> AWS — giảm tới <strong>90%</strong> so với On-Demand, đổi lại có thể <strong>bị thu hồi máy bất cứ lúc nào</strong>.</p>
+            <pre><code>💸 Rẻ tới 90% — instance RẺ NHẤT trên AWS
+⚠️ Bị "mất" máy nếu max price của bạn &lt; spot price hiện tại
+✅ Hợp: batch jobs, data analysis, image processing,
+   distributed workloads, việc có start/end linh hoạt
+❌ KHÔNG dùng cho: việc quan trọng (critical jobs) hay database</code></pre>
+            <blockquote>Nhớ: Spot = cost-efficient nhất nhưng <strong>không đáng tin</strong> → chỉ cho workload <strong>chịu lỗi tốt</strong>.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Dedicated Hosts</summary>
+          <div class="body">
+            <p>Thuê <strong>nguyên một server vật lý</strong> dành riêng cho bạn — <strong>đắt nhất</strong>.</p>
+            <pre><code>🏢 Server vật lý riêng 100% cho bạn
+📜 Đáp ứng compliance &amp; dùng license server-bound
+   (per-socket / per-core / per-VM) — BYOL (Bring Your Own License)
+💳 Mua: On-Demand (theo giây) hoặc Reserved (1–3 năm)
+💰 Lựa chọn ĐẮT NHẤT</code></pre>
+            <blockquote>✅ Hợp với phần mềm có <strong>mô hình license phức tạp</strong> hoặc công ty có <strong>yêu cầu tuân thủ / quy định</strong> chặt chẽ.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Dedicated Instances</summary>
+          <div class="body">
+            <p>Máy chạy trên <strong>hardware dành riêng cho bạn</strong>, nhưng <strong>ít quyền kiểm soát</strong> hơn Dedicated Hosts.</p>
+            <pre><code>🔐 Hardware riêng cho account của bạn
+🤝 Có thể share hardware với các instance KHÁC trong cùng account
+🎲 KHÔNG kiểm soát vị trí đặt máy (Stop/Start có thể đổi hardware)</code></pre>
+            <table>
+              <tr><td>Đặc điểm</td><td>Dedicated Instances</td><td>Dedicated Hosts</td></tr>
+              <tr><td>Dùng server vật lý riêng</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Tính tiền theo instance</td><td>✅ (phụ phí $2/region)</td><td>—</td></tr>
+              <tr><td>Tính tiền theo host</td><td>—</td><td>✅</td></tr>
+              <tr><td>Thấy sockets, cores, host ID</td><td>—</td><td>✅</td></tr>
+              <tr><td>Kiểm soát đặt máy (targeted placement)</td><td>—</td><td>✅</td></tr>
+            </table>
+            <blockquote>Khác biệt chính: <strong>Dedicated Host</strong> cho bạn nhìn &amp; kiểm soát phần cứng (placement, license); <strong>Dedicated Instance</strong> chỉ đảm bảo hardware riêng, không cho kiểm soát đặt máy.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Capacity Reservations</summary>
+          <div class="body">
+            <p><strong>Giữ chỗ capacity On-Demand</strong> trong <strong>một AZ cụ thể</strong>, dùng bao lâu tuỳ ý.</p>
+            <pre><code>📍 Giữ capacity trong 1 AZ → luôn có máy khi cần
+🔓 Không cam kết thời gian (tạo / huỷ bất cứ lúc nào)
+💰 KHÔNG được giảm giá — trả giá On-Demand dù có chạy máy hay không
+🔗 Ghép với Regional RI / Savings Plans để được giảm giá</code></pre>
+            <blockquote>✅ Hợp với workload <strong>ngắn hạn, không gián đoạn</strong>, <strong>bắt buộc nằm trong 1 AZ</strong> nhất định.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Bảng so sánh giá (m4.large – us-east-1)</summary>
+          <div class="body">
+            <table>
+              <tr><td>Loại giá</td><td>Giá / giờ</td></tr>
+              <tr><td>On-Demand</td><td>$0.10</td></tr>
+              <tr><td>Spot Instance</td><td>$0.038 – $0.039 (giảm ~61%)</td></tr>
+              <tr><td>Reserved Instance (1 năm)</td><td>$0.062 (No Upfront) – $0.058 (All Upfront)</td></tr>
+              <tr><td>Reserved Instance (3 năm)</td><td>$0.043 (No Upfront) – $0.037 (All Upfront)</td></tr>
+              <tr><td>EC2 Savings Plan (1 năm)</td><td>$0.062 (No Upfront) – $0.058 (All Upfront)</td></tr>
+              <tr><td>Convertible RI (1 năm)</td><td>$0.071 (No Upfront) – $0.066 (All Upfront)</td></tr>
+              <tr><td>Dedicated Host</td><td>Giá On-Demand</td></tr>
+              <tr><td>Dedicated Host Reservation</td><td>Giảm tới 70%</td></tr>
+              <tr><td>Capacity Reservations</td><td>Giá On-Demand</td></tr>
+            </table>
+            <blockquote>💡 Nhìn nhanh: <strong>Spot rẻ nhất</strong> → <strong>RI / Savings Plan 3 năm</strong> rẻ nhì → <strong>On-Demand</strong> đắt → <strong>Dedicated</strong> đắt nhất.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Elastic IP">
+      <summary><span class="t-title">Elastic IP</span></summary>
+      <div class="body">
+        <p>Mặc định, <strong>public IP của EC2 sẽ THAY ĐỔI mỗi lần stop/start</strong> instance. <strong>Elastic IP</strong> là một <strong>public IPv4 cố định</strong> mà bạn <strong>sở hữu</strong> — gắn vào instance nào tuỳ ý, IP không đổi cho tới khi bạn xoá.</p>
+        <blockquote>Công dụng chính: <strong>che (mask) sự cố</strong> của một instance — chỉ cần <strong>remap Elastic IP sang instance khác</strong> trong account là dịch vụ phục hồi gần như tức thì.</blockquote>
+        <hr>
+        <h3>Đặc điểm quan trọng</h3>
+        <table>
+          <tr><td>Đặc điểm</td><td>Chi tiết</td></tr>
+          <tr><td>Bản chất</td><td>Public IPv4 <strong>cố định</strong>, bạn sở hữu cho tới khi xoá</td></tr>
+          <tr><td>Failover</td><td>Remap nhanh sang instance khác khi instance/phần mềm gặp sự cố</td></tr>
+          <tr><td>Giới hạn</td><td>Mặc định <strong>5 Elastic IP / account</strong> (có thể xin AWS tăng)</td></tr>
+        </table>
+        <hr>
+        <h3>⚠️ Lời khuyên: HẠN CHẾ dùng Elastic IP</h3>
+        <pre><code>❌ Thường phản ánh thiết kế kiến trúc kém (poor architectural decisions)
+✅ Thay vào đó: dùng random public IP + đăng ký 1 DNS name trỏ tới nó
+✅ Hoặc dùng Load Balancer (không cần public IP cho instance)</code></pre>
+        <blockquote><strong>Tóm lại:</strong> Elastic IP = IP công cộng cố định để failover nhanh, nhưng dùng nhiều = mùi thiết kế tệ. Ưu tiên DNS name hoặc Load Balancer.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 Placement Groups">
+      <summary><span class="t-title">EC2 Placement Groups</span></summary>
+      <div class="body">
+        <p>Đôi khi bạn muốn <strong>kiểm soát cách AWS đặt (place) các EC2 instance</strong> lên phần cứng vật lý → dùng <strong>Placement Group</strong>. Khi tạo, bạn chọn <strong>1 trong 3 chiến lược</strong>:</p>
+        <table>
+          <tr><td>Strategy</td><td>Ý chính</td><td>Use case</td></tr>
+          <tr><td><strong>Cluster</strong></td><td>Gom instance vào 1 nhóm low-latency trong <strong>cùng 1 AZ</strong></td><td>Big data cần chạy nhanh, app cần latency cực thấp</td></tr>
+          <tr><td><strong>Spread</strong></td><td>Trải instance ra <strong>phần cứng khác nhau</strong> (max 7 / AZ)</td><td>App critical cần cách ly tối đa khỏi lỗi</td></tr>
+          <tr><td><strong>Partition</strong></td><td>Trải instance ra nhiều <strong>partition</strong> (mỗi partition = bộ rack riêng)</td><td>Hadoop, Cassandra, Kafka — hàng trăm instance</td></tr>
+        </table>
+        <blockquote>🧠 Nhớ nhanh: <strong>Cluster</strong> = nhanh (gom lại) · <strong>Spread</strong> = an toàn (tách ra, ít máy) · <strong>Partition</strong> = vừa scale lớn vừa cách ly theo rack.</blockquote>
+        <hr>
+        <details class="sub">
+          <summary>Cluster — low latency, cùng 1 AZ</summary>
+          <div class="body">
+            <p>Gom tất cả instance vào <strong>cùng 1 AZ</strong>, nối với nhau bằng mạng tốc độ cao.</p>
+            <pre><code>🚀 Pros: mạng cực tốt — 10 Gbps giữa các instance
+         (bật Enhanced Networking — khuyến nghị)
+💥 Cons: AZ chết → TẤT CẢ instance chết cùng lúc (no HA)
+✅ Use case: Big Data job cần xong nhanh
+            App cần latency cực thấp &amp; throughput mạng cao</code></pre>
+            <blockquote>Cluster đánh đổi <strong>độ sẵn sàng</strong> để lấy <strong>hiệu năng mạng tối đa</strong>.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Spread — tách phần cứng, max 7/AZ</summary>
+          <div class="body">
+            <p>Mỗi instance nằm trên <strong>một phần cứng vật lý khác nhau</strong>, có thể trải qua <strong>nhiều AZ</strong>.</p>
+            <pre><code>✅ Pros: span nhiều AZ
+         giảm rủi ro lỗi đồng thời (mỗi máy 1 hardware riêng)
+⚠️ Cons: giới hạn 7 instance / AZ / placement group
+✅ Use case: app cần High Availability tối đa
+            app critical mà mỗi instance phải cách ly khỏi lỗi của nhau</code></pre>
+            <blockquote>Spread = <strong>an toàn nhất</strong> nhưng <strong>số máy ít</strong> (7/AZ).</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Partition — scale lớn, cách ly theo rack</summary>
+          <div class="body">
+            <p>Trải instance ra nhiều <strong>partition</strong>; mỗi partition dùng <strong>bộ rack riêng</strong> nên lỗi 1 partition <strong>không lan</strong> sang partition khác.</p>
+            <pre><code>📦 Tối đa 7 partition / AZ — span được nhiều AZ trong cùng region
+📈 Tới hàng trăm (100s) EC2 instance / group
+🔌 Instance khác partition KHÔNG share rack
+💥 Lỗi 1 partition ảnh hưởng nhiều EC2 trong đó, nhưng KHÔNG ảnh hưởng partition khác
+🏷️ EC2 đọc được thông tin partition qua metadata
+✅ Use case: HDFS, HBase, Cassandra, Kafka</code></pre>
+            <blockquote>Partition = lựa chọn cho <strong>distributed/big data</strong> quy mô lớn cần vừa scale vừa chống lỗi theo rack.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Elastic Network Interfaces (ENI)">
+      <summary><span class="t-title">Elastic Network Interfaces (ENI)</span></summary>
+      <div class="body">
+        <p><strong>ENI</strong> = thành phần logic trong VPC, đại diện cho một <strong>card mạng ảo (virtual network card)</strong> của EC2.</p>
+        <blockquote>Sức mạnh chính: có thể <strong>tạo ENI độc lập</strong> và <strong>gắn/tháo nóng (on the fly)</strong> sang instance khác để <strong>failover</strong>.</blockquote>
+        <hr>
+        <h3>ENI có thể mang các thuộc tính</h3>
+        <pre><code>🔹 1 Primary private IPv4 + một hoặc nhiều secondary IPv4
+🔹 1 Elastic IP (IPv4) cho mỗi private IPv4
+🔹 1 Public IPv4
+🔹 Một hoặc nhiều Security Group
+🔹 1 MAC address</code></pre>
+        <hr>
+        <h3>Đặc điểm quan trọng</h3>
+        <table>
+          <tr><td>Đặc điểm</td><td>Chi tiết</td></tr>
+          <tr><td>Di động</td><td>Tạo độc lập, <strong>gắn/tháo nóng</strong> sang EC2 khác để failover</td></tr>
+          <tr><td>Giới hạn vùng</td><td><strong>Bound vào 1 AZ cụ thể</strong> (không chuyển ENI qua AZ khác)</td></tr>
+        </table>
+        <hr>
+        <h3>Hình dung — move ENI để failover</h3>
+        <pre><code>Availability Zone
+┌─────────────────────────────────────────────┐
+│  EC2 (A)   eth0 – primary ENI  192.168.0.31  │
+│            eth1 – secondary ENI 192.168.0.42 ─┐ Can be moved
+│                                               │
+│  EC2 (B)   eth0 – primary ENI                 │
+│            eth1 ◀───────────────────────────── (chuyển eth1 sang B)
+└─────────────────────────────────────────────┘</code></pre>
+        <blockquote><strong>Tóm lại:</strong> ENI = card mạng ảo tháo lắp được trong <strong>cùng 1 AZ</strong> → chuyển eth1 (kèm IP, SG, MAC) sang instance khác để khôi phục nhanh.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 Hibernate">
+      <summary><span class="t-title">EC2 Hibernate</span></summary>
+      <div class="body">
+        <p>Bình thường EC2 có <strong>Stop</strong> và <strong>Terminate</strong>. <strong>Hibernate</strong> là cách thứ ba: <strong>giữ nguyên trạng thái RAM</strong> khi tắt máy, để lần start sau <strong>boot cực nhanh</strong> (OS không bị stop/restart).</p>
+        <hr>
+        <h3>Nhắc lại: Stop vs Terminate</h3>
+        <table>
+          <tr><td>Hành động</td><td>Điều gì xảy ra</td></tr>
+          <tr><td><strong>Stop</strong></td><td>Data trên disk (<strong>EBS</strong>) được giữ nguyên cho lần start sau</td></tr>
+          <tr><td><strong>Terminate</strong></td><td>EBS volume (root) nếu set "delete on termination" sẽ <strong>bị xoá</strong> → mất data</td></tr>
+        </table>
+        <blockquote>Vấn đề: mỗi lần start lại, OS boot → app khởi động → cache warm up → <strong>tốn thời gian</strong>.</blockquote>
+        <hr>
+        <h3>Hibernate giải quyết gì?</h3>
+        <pre><code>🧠 Giữ nguyên trạng thái in-memory (RAM)
+⚡ Boot nhanh hơn nhiều (OS KHÔNG bị stop/restart)
+💾 Under the hood: RAM state được ghi vào 1 file trong root EBS volume
+🔒 Root EBS volume BẮT BUỘC phải được mã hoá (encrypted)</code></pre>
+        <hr>
+        <h3>Vòng đời khi Hibernate</h3>
+        <pre><code>Running ──Hibernate──▶ Stopping (ghi RAM → file trên root EBS)
+                          │ Shutdown
+                          ▼
+                       Stopped (RAM đã lưu trong EBS)
+                          │ Start
+                          ▼
+                       Running (nạp lại RAM → chạy tiếp như cũ)</code></pre>
+        <hr>
+        <h3>Use cases</h3>
+        <pre><code>✅ Long-running processing (xử lý chạy dài)
+✅ Saving the RAM state (cần giữ nguyên trạng thái bộ nhớ)
+✅ Services mất nhiều thời gian khởi tạo (initialize)</code></pre>
+        <hr>
+        <h3>Good to know — điều kiện &amp; giới hạn</h3>
+        <table>
+          <tr><td>Yếu tố</td><td>Yêu cầu</td></tr>
+          <tr><td>Instance Families</td><td>C3, C4, C5, I3, M3, M4, R3, R4, T2, T3, …</td></tr>
+          <tr><td>RAM Size</td><td>Phải <strong>&lt; 150 GB</strong></td></tr>
+          <tr><td>Instance Size</td><td><strong>Không hỗ trợ</strong> bare metal</td></tr>
+          <tr><td>AMI</td><td>Amazon Linux 2, Linux AMI, Ubuntu, RHEL, CentOS &amp; Windows…</td></tr>
+          <tr><td>Root Volume</td><td>Phải là <strong>EBS</strong>, <strong>encrypted</strong>, không phải instance store, và đủ lớn</td></tr>
+          <tr><td>Purchasing</td><td>Dùng được với <strong>On-Demand, Reserved &amp; Spot</strong></td></tr>
+          <tr><td>Thời gian</td><td><strong>KHÔNG</strong> hibernate quá <strong>60 ngày</strong></td></tr>
+        </table>
+        <blockquote><strong>Tóm lại:</strong> Hibernate = lưu RAM vào root EBS (phải encrypted) để start lại siêu nhanh, giữ nguyên trạng thái. Hợp với service khởi tạo lâu; giới hạn RAM &lt; 150 GB và tối đa 60 ngày.</blockquote>
+      </div>
+    </details>
+    </div>
+  </section>
+
+  <section class="section" id="sec-ebs">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>🏬 <span class="sec-title" data-sec-title="EBS">EBS</span></h2>
+    <div class="content" data-sec="ebs">
+    <details class="topic" data-track="EBS Volume – Tổng quan">
+      <summary><span class="t-title">EBS Volume – Tổng quan</span></summary>
+      <div class="body">
+        <p>EBS (Elastic Block Store) Volume là một <strong>network drive</strong> có thể attach vào EC2 instance khi nó đang chạy, giúp dữ liệu <strong>persist</strong> kể cả sau khi instance bị terminate. Ví von: như một <strong>"network USB stick"</strong>.</p>
+        <details class="sub">
+          <summary><strong>Khái niệm cốt lõi</strong></summary>
+          <div class="body">
+            <ul>
+              <li>Là <strong>network drive</strong> gắn vào instance khi đang chạy.</li>
+              <li>Cho phép instance <strong>lưu dữ liệu bền vững (persist)</strong>, kể cả sau khi terminate.</li>
+              <li>Ở mức <strong>CCP</strong>: chỉ <strong>mount được vào 1 instance tại 1 thời điểm</strong>.</li>
+              <li><strong>Bound vào 1 Availability Zone (AZ)</strong> cụ thể.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>Đặc điểm chi tiết</strong></summary>
+          <div class="body">
+            <ul>
+              <li><strong>Network drive</strong> (không phải ổ vật lý) → dùng network để giao tiếp ⇒ có thể có chút <strong>latency</strong>.</li>
+              <li>Có thể <strong>detach</strong> khỏi 1 EC2 và <strong>attach</strong> sang instance khác rất nhanh.</li>
+              <li><strong>Locked vào 1 AZ</strong>: EBS ở <code>us-east-1a</code> không thể attach sang <code>us-east-1b</code>. Muốn chuyển AZ phải <strong>snapshot</strong> trước.</li>
+              <li>Có <strong>provisioned capacity</strong> (size tính bằng GB và IOPS):
+                <ul>
+                  <li>Bị <strong>tính phí cho toàn bộ</strong> provisioned capacity.</li>
+                  <li>Có thể <strong>tăng dung lượng</strong> theo thời gian.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EBS – Delete on Termination attribute">
+      <summary><span class="t-title">EBS – Delete on Termination attribute</span></summary>
+      <div class="body">
+        <ul>
+          <li>Điều khiển <strong>hành vi của EBS</strong> khi EC2 instance bị <strong>terminate</strong>.</li>
+          <li>Mặc định: <strong>root EBS volume bị xóa</strong> (attribute = <strong>enabled</strong>).</li>
+          <li>Mặc định: các EBS volume khác được attach thì <strong>KHÔNG bị xóa</strong> (attribute = <strong>disabled</strong>).</li>
+          <li>Có thể điều chỉnh qua <strong>AWS Console / AWS CLI</strong>.</li>
+          <li><strong>Use case</strong>: giữ lại root volume khi instance bị terminate.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EBS Snapshots">
+      <summary><span class="t-title">EBS Snapshots</span></summary>
+      <div class="body">
+        <details class="sub">
+          <summary><strong>Cơ bản</strong></summary>
+          <div class="body">
+            <ul>
+              <li>Snapshot = <strong>backup</strong> của EBS volume tại <strong>một thời điểm</strong>.</li>
+              <li><strong>Không bắt buộc</strong> detach volume để snapshot, nhưng được <strong>khuyến nghị</strong>.</li>
+              <li>Có thể <strong>copy snapshot qua AZ hoặc Region</strong> khác.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>Snapshots Features</strong></summary>
+          <div class="body">
+            <ul>
+              <li><strong>EBS Snapshot Archive</strong>: chuyển snapshot sang <strong>"archive tier"</strong> rẻ hơn <strong>75%</strong>; khôi phục mất <strong>24–72 giờ</strong>.</li>
+              <li><strong>Recycle Bin for EBS Snapshots</strong>: đặt rule giữ lại snapshot đã xóa để khôi phục sau khi lỡ xóa; retention từ <strong>1 ngày đến 1 năm</strong>.</li>
+              <li><strong>Fast Snapshot Restore (FSR)</strong>: ép <strong>full initialization</strong> snapshot để <strong>không có latency</strong> ở lần dùng đầu.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="AMI (Amazon Machine Image)">
+      <summary><span class="t-title">AMI (Amazon Machine Image)</span></summary>
+      <div class="body">
+        <details class="sub">
+          <summary><strong>Overview</strong></summary>
+          <div class="body">
+            <ul>
+              <li><strong>AMI = Amazon Machine Image</strong>.</li>
+              <li>Là một <strong>customization</strong> của EC2 instance: thêm software, configuration, OS, monitoring...</li>
+              <li><strong>Boot / config nhanh hơn</strong> vì software đã được <strong>pre-packaged</strong>.</li>
+              <li>Được build cho <strong>một region cụ thể</strong> (có thể <strong>copy qua region</strong> khác).</li>
+              <li>Launch EC2 instance từ:
+                <ul>
+                  <li><strong>Public AMI</strong>: do AWS cung cấp.</li>
+                  <li><strong>Your own AMI</strong>: tự tạo &amp; maintain.</li>
+                  <li><strong>AWS Marketplace AMI</strong>: do người khác tạo (và có thể bán).</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>AMI Process (from an EC2 instance)</strong></summary>
+          <div class="body">
+            <ol>
+              <li><strong>Start</strong> một EC2 instance và <strong>customize</strong> nó.</li>
+              <li><strong>Stop</strong> instance (để đảm bảo <strong>data integrity</strong>).</li>
+              <li><strong>Build AMI</strong> — bước này cũng tạo <strong>EBS snapshots</strong>.</li>
+              <li><strong>Launch</strong> instances từ AMI đó (kể cả ở AZ/region khác).</li>
+            </ol>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EC2 Instance Store">
+      <summary><span class="t-title">EC2 Instance Store</span></summary>
+      <div class="body">
+        <ul>
+          <li>EBS volume là <strong>network drive</strong> với hiệu năng tốt nhưng <strong>"limited"</strong>.</li>
+          <li>Cần <strong>high-performance hardware disk</strong> → dùng <strong>EC2 Instance Store</strong>.</li>
+          <li><strong>I/O performance tốt hơn</strong>.</li>
+          <li><strong>Ephemeral</strong>: mất storage nếu instance bị <strong>stop</strong>.</li>
+          <li>Tốt cho <strong>buffer / cache / scratch data / temporary content</strong>.</li>
+          <li><strong>Rủi ro mất dữ liệu</strong> nếu hardware fail.</li>
+          <li><strong>Backup &amp; replication</strong> là trách nhiệm của bạn.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EBS Volume Types">
+      <summary><span class="t-title">EBS Volume Types</span></summary>
+      <div class="body">
+        <p>EBS Volume có <strong>6 loại</strong>, đặc trưng bởi <strong>Size | Throughput | IOPS</strong>. Chỉ <strong>gp2/gp3</strong> và <strong>io1/io2 Block Express</strong> dùng được làm <strong>boot volume</strong>.</p>
+        <details class="sub">
+          <summary>Tổng quan 6 loại</summary>
+          <div class="body">
+            <ul>
+              <li><strong>gp2 / gp3 (SSD)</strong>: general purpose, cân bằng giá &amp; hiệu năng cho nhiều workload.</li>
+              <li><strong>io1 / io2 Block Express (SSD)</strong>: hiệu năng cao nhất, cho workload mission-critical low-latency / high-throughput.</li>
+              <li><strong>st1 (HDD)</strong>: chi phí thấp, cho workload truy cập thường xuyên, throughput-intensive.</li>
+              <li><strong>sc1 (HDD)</strong>: chi phí thấp nhất, cho workload ít truy cập.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>General Purpose SSD (gp2 / gp3)</summary>
+          <div class="body">
+            <ul>
+              <li>Cost-effective, <strong>low-latency</strong>.</li>
+              <li>Use case: system boot volumes, virtual desktops, dev &amp; test environments.</li>
+              <li>Size: <strong>1 GiB – 16 TiB</strong>.</li>
+              <li><strong>gp3</strong>:
+                <ul>
+                  <li>Mặc định đã có <strong>3.000 IOPS</strong> và <strong>125 MiB/s throughput</strong>, dù volume lớn hay nhỏ.</li>
+                  <li>Nếu cần hiệu năng cao hơn, bạn có thể <strong>tăng IOPS và throughput riêng biệt</strong>:
+                    <ul>
+                      <li>IOPS tối đa: <strong>16.000</strong></li>
+                      <li>Throughput tối đa: <strong>1.000 MiB/s</strong></li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li>Kích thước volume <strong>không ảnh hưởng trực tiếp</strong> đến IOPS.</li>
+              <li><strong>gp2</strong>:
+                <ul>
+                  <li>Hiệu năng phụ thuộc vào <strong>kích thước volume</strong>.</li>
+                  <li>Công thức: <code>IOPS = 3 × Dung lượng (GiB)</code><br>Ví dụ:
+                    <table>
+                      <tr><td>Size</td><td>IOPS</td></tr>
+                      <tr><td>100 GiB</td><td>300 IOPS</td></tr>
+                      <tr><td>500 GiB</td><td>1.500 IOPS</td></tr>
+                      <tr><td>1.000 GiB</td><td>3.000 IOPS</td></tr>
+                    </table>
+                  </li>
+                  <li>Các volume nhỏ có thể <strong>burst</strong> (tăng tốc tạm thời) lên <strong>3.000 IOPS</strong>.</li>
+                  <li>IOPS tối đa là <strong>16.000</strong>.<br>Muốn đạt 16.000 IOPS: <code>16.000 ÷ 3 ≈ 5.334 GiB</code> =&gt; Cần volume khoảng <strong>5.334 GiB</strong>.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Provisioned IOPS (PIOPS) SSD (io1 / io2)</summary>
+          <div class="body">
+            <ul>
+              <li>Cho <strong>critical business apps</strong> cần sustained IOPS, hoặc apps cần <strong>&gt; 16,000 IOPS</strong>.</li>
+              <li>Tốt cho <strong>database workloads</strong> (nhạy với storage performance &amp; consistency).</li>
+              <li><strong>io1 (4 GiB – 16 TiB)</strong>: max PIOPS <strong>64,000</strong> (Nitro EC2) &amp; <strong>32,000</strong> (loại khác); tăng IOPS độc lập với size.</li>
+              <li><strong>io2 Block Express (4 GiB – 64 TiB)</strong>: <strong>sub-millisecond latency</strong>; max PIOPS <strong>256,000</strong> với tỉ lệ IOPS:GiB = <strong>1,000:1</strong>.</li>
+              <li>Hỗ trợ <strong>EBS Multi-attach</strong>.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Hard Disk Drives (st1 / sc1)</summary>
+          <div class="body">
+            <ul>
+              <li><strong>Không</strong> dùng được làm boot volume.</li>
+              <li>Size: <strong>125 GiB – 16 TiB</strong>.</li>
+              <li><strong>Throughput Optimized HDD (st1)</strong>: Big Data, Data Warehouses, Log Processing; max throughput <strong>500 MiB/s</strong> – max IOPS <strong>500</strong>.</li>
+              <li><strong>Cold HDD (sc1)</strong>: dữ liệu <strong>ít truy cập</strong>, ưu tiên <strong>chi phí thấp nhất</strong>; max throughput <strong>250 MiB/s</strong> – max IOPS <strong>250</strong>.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Bảng tóm tắt</summary>
+          <div class="body">
+            <p><strong>SSD volumes</strong></p>
+            <table>
+              <tr><td>Thuộc tính</td><td>gp3</td><td>gp2</td><td>io1</td><td>io2 Block Express</td></tr>
+              <tr><td>Durability</td><td>99.8–99.9%</td><td>99.8–99.9%</td><td>99.8–99.9%</td><td>99.999%</td></tr>
+              <tr><td>Volume size</td><td>1 GiB–16 TiB</td><td>1 GiB–16 TiB</td><td>4 GiB–16 TiB</td><td>4 GiB–64 TiB</td></tr>
+              <tr><td>Max IOPS</td><td>16,000</td><td>16,000</td><td>64,000</td><td>256,000</td></tr>
+              <tr><td>Max throughput</td><td>1,000 MiB/s</td><td>250 MiB/s</td><td>1,000 MiB/s</td><td>4,000 MiB/s</td></tr>
+              <tr><td>Multi-attach</td><td>Không</td><td>Không</td><td>Có</td><td>Có</td></tr>
+              <tr><td>Boot volume</td><td>Có</td><td>Có</td><td>Có</td><td>Có</td></tr>
+            </table>
+            <p><strong>HDD volumes</strong></p>
+            <table>
+              <tr><td>Thuộc tính</td><td>st1</td><td>sc1</td></tr>
+              <tr><td>Durability</td><td>99.8–99.9%</td><td>99.8–99.9%</td></tr>
+              <tr><td>Use case</td><td>Big data, data warehouses, log processing</td><td>Ít truy cập, ưu tiên chi phí thấp nhất</td></tr>
+              <tr><td>Volume size</td><td>125 GiB–16 TiB</td><td>125 GiB–16 TiB</td></tr>
+              <tr><td>Max IOPS</td><td>500</td><td>250</td></tr>
+              <tr><td>Max throughput</td><td>500 MiB/s</td><td>250 MiB/s</td></tr>
+              <tr><td>Multi-attach</td><td>Không</td><td>Không</td></tr>
+              <tr><td>Boot volume</td><td>Không</td><td>Không</td></tr>
+            </table>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EBS Multi-Attach – io1/io2 family">
+      <summary><span class="t-title">EBS Multi-Attach – io1/io2 family</span></summary>
+      <div class="body">
+        <p><strong>Multi-Attach</strong> cho phép attach <strong>cùng một EBS volume</strong> vào <strong>nhiều EC2 instance</strong> cùng lúc — chỉ với họ <strong>io1/io2</strong> và tất cả phải ở <strong>cùng 1 AZ</strong>.</p>
+        <ul>
+          <li>Mỗi instance có <strong>full read &amp; write</strong> lên volume hiệu năng cao.</li>
+          <li>Tối đa <strong>16 EC2 instance</strong> tại một thời điểm.</li>
+          <li><strong>Use case</strong>: tăng <strong>application availability</strong> cho <strong>clustered Linux apps</strong> (vd: <strong>Teradata</strong>).</li>
+          <li>Ứng dụng <strong>phải tự quản lý concurrent writes</strong> (ghi đồng thời).</li>
+          <li>Bắt buộc dùng <strong>file system cluster-aware</strong> — <strong>KHÔNG</strong> dùng XFS, EXT4...</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Encryption – Mã hoá một EBS volume chưa mã hoá">
+      <summary><span class="t-title">Encryption – Mã hoá một EBS volume chưa mã hoá</span></summary>
+      <div class="body">
+        <p>Volume đang <strong>unencrypted</strong> được mã hoá đi vòng qua <strong>snapshot</strong> theo 4 bước:</p>
+        <ol>
+          <li>Tạo <strong>EBS snapshot</strong> của volume.</li>
+          <li><strong>Mã hoá snapshot</strong> (dùng thao tác <strong>copy</strong>).</li>
+          <li>Tạo <strong>volume mới từ snapshot đã mã hoá</strong> → volume mới <strong>cũng được mã hoá</strong>.</li>
+          <li><strong>Attach</strong> volume đã mã hoá trở lại <strong>instance ban đầu</strong>.</li>
+        </ol>
+        <blockquote>🔒 Phải đi vòng qua snapshot vì không thể bật mã hoá trực tiếp trên một volume sẵn có.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Amazon EFS – Elastic File System">
+      <summary><span class="t-title">Amazon EFS – Elastic File System</span></summary>
+      <div class="body">
+        <p><strong>EFS</strong> = <strong>managed NFS</strong> (network file system) có thể <strong>mount đồng thời lên nhiều EC2</strong>, chạy <strong>đa AZ</strong>. Highly available, scalable, <strong>pay-per-use</strong> nhưng <strong>đắt (~3x gp2)</strong>.</p>
+        <details class="sub">
+          <summary><strong>Đặc điểm &amp; Use case</strong></summary>
+          <div class="body">
+            <ul>
+              <li>Dùng giao thức <strong>NFSv4.1</strong>; kiểm soát truy cập bằng <strong>Security Group</strong>.</li>
+              <li><strong>Chỉ tương thích Linux AMI</strong> (KHÔNG Windows) — là <strong>POSIX file system</strong> với standard file API.</li>
+              <li><strong>Encryption at rest</strong> bằng <strong>KMS</strong>.</li>
+              <li><strong>Tự scale</strong> tự động, <strong>không cần capacity planning</strong>.</li>
+              <li><strong>Scale</strong>: hàng nghìn NFS client đồng thời, throughput <strong>10 GB+/s</strong>, lớn tới <strong>petabyte-scale</strong>.</li>
+              <li><strong>Use case</strong>: content management, web serving, data sharing, <strong>WordPress</strong>.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>Performance Mode</strong> (chọn lúc tạo EFS)</summary>
+          <div class="body">
+            <ul>
+              <li><strong>General Purpose</strong> (default): use case <strong>nhạy latency</strong> (web server, CMS...).</li>
+              <li><strong>Max I/O</strong>: latency cao hơn nhưng <strong>throughput cao, highly parallel</strong> (big data, media processing).</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>Throughput Mode</strong></summary>
+          <div class="body">
+            <ul>
+              <li><strong>Bursting</strong>: 1 TB = <strong>50 MiB/s</strong> + burst tới <strong>100 MiB/s</strong>.</li>
+              <li><strong>Provisioned</strong>: tự đặt throughput <strong>bất kể storage size</strong> (vd: 1 GiB/s cho 1 TB).</li>
+              <li><strong>Elastic</strong>: <strong>tự scale</strong> throughput lên/xuống theo workload — tới <strong>3 GiB/s đọc</strong> &amp; <strong>1 GiB/s ghi</strong>; hợp <strong>workload khó đoán</strong>.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>Storage Classes &amp; Lifecycle</strong></summary>
+          <div class="body">
+            <ul>
+              <li><strong>Storage Tiers</strong> (lifecycle management — chuyển file sau <strong>N ngày</strong>):
+                <ul>
+                  <li><strong>Infrequent Access (EFS-IA)</strong>: <strong>lưu rẻ</strong> hơn nhưng <strong>tốn phí khi đọc lại</strong>.</li>
+                  <li><strong>Standard</strong>: file <strong>truy cập thường xuyên</strong>.</li>
+                  <li><strong>Archive</strong>: dữ liệu <strong>rất ít truy cập</strong> (vài lần/năm), rẻ hơn <strong>~50%</strong>.</li>
+                </ul>
+              </li>
+              <li>Dùng <strong>lifecycle policies</strong> để di chuyển file giữa các tier.</li>
+              <li><strong>Availability &amp; durability</strong>:
+                <ul>
+                  <li><strong>Standard</strong>: <strong>Multi-AZ</strong> → hợp <strong>production</strong>.</li>
+                  <li><strong>One Zone</strong>: <strong>1 AZ</strong> → hợp <strong>dev</strong>; backup bật mặc định; có <strong>EFS One Zone-IA</strong>.</li>
+                </ul>
+              </li>
+              <li>Chọn đúng storage class → tiết kiệm <strong>tới hơn 90% chi phí</strong>.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="EBS vs EFS (vs Instance Store)">
+      <summary><span class="t-title">EBS vs EFS (vs Instance Store)</span></summary>
+      <div class="body">
+        <p>So sánh nhanh các loại storage để chọn đúng theo nhu cầu.</p>
+        <details class="sub">
+          <summary><strong>EBS – Elastic Block Store</strong></summary>
+          <div class="body">
+            <ul>
+              <li>Gắn <strong>1 instance</strong> tại một thời điểm (trừ <strong>multi-attach io1/io2</strong>).</li>
+              <li><strong>Locked ở mức 1 AZ</strong>.</li>
+              <li><strong>gp2</strong>: IO tăng khi <strong>disk size</strong> tăng. <strong>gp3 &amp; io1</strong>: tăng IO <strong>độc lập</strong> với size.</li>
+              <li><strong>Migrate qua AZ</strong>: tạo <strong>snapshot</strong> → <strong>restore</strong> sang AZ khác.</li>
+              <li><strong>Backup tốn IO</strong> → <strong>đừng</strong> chạy lúc app đang nhiều traffic.</li>
+              <li><strong>Root EBS volume</strong> mặc định <strong>bị xoá</strong> khi terminate instance (<strong>có thể tắt</strong>).</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>EFS – Elastic File System</strong></summary>
+          <div class="body">
+            <ul>
+              <li><strong>Mount 100s instance</strong> qua <strong>nhiều AZ</strong>.</li>
+              <li>Dùng để <strong>share website files</strong> (WordPress).</li>
+              <li><strong>Chỉ cho Linux instance</strong> (POSIX).</li>
+              <li><strong>Giá cao hơn EBS</strong>, bù lại tận dụng <strong>Storage Tiers</strong> để tiết kiệm.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="sub">
+          <summary><strong>Tóm tắt: EBS vs EFS vs Instance Store</strong></summary>
+          <div class="body">
+            <table>
+              <tr><td>Tiêu chí</td><td>EBS</td><td>EFS</td><td>Instance Store</td></tr>
+              <tr><td>Kiểu lưu trữ</td><td>Block storage</td><td>Shared file (NFS)</td><td>Ổ vật lý gắn trực tiếp</td></tr>
+              <tr><td>Phạm vi</td><td>1 AZ, 1 instance (hoặc multi-attach)</td><td>Nhiều AZ, nhiều instance</td><td>Gắn cứng 1 instance</td></tr>
+              <tr><td>OS</td><td>Linux &amp; Windows</td><td>Chỉ Linux (POSIX)</td><td>Linux &amp; Windows</td></tr>
+              <tr><td>Đặc tính</td><td>Cần snapshot để qua AZ</td><td>Tự scale, đắt hơn</td><td>Hiệu năng cao nhất, ephemeral (mất khi stop)</td></tr>
+            </table>
+          </div>
+        </details>
+      </div>
+    </details>
+    </div>
+  </section>
+
+  <section class="section" id="sec-alb">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>⚖️ <span class="sec-title" data-sec-title="ALB & ASG">ALB &amp; ASG</span></h2>
+    <div class="content" data-sec="alb">
+    <details class="topic" data-track="High Availability & Scalability cho EC2">
+      <summary><span class="t-title">High Availability &amp; Scalability cho EC2</span></summary>
+      <div class="body">
+        <p><strong>Scalability</strong> = khả năng "lớn lên" theo tải. <strong>High Availability</strong> = sống sót khi sự cố. Cần phân biệt 3 khái niệm:</p>
+        <table>
+          <tr><td>Khái niệm</td><td>Là gì</td><td>Cách làm trên AWS</td></tr>
+          <tr><td><strong>Vertical Scaling</strong></td><td>Tăng/giảm <strong>size</strong> của 1 instance (scale up / down)</td><td>Đổi instance type</td></tr>
+          <tr><td><strong>Horizontal Scaling</strong></td><td>Tăng/giảm <strong>số lượng</strong> instance (scale out / in)</td><td>Auto Scaling Group + Load Balancer</td></tr>
+          <tr><td><strong>High Availability</strong></td><td>Chạy cùng 1 app trên <strong>nhiều AZ</strong></td><td>ASG multi-AZ + Load Balancer multi-AZ</td></tr>
+        </table>
+        <details class="sub">
+          <summary>Vertical Scaling (Scale Up / Down)</summary>
+          <div class="body">
+            <p>Tăng hoặc giảm <strong>kích thước</strong> của một instance — máy mạnh hơn hoặc yếu hơn.</p>
+            <pre><code>Từ:  t2.nano        → 0.5 GB RAM,  1 vCPU
+Đến: u-12tb1.metal  → 12.3 TB RAM, 448 vCPU</code></pre>
+            <blockquote>Thường dùng cho hệ thống <strong>non-distributed</strong> (vd: database). Bị giới hạn bởi phần cứng tối đa.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Horizontal Scaling (Scale Out / In)</summary>
+          <div class="body">
+            <p>Tăng hoặc giảm <strong>số lượng</strong> instance — thêm/bớt máy chạy song song.</p>
+            <pre><code>✅ Áp dụng cho distributed systems
+🔧 Auto Scaling Group (ASG) — tự thêm/bớt máy theo tải
+🔧 Load Balancer — chia request ra các máy</code></pre>
+            <blockquote>Scale out = thêm máy, scale in = bớt máy.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>High Availability (HA)</summary>
+          <div class="body">
+            <p>Chạy instance của <strong>cùng một ứng dụng</strong> trên <strong>nhiều Availability Zone (multi-AZ)</strong>.</p>
+            <pre><code>🎯 Mục tiêu: sống sót khi 1 data center / AZ gặp sự cố
+🔧 Auto Scaling Group multi-AZ
+🔧 Load Balancer multi-AZ</code></pre>
+            <blockquote>Horizontal scaling thường đi kèm HA khi trải máy ra nhiều AZ.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Load Balancing là gì?">
+      <summary><span class="t-title">Load Balancing là gì?</span></summary>
+      <div class="body">
+        <p><strong>Load Balancer</strong> là các <strong>server đứng giữa</strong>: nhận traffic từ user rồi <strong>chuyển tiếp (forward)</strong> xuống <strong>nhiều server phía sau</strong> (vd: nhiều EC2 instance) — gọi là <strong>downstream</strong>.</p>
+        <pre><code>Users ──▶ ┌────────────────┐ ──▶ EC2 Instance
+Users ──▶ │ Load Balancer  │ ──▶ EC2 Instance
+Users ──▶ └────────────────┘ ──▶ EC2 Instance</code></pre>
+        <blockquote>Người dùng chỉ thấy <strong>một điểm vào duy nhất</strong> (Load Balancer), còn traffic được rải đều xuống nhiều máy phía sau.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Vì sao dùng Elastic Load Balancer (ELB)?">
+      <summary><span class="t-title">Vì sao dùng Elastic Load Balancer (ELB)?</span></summary>
+      <div class="body">
+        <p><strong>ELB = Elastic Load Balancer</strong> — một <strong>managed load balancer</strong> do AWS quản lý.</p>
+        <details class="sub">
+          <summary>"Managed" nghĩa là gì?</summary>
+          <div class="body">
+            <pre><code>✅ AWS đảm bảo nó luôn hoạt động
+✅ AWS lo upgrade, bảo trì (maintenance), high availability
+✅ AWS chỉ cho bạn chỉnh một vài "knobs" (tuỳ chọn cấu hình)</code></pre>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Tự dựng LB hay dùng ELB?</summary>
+          <div class="body">
+            <p>Tự dựng load balancer của riêng bạn thì <strong>rẻ hơn về tiền</strong>, nhưng <strong>tốn công hơn rất nhiều</strong> (tự vận hành, vá lỗi, tự lo HA).</p>
+            <blockquote>ELB tốn phí nhưng AWS lo hết phần cực nhọc → bạn tiết kiệm công sức.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Tích hợp với dịch vụ AWS nào?</summary>
+          <div class="body">
+            <pre><code>🖥️ EC2, EC2 Auto Scaling Groups, Amazon ECS
+🔐 AWS Certificate Manager (ACM), CloudWatch
+🌐 Route 53, AWS WAF, AWS Global Accelerator</code></pre>
+            <blockquote>Và còn nhiều dịch vụ khác được bổ sung theo thời gian.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Health Checks">
+      <summary><span class="t-title">Health Checks</span></summary>
+      <div class="body">
+        <p>Health Check <strong>cực kỳ quan trọng</strong> với Load Balancer.</p>
+        <details class="sub">
+          <summary>Health check dùng để làm gì?</summary>
+          <div class="body">
+            <p>Giúp Load Balancer biết các instance phía sau có <strong>sẵn sàng trả lời request</strong> hay không.</p>
+            <blockquote>Nếu một instance <strong>unhealthy</strong> → LB <strong>ngừng</strong> gửi traffic tới nó, chỉ gửi tới máy khoẻ.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Health check hoạt động thế nào?</summary>
+          <div class="body">
+            <pre><code>🔌 Thực hiện trên 1 Port + 1 Route — /health là route phổ biến
+✅ Response = 200 (OK)  → instance HEALTHY
+❌ Response ≠ 200       → instance UNHEALTHY</code></pre>
+            <blockquote>Ví dụ: Protocol = <strong>HTTP</strong>, Port = <strong>4567</strong>, Endpoint = <strong>/health</strong>.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Các loại Load Balancer trên AWS">
+      <summary><span class="t-title">Các loại Load Balancer trên AWS</span></summary>
+      <div class="body">
+        <p>AWS có <strong>4 loại managed Load Balancer</strong>. Nhớ được mấy loại và giao thức của chúng?</p>
+        <details class="sub">
+          <summary>4 loại Load Balancer (bảng so sánh)</summary>
+          <div class="body">
+            <table>
+              <tr><td>Loại</td><td>Viết tắt</td><td>Năm</td><td>Thế hệ</td><td>Giao thức</td></tr>
+              <tr><td>Classic Load Balancer</td><td><strong>CLB</strong></td><td>2009</td><td>v1 (cũ)</td><td>H<em>TTP, HTTPS, TCP, SSL (secure TCP)</em></td></tr>
+              <tr><td>Application Load Balancer</td><td><strong>ALB</strong></td><td>2016</td><td>v2 (mới)</td><td>HTTP, HTTPS, WebSocket</td></tr>
+              <tr><td>Network Load Balancer</td><td><strong>NLB</strong></td><td>2017</td><td>v2 (mới)</td><td>TCP, TLS (secure TCP), UDP</td></tr>
+              <tr><td>Gateway Load Balancer</td><td><strong>GWLB</strong></td><td>2020</td><td>—</td><td>Layer 3 (Network) – IP Protocol</td></tr>
+            </table>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Lưu ý quan trọng</summary>
+          <div class="body">
+            <pre><code>👍 Nên dùng thế hệ MỚI (ALB / NLB / GWLB) — nhiều tính năng hơn
+🔒 internal (private) → chỉ truy cập trong nội bộ VPC
+🌍 external (public)  → truy cập từ internet</code></pre>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Load Balancer Security Groups">
+      <summary><span class="t-title">Load Balancer Security Groups</span></summary>
+      <div class="body">
+        <p>Mô hình <strong>2 lớp bảo mật</strong>: user vào Load Balancer từ bất kỳ đâu, nhưng EC2 <strong>chỉ</strong> nhận traffic <strong>từ Load Balancer</strong>.</p>
+        <pre><code>Users ──HTTP/HTTPS từ bất kỳ đâu──▶ [Load Balancer] ──HTTP chỉ từ LB──▶ [EC2]</code></pre>
+        <details class="sub">
+          <summary>Security Group của Load Balancer</summary>
+          <div class="body">
+            <p>Cho phép user từ <strong>mọi nơi</strong> truy cập vào LB.</p>
+            <table>
+              <tr><td>Type</td><td>Protocol</td><td>Port</td><td>Source</td><td>Mô tả</td></tr>
+              <tr><td>HTTP</td><td>TCP</td><td>80</td><td>0.0.0.0/0</td><td>Allow HTTP from anywhere</td></tr>
+              <tr><td>HTTPS</td><td>TCP</td><td>443</td><td>0.0.0.0/0</td><td>Allow HTTPS from anywhere</td></tr>
+            </table>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Security Group của EC2 (Application)</summary>
+          <div class="body">
+            <p><strong>Chỉ</strong> cho phép traffic đến <strong>từ Load Balancer</strong> — không nhận trực tiếp từ internet.</p>
+            <table>
+              <tr><td>Type</td><td>Protocol</td><td>Port</td><td>Source</td><td>Mô tả</td></tr>
+              <tr><td>HTTP</td><td>TCP</td><td>80</td><td>sg-054b5ff5ea02f2b6e (SG của Load Balancer)</td><td>Allow traffic only from Load Balancer</td></tr>
+            </table>
+            <blockquote>Mẹo: Source trỏ tới <strong>chính Security Group của LB</strong> (không dùng IP) → EC2 tự động chỉ nhận traffic từ LB, khỏi lo IP thay đổi.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Target Groups">
+      <summary><span class="t-title">Target Groups</span></summary>
+      <div class="body">
+        <p>ALB có thể route tới <strong>nhiều target group</strong>; <strong>Health Check</strong> được thực hiện ở <strong>mức target group</strong>.</p>
+        <table>
+          <tr><td>Loại target</td><td>Ghi chú</td></tr>
+          <tr><td><strong>EC2 instances</strong></td><td>Có thể do <strong>Auto Scaling Group (ASG)</strong> quản lý – HTTP</td></tr>
+          <tr><td><strong>ECS tasks</strong></td><td>Do <strong>ECS</strong> tự quản lý – HTTP</td></tr>
+          <tr><td><strong>Lambda functions</strong></td><td>HTTP request được dịch thành <strong>JSON event</strong></td></tr>
+          <tr><td><strong>IP Addresses</strong></td><td><strong>Phải là private IP</strong></td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Application Load Balancer (ALB) – v2">
+      <summary><span class="t-title">Application Load Balancer (ALB) – v2</span></summary>
+      <div class="body">
+        <p><strong>ALB</strong> là Load Balancer <strong>thế hệ 2 (v2)</strong>, hoạt động ở <strong>Layer 7 (HTTP)</strong> — định tuyến thông minh dựa trên nội dung request. Rất hợp cho <strong>microservices &amp; ứng dụng container</strong> (Docker, Amazon ECS).</p>
+        <details class="sub">
+          <summary>Đặc điểm chính</summary>
+          <div class="body">
+            <pre><code>✅ Layer 7 (HTTP) — định tuyến theo nội dung HTTP
+✅ Cân bằng tải tới nhiều HTTP app trên nhiều máy (qua TARGET GROUPS)
+✅ Cân bằng tải tới nhiều app trên CÙNG 1 máy (vd: containers)
+✅ Hỗ trợ HTTP/2 và WebSocket
+✅ Hỗ trợ redirect (vd: HTTP → HTTPS)
+✅ Có port mapping → trỏ tới dynamic port trong ECS</code></pre>
+            <blockquote>So với Classic LB: dùng CLB cần <strong>nhiều LB cho mỗi app</strong>; với ALB chỉ cần <strong>1 ALB</strong> route tới nhiều target group.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Định tuyến – Routin</summary>
+          <div class="body">
+            <p>ALB route tới các <strong>target group khác nhau</strong> dựa trên 3 tiêu chí:</p>
+            <table>
+              <tr><td>Định tuyến theo</td><td>Ví dụ</td></tr>
+              <tr><td><strong>Path</strong> trong URL</td><td>example.com<strong>/users</strong> &amp; example.com<strong>/posts</strong></td></tr>
+              <tr><td><strong>Hostname</strong> trong URL</td><td><strong>one</strong>.example.com &amp; <strong>other</strong>.example.com</td></tr>
+              <tr><td><strong>Query String / Headers</strong></td><td>example.com/users<strong>?id=123&amp;order=false</strong></td></tr>
+            </table>
+            <pre><code>Ví dụ Path-based (HTTP Based Traffic):
+  Route /user   ──▶ Target Group: Users  (HTTP + Health Check)
+  Route /search ──▶ Target Group: Search (HTTP + Health Check)
+
+Ví dụ Query String / Parameters:
+  ?Platform=Mobile  ──▶ Target Group 1 (AWS – EC2)
+  ?Platform=Desktop ──▶ Target Group 2 (On-premises – Private IP)</code></pre>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Các loại target group hỗ trợ</summary>
+          <div class="body">
+            <p>ALB hỗ trợ 3 loại Target Group:</p>
+            <ul>
+              <li>✅ <strong>Instance</strong>
+                <ul><li>Ví dụ:
+                  <pre><code>Internet
+    │
+   ALB
+    │
+Target Group (Instance)
+    │
+EC2-1  EC2-2</code></pre>
+                </li></ul>
+              </li>
+              <li>✅ <strong>IP</strong></li>
+              <li>✅ <strong>Lambda</strong></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Network Load Balancer (NLB) - v2">
+      <summary><span class="t-title">Network Load Balancer (NLB) - v2</span></summary>
+      <div class="body">
+        <ul>
+          <li>Network Load Balancer hoạt động ở tầng 4 (Layer 4), cho phép:
+            <ul>
+              <li>Chuyển tiếp lưu lượng TCP &amp; UDP đến các instance của bạn</li>
+              <li>Xử lý hàng triệu request mỗi giây</li>
+              <li>Độ trễ cực thấp (ultra-low latency)</li>
+            </ul>
+          </li>
+          <li>NLB có <strong>một IP tĩnh cho mỗi AZ</strong>, và hỗ trợ gán Elastic IP (hữu ích khi cần whitelist IP cụ thể)</li>
+          <li>NLB được sử dụng khi cần hiệu suất cực cao, lưu lượng TCP hoặc UDP</li>
+        </ul>
+        <h3>Network Load Balancer – Target Groups</h3>
+        <p>Target Group của NLB hỗ trợ 3 loại target:</p>
+        <ul>
+          <li><strong>EC2 Instances</strong></li>
+          <li><strong>IP Addresses</strong> – bắt buộc phải là private IP</li>
+          <li><strong>Application Load Balancer</strong> – có thể đặt ALB phía sau NLB (đây là kết hợp hợp lệ)</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Gateway Load Balancer (GWLB)">
+      <summary><span class="t-title">Gateway Load Balancer (GWLB)</span></summary>
+      <div class="body">
+        <p><strong>GWLB</strong> dùng để <strong>triển khai, mở rộng và quản lý một fleet các network virtual appliance của bên thứ 3</strong> trên AWS — ví dụ: <strong>Firewall, Intrusion Detection &amp; Prevention System (IDS/IPS), Deep Packet Inspection, payload manipulation…</strong></p>
+        <pre><code>👤 Users (source) ──▶ Route Table ──▶ [GWLB] ──▶ 3rd Party Security Appliances
+                                       │
+                                       ▼
+                              🎯 Application (destination)</code></pre>
+        <blockquote>Traffic bị "bẻ hướng" qua GWLB để đi qua các security appliance trước khi tới ứng dụng.</blockquote>
+        <details class="sub">
+          <summary>Đặc điểm chính</summary>
+          <div class="body">
+            <pre><code>✅ Hoạt động ở Layer 3 (Network Layer) — làm việc với IP Packets
+✅ Uses GENEVE protocol on port 6081</code></pre>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Kết hợp 2 chức năng</summary>
+          <div class="body">
+            <pre><code>🚪 Transparent Network Gateway — 1 điểm vào/ra duy nhất cho toàn bộ traffic
+⚖️ Load Balancer — rải traffic tới các virtual appliance của bạn</code></pre>
+            <blockquote>Các appliance được gom trong một <strong>Target Group</strong> (3rd party security virtual appliances).</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Sticky Sessions (Session Affinity)">
+      <summary><span class="t-title">Sticky Sessions (Session Affinity)</span></summary>
+      <div class="body">
+        <p><strong>Sticky Sessions</strong> = cùng một client <strong>luôn được điều hướng về đúng một instance</strong> phía sau Load Balancer.</p>
+        <pre><code>Client 1 ──▶ ┌──────────────┐ ──▶ EC2 Instance 1
+Client 2 ──▶ │ Load Balancer │ ──▶ EC2 Instance 2
+Client 3 ──▶ └──────────────┘ ──▶ (luôn về đúng máy cũ)</code></pre>
+        <details class="sub">
+          <summary>Đặc điểm</summary>
+          <div class="body">
+            <pre><code>✅ Hoạt động với Classic LB, Application LB và Network LB
+🍪 Dùng "cookie" để ghi nhớ — có expiration date do bạn kiểm soát
+🎯 Use case: đảm bảo user KHÔNG mất session data
+⚠️ Có thể gây MẤT CÂN BẰNG tải trên các EC2 phía sau</code></pre>
+            <blockquote>Vì client bị "dính" một máy nên máy đó có thể nhận nhiều tải hơn các máy khác.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Sticky Sessions – Cookie Names">
+      <summary><span class="t-title">Sticky Sessions – Cookie Names</span></summary>
+      <div class="body">
+        <p>Có <strong>2 nhóm cookie</strong> dùng cho stickiness: <strong>Application-based</strong> và <strong>Duration-based</strong>.</p>
+        <details class="sub">
+          <summary>Application-based Cookies</summary>
+          <div class="body">
+            <pre><code>🔹 Custom cookie
+   • Do TARGET tạo ra
+   • Có thể chứa bất kỳ attribute nào app cần
+   • Tên cookie phải chỉ định riêng cho từng target group
+   • ❌ KHÔNG dùng AWSALB, AWSALBAPP, AWSALBTG (đã bị ELB giữ chỗ)
+🔹 Application cookie
+   • Do LOAD BALANCER tạo ra
+   • Tên cookie là AWSALBAPP</code></pre>
+            <pre><code>Client
+   │
+   ▼
+ALB
+   │
+   ▼
+App (EC2)
+
+App trả về:
+Set-Cookie: SESSION_ID=abc123   ← Custom cookie
+
+ALB thêm:
+Set-Cookie: AWSALBAPP=xxxx      ← Application cookie</code></pre>
+            <p>Lần request tiếp theo:</p>
+            <pre><code>Cookie:
+SESSION_ID=abc123
+AWSALBAPP=xxxx</code></pre>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Duration-based Cookies</summary>
+          <div class="body">
+            <pre><code>🔹 Cookie do LOAD BALANCER tạo ra
+🔹 Tên cookie: AWSALB (cho ALB), AWSELB (cho CLB)</code></pre>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Cross-Zone Load Balancing">
+      <summary><span class="t-title">Cross-Zone Load Balancing</span></summary>
+      <div class="body">
+        <p><strong>Cross-Zone Load Balancing</strong> quyết định cách các <strong>node của Load Balancer</strong> rải request xuống các instance nằm ở <strong>các Availability Zone (AZ) khác nhau</strong>.</p>
+        <details class="sub">
+          <summary>Có bật Cross-Zone Load Balancing</summary>
+          <div class="body">
+            <p>Mỗi node Load Balancer rải request <strong>đều ra TẤT CẢ instance đã đăng ký ở MỌI AZ</strong>.</p>
+            <pre><code>Client gửi: 50 → node AZ1, 50 → node AZ2
+AZ1: 2 instance | AZ2: 8 instance → tổng 10 instance
+Mỗi node rải đều ra cả 10 instance → mỗi instance nhận 10
+✅ Kết quả: tải CÂN BẰNG hoàn toàn dù số instance mỗi AZ khác nhau</code></pre>
+            <blockquote>Dù AZ1 chỉ có 2 máy còn AZ2 có 8 máy, mọi instance vẫn nhận đúng 10 request như nhau.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>KHÔNG bật Cross-Zone Load Balancing</summary>
+          <div class="body">
+            <p>Mỗi node chỉ rải request xuống các instance <strong>đăng ký trong CHÍNH AZ của nó</strong>.</p>
+            <pre><code>Client gửi: 50 → node AZ1, 50 → node AZ2
+AZ1 (2 instance): 50 / 2 = 25 mỗi máy
+AZ2 (8 instance): 50 / 8 = 6.25 mỗi máy
+⚠️ Kết quả: tải MẤT CÂN BẰNG giữa các AZ</code></pre>
+            <blockquote>Node chỉ biết các máy trong AZ của mình → AZ ít máy bị quá tải, AZ nhiều máy lại nhàn.</blockquote>
+          </div>
+        </details>
+        <details class="sub">
+          <summary>Mặc định &amp; chi phí theo từng loại LB</summary>
+          <div class="body">
+            <table>
+              <tr><td>Loại LB</td><td>Mặc định</td><td>Chi phí inter-AZ data</td></tr>
+              <tr><td><strong>Application LB (ALB)</strong></td><td><strong>Bật sẵn</strong> (có thể tắt ở mức Target Group)</td><td><strong>Miễn phí</strong> (no charge)</td></tr>
+              <tr><td><strong>Network LB (NLB) &amp; Gateway LB (GWLB)</strong></td><td><strong>Tắt</strong> mặc định</td><td><strong>Có tính phí ($)</strong> nếu bật</td></tr>
+              <tr><td><strong>Classic LB (CLB)</strong></td><td><strong>Tắt</strong> mặc định</td><td><strong>Miễn phí</strong> nếu bật</td></tr>
+            </table>
+            <blockquote>Ghi nhớ: chỉ có <strong>NLB/GWLB</strong> mới <strong>tốn phí inter-AZ</strong> khi bật cross-zone; ALB và CLB đều miễn phí.</blockquote>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="topic" data-track="ELB – SSL/TLS Certificates">
+      <summary><span class="t-title">ELB – SSL/TLS Certificates</span></summary>
+      <div class="body">
+        <h3>SSL/TLS trên Load Balancer</h3>
+        <p>Load Balancer dùng <strong>chứng chỉ X.509</strong> (SSL/TLS server certificate) để mã hoá lưu lượng từ client (<em>in-flight encryption</em>).</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0;">
+          <div style="padding:10px 14px;border:1px solid #999;border-radius:8px;">👥 Users</div>
+          <div style="text-align:center;"><div style="font-size:12px;">HTTPS (encrypted)<br>over www</div><div>⟶</div></div>
+          <div style="padding:10px 14px;background:#7b3fe4;color:#fff;border-radius:8px;">⚖️ Load Balancer</div>
+          <div style="text-align:center;"><div style="font-size:12px;">HTTP<br>over private VPC</div><div>⟶</div></div>
+          <div style="padding:10px 14px;background:#e88b1a;color:#fff;border-radius:8px;">🖥️ EC2 Instance</div>
+        </div>
+        <ul>
+          <li>Quản lý chứng chỉ bằng <strong>ACM (AWS Certificate Manager)</strong>, hoặc tự upload chứng chỉ riêng.</li>
+          <li><strong>HTTPS listener</strong>:
+            <ul>
+              <li>Bắt buộc chỉ định <strong>một default certificate</strong>.</li>
+              <li>Có thể thêm danh sách cert phụ để hỗ trợ <strong>nhiều domain</strong>.</li>
+              <li>Client dùng <strong>SNI (Server Name Indication)</strong> để khai báo hostname muốn tới.</li>
+              <li>Có thể đặt <strong>security policy</strong> để hỗ trợ SSL/TLS phiên bản cũ (legacy clients).</li>
+            </ul>
+          </li>
+        </ul>
+        <blockquote>🧠 Sau LB, traffic tới EC2 đi bằng HTTP trong private VPC — mã hoá chỉ bắt buộc ở chặng public.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="SNI – Server Name Indication">
+      <summary><span class="t-title">SNI – Server Name Indication</span></summary>
+      <div class="body">
+        <h3>SNI giải quyết vấn đề gì?</h3>
+        <p><strong>SNI</strong> cho phép load <strong>nhiều SSL certificate</strong> lên một web server để phục vụ <strong>nhiều website</strong> trên cùng một máy.</p>
+        <ul>
+          <li>Là protocol "mới": client phải <strong>khai báo hostname của server đích</strong> ngay trong <strong>SSL handshake ban đầu</strong>.</li>
+          <li>Server nhìn hostname → trả về <strong>đúng certificate</strong>, không tìm thấy thì trả cert mặc định.</li>
+        </ul>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0;">
+          <div style="padding:8px 12px;border:1px solid #999;border-radius:8px;">💻 Client<br><small>"I would like www.mycorp.com"</small></div>
+          <div>⟶</div>
+          <div style="padding:8px 12px;background:#7b3fe4;color:#fff;border-radius:8px;">ALB<br><small>dùng đúng SSL cert</small><br><small>🔖 Cert: www.mycorp.com</small><br><small>🔖 Cert: Domain1.example.com</small></div>
+          <div>⟶</div>
+          <div style="padding:8px 12px;border:1px solid #e88b1a;border-radius:8px;">🎯 Target group<br>www.mycorp.com<br><hr style="margin:4px 0;">🎯 Target group<br>Domain1.example.com</div>
+        </div>
+        <table>
+          <tr><td>Hỗ trợ SNI</td><td><strong>ALB, NLB</strong> (thế hệ mới), <strong>CloudFront</strong></td></tr>
+          <tr><td>KHÔNG hỗ trợ</td><td><strong>CLB</strong> (thế hệ cũ — chỉ 1 cert / LB)</td></tr>
+        </table>
+        <blockquote>🧠 Câu hỏi exam: nhiều domain + nhiều cert trên 1 LB → cần ALB/NLB với SNI; CLB thì phải tạo nhiều CLB.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Connection Draining / Deregistration Delay">
+      <summary><span class="t-title">Connection Draining / Deregistration Delay</span></summary>
+      <div class="body">
+        <h3>Tên gọi theo loại LB</h3>
+        <table>
+          <tr><td><strong>Connection Draining</strong></td><td>CLB</td></tr>
+          <tr><td><strong>Deregistration Delay</strong></td><td>ALB &amp; NLB</td></tr>
+        </table>
+        <ul>
+          <li>Là thời gian chờ các <strong>request đang chạy ("in-flight")</strong> hoàn tất khi instance đang bị <strong>de-register</strong> hoặc unhealthy.</li>
+          <li>LB <strong>ngừng gửi request mới</strong> tới instance đang de-register; connection mới được đưa sang các instance khác.</li>
+          <li>Thời gian: <strong>1 – 3600 giây</strong>, mặc định <strong>300 giây</strong>.</li>
+          <li>Có thể <strong>tắt</strong> bằng cách đặt giá trị <strong>0</strong>.</li>
+          <li>Request ngắn → đặt giá trị <strong>thấp</strong> để de-register nhanh hơn.</li>
+        </ul>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0;">
+          <div style="padding:8px 12px;border:1px solid #999;border-radius:8px;">👥 Users</div>
+          <div>⟶</div>
+          <div style="padding:8px 12px;background:#7b3fe4;color:#fff;border-radius:8px;">ELB</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="padding:6px 10px;border:2px dashed #c33;border-radius:8px;">🖥️ EC2 <strong>DRAINING</strong> <small>(chờ connection cũ xong)</small></div>
+            <div style="padding:6px 10px;border:1px solid #e88b1a;border-radius:8px;">🖥️ EC2 <small>(nhận connection mới)</small></div>
+            <div style="padding:6px 10px;border:1px solid #e88b1a;border-radius:8px;">🖥️ EC2 <small>(nhận connection mới)</small></div>
+          </div>
+        </div>
+        <blockquote>🧠 Ghi nhớ bộ số: 1–3600s, default 300s, 0 = tắt.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="Auto Scaling Group (ASG) – Tổng quan">
+      <summary><span class="t-title">Auto Scaling Group (ASG) – Tổng quan</span></summary>
+      <div class="body">
+        <h3>ASG là gì?</h3>
+        <p>Tải web thay đổi theo thời gian; trên cloud có thể tạo/xoá server rất nhanh. <strong>ASG</strong> tự động hoá việc đó.</p>
+        <ul>
+          <li><strong>Scale out</strong>: thêm EC2 instance khi tải tăng.</li>
+          <li><strong>Scale in</strong>: bớt EC2 instance khi tải giảm.</li>
+          <li>Đảm bảo số instance chạy trong khoảng <strong>minimum ↔ maximum</strong>.</li>
+          <li><strong>Tự đăng ký instance mới vào Load Balancer</strong>.</li>
+          <li><strong>Tự tạo lại instance</strong> nếu một instance bị terminate (vd: unhealthy).</li>
+          <li><strong>ASG miễn phí</strong> — chỉ trả tiền cho EC2 bên dưới.</li>
+        </ul>
+        <h4>ASG + Load Balancer</h4>
+        <div style="text-align:center;margin:10px 0;">
+          <div style="display:inline-block;padding:6px 12px;border:1px solid #999;border-radius:8px;">👥 Users</div>
+          <div>↓</div>
+          <div style="display:inline-block;padding:6px 12px;background:#7b3fe4;color:#fff;border-radius:8px;">⚖️ Elastic Load Balancer</div>
+          <div><small>ELB health check các EC2 instance!</small></div>
+          <div>↓</div>
+          <div style="display:inline-block;padding:10px;border:2px dashed #e88b1a;border-radius:8px;">
+            <strong>🔁 Auto Scaling Group</strong><br>
+            <span style="border:1px solid #e88b1a;border-radius:6px;padding:2px 6px;">🖥️</span>
+            <span style="border:1px solid #e88b1a;border-radius:6px;padding:2px 6px;">🖥️</span>
+            <span style="border:1px solid #e88b1a;border-radius:6px;padding:2px 6px;">🖥️</span>
+            <span style="border:1px dashed #999;border-radius:6px;padding:2px 6px;opacity:.55;">🖥️</span>
+            <span style="border:1px dashed #999;border-radius:6px;padding:2px 6px;opacity:.55;">🖥️</span>
+            <small>(mờ = thêm khi scale out)</small>
+          </div>
+        </div>
+        <blockquote>🧠 ELB check health → instance unhealthy → ASG terminate và tạo instance mới thay thế.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="ASG – Launch Template & Attributes">
+      <summary><span class="t-title">ASG – Launch Template &amp; Attributes</span></summary>
+      <div class="body">
+        <h3>Launch Template</h3>
+        <p>ASG cần một <strong>Launch Template</strong> (bản cũ "Launch Configurations" đã <strong>deprecated</strong>) mô tả cách tạo instance:</p>
+        <ul>
+          <li><strong>AMI + Instance Type</strong></li>
+          <li><strong>EC2 User Data</strong></li>
+          <li><strong>EBS Volumes</strong></li>
+          <li><strong>Security Groups</strong></li>
+          <li><strong>SSH Key Pair</strong></li>
+          <li><strong>IAM Roles</strong> cho EC2 instance</li>
+          <li><strong>Network + Subnets</strong></li>
+          <li><strong>Load Balancer</strong> information</li>
+        </ul>
+        <h3>Thuộc tính riêng của ASG</h3>
+        <ul>
+          <li><strong>Min Size / Max Size / Initial (Desired) Capacity</strong></li>
+          <li><strong>Scaling Policies</strong></li>
+        </ul>
+        <blockquote>🧠 Exam gotcha: "Launch Configuration" xuất hiện trong đáp án → thường là đáp án sai/cũ, dùng <strong>Launch Template</strong>.</blockquote>
+      </div>
+    </details>
+
+    <details class="topic" data-track="ASG – Scaling với CloudWatch Alarms">
+      <summary><span class="t-title">ASG – Scaling với CloudWatch Alarms</span></summary>
+      <div class="body">
+        <h3>Scale ASG bằng CloudWatch Alarm</h3>
+        <ul>
+          <li>Alarm giám sát một <strong>metric</strong> (vd: <strong>Average CPU</strong>, hoặc <strong>custom metric</strong>).</li>
+          <li>Metric được tính <strong>trung bình trên toàn bộ instance của ASG</strong> (overall), không phải từng máy.</li>
+          <li>Dựa trên alarm:
+            <ul>
+              <li><strong>Scale-out policy</strong> → tăng số instance.</li>
+              <li><strong>Scale-in policy</strong> → giảm số instance.</li>
+            </ul>
+          </li>
+        </ul>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0;">
+          <div style="padding:10px;border:2px dashed #e88b1a;border-radius:8px;"><strong>🔁 Auto Scaling Group</strong><br>🖥️ 🖥️ 🖥️ 🖥️ 🖥️</div>
+          <div style="text-align:center;"><small>trigger Scaling</small><br>⟵</div>
+          <div style="padding:10px;border:1px solid #999;border-radius:8px;">📊 CloudWatch Alarm<br><small>vd: Average CPU &gt; 70%</small></div>
+        </div>
+        <blockquote>🧠 Từ khoá exam: "scale based on average CPU across the group" → CloudWatch Alarm + scaling policy.</blockquote>
+      </div>
+    </details>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SECTIONS=[
+  {hash:"iam", el:"sec-iam", icon:"🙋", name:"IAM",       key:"IAM"},
+  {hash:"ec2", el:"sec-ec2", icon:"🖥️", name:"EC2",       key:"EC2"},
+  {hash:"ebs", el:"sec-ebs", icon:"🏬", name:"EBS",       key:"EBS"},
+  {hash:"alb", el:"sec-alb", icon:"⚖️", name:"ALB & ASG", key:"ALB & ASG"},
+];
+let STATE=null;
+const checked=new Set();
+
+function fmtDate(d){ if(!d) return "—"; const [y,m,dd]=d.split("-"); return dd+"/"+m; }
+
+function route(){
+  const h=location.hash.replace("#/","").replace("#","");
+  document.getElementById("home").classList.toggle("active",!h);
+  SECTIONS.forEach(s=>document.getElementById(s.el).classList.toggle("active",s.hash===h));
+  window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",route);
+
+function renderCards(){
+  const c=document.getElementById("cards");
+  c.innerHTML="";
+  SECTIONS.forEach(s=>{
+    let total=0,due=0;
+    if(STATE) for(const[t,it]of Object.entries(STATE.items)) if(it.section===s.key){total++;if(it.due)due++;}
+    const div=document.createElement("div");
+    div.className="card";
+    div.onclick=()=>location.hash="#/"+s.hash;
+    div.innerHTML=`<div class="icon">${s.icon}</div><div class="name${due?" hot":""}">${s.name}</div>
+      <div class="meta">${total} chủ đề${due?` · <span class="d">${due} cần ôn 🔴</span>`:""}</div>`;
+    c.appendChild(div);
+  });
+}
+
+function decorate(){
+  // tiêu đề mục chỉ đỏ khi bên trong có toggle cần ôn
+  document.querySelectorAll(".sec-title").forEach(el=>{
+    const key=el.getAttribute("data-sec-title");
+    let hot=false;
+    if(STATE) for(const it of Object.values(STATE.items)) if(it.section===key&&it.due){hot=true;break;}
+    el.classList.toggle("hot",hot);
+  });
+  document.querySelectorAll("[data-track]").forEach(el=>{
+    const title=el.getAttribute("data-track");
+    const it=STATE&&STATE.items[title];
+    const sum=el.querySelector(":scope > summary");
+    if(!sum) return;
+    sum.querySelector(".chk")?.remove();
+    sum.querySelector(".next-tag")?.remove();
+    if(!it) return;
+    if(it.due){
+      // tô đỏ + checkbox "đã học"
+      el.classList.add("due");
+      const lab=document.createElement("label");
+      lab.className="chk";
+      lab.innerHTML=`<span>đã học?</span><input type="checkbox" ${checked.has(title)?"checked":""}>`;
+      lab.addEventListener("click",e=>e.stopPropagation());
+      lab.querySelector("input").addEventListener("change",e=>{
+        e.target.checked?checked.add(title):checked.delete(title);
+        updateSendBtn();
+      });
+      sum.appendChild(lab);
+    }else{
+      el.classList.remove("due");
+      const tag=document.createElement("span");
+      tag.className="next-tag";
+      tag.textContent=`${it.status||""} · ôn: ${fmtDate(it.next)}`;
+      sum.appendChild(tag);
+    }
+  });
+}
+
+function updateSendBtn(){
+  const b=document.getElementById("sendBtn");
+  b.textContent=`📤 Send (${checked.size})`;
+  b.disabled=checked.size===0;
+}
+
+function updateBadge(){
+  let due=0;
+  if(STATE) for(const it of Object.values(STATE.items)) if(it.due) due++;
+  const b=document.getElementById("dueBadge");
+  b.textContent=due?`🔴 ${due} mục cần ôn`:`✅ Đã ôn hết hôm nay`;
+  b.classList.toggle("zero",!due);
+}
+
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2600);
+}
+
+// Section key (IAM/EC2/...) của 1 toggle, dựa vào div.content[data-sec] bao ngoài
+function sectionKeyOf(el){
+  const c=el.closest("div.content");
+  const hash=c&&c.getAttribute("data-sec");
+  const s=SECTIONS.find(x=>x.hash===hash);
+  return s?s.key:"";
+}
+// Quét mọi toggle đang hiển thị trên trang → { title, section }
+function collectToggles(){
+  return [...document.querySelectorAll("[data-track]")]
+    .map(el=>({ title:el.getAttribute("data-track"), section:sectionKeyOf(el) }))
+    .filter(t=>t.title);
+}
+
+async function loadState(){
+  try{
+    // Gửi danh sách toggle hiện có → toggle MỚI sẽ tự được import vào lịch ôn tập
+    const r=await fetch("/api/sync",{
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({toggles:collectToggles()})
+    });
+    STATE=await r.json();
+    if(STATE&&STATE.added) toast(`✨ Đã thêm ${STATE.added} chủ đề mới vào lịch ôn tập`);
+  }catch(e){
+    STATE=null;
+    toast("⚠️ Không tải được trạng thái ôn tập (API)");
+  }
+  renderCards();decorate();updateBadge();updateSendBtn();
+}
+
+async function sendReviews(){
+  if(!checked.size) return;
+  const b=document.getElementById("sendBtn");
+  b.disabled=true;b.textContent="⏳ Đang gửi…";
+  try{
+    const r=await fetch("/api/review",{
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({learned:[...checked]})
+    });
+    STATE=await r.json();
+    toast(`✅ Đã ghi nhận ${checked.size} mục — hẹn ôn lại theo lịch mới!`);
+    checked.clear();
+    renderCards();decorate();updateBadge();
+  }catch(e){ toast("❌ Gửi thất bại, thử lại nhé"); }
+  updateSendBtn();
+}
+
+/* ---------- Chỉnh sửa nội dung như Notion — tự lưu khi tắt trang ---------- */
+let editing=false, dirty=false, saveTimer=null, lastSavedJSON="";
+const contentDivs=()=>[...document.querySelectorAll("div.content")];
+
+function cleanHTML(div){
+  const c=div.cloneNode(true);
+  c.querySelectorAll(".chk,.next-tag").forEach(e=>e.remove());
+  c.querySelectorAll("details").forEach(d=>d.removeAttribute("open"));
+  c.querySelectorAll("[contenteditable]").forEach(e=>e.removeAttribute("contenteditable"));
+  c.classList.remove("due");
+  return c.innerHTML;
+}
+function collectContent(){
+  const o={};
+  contentDivs().forEach(d=>o[d.getAttribute("data-sec")]=cleanHTML(d));
+  return o;
+}
+function saveContent(useBeacon){
+  const j=JSON.stringify({sections:collectContent()});
+  if(j===lastSavedJSON) return;
+  if(useBeacon&&navigator.sendBeacon){
+    navigator.sendBeacon("/api/content",new Blob([j],{type:"application/json"}));
+    lastSavedJSON=j;dirty=false;return;
+  }
+  fetch("/api/content",{method:"POST",headers:{"content-type":"application/json"},body:j})
+    .then(()=>{lastSavedJSON=j;dirty=false;toast("💾 Đã lưu nội dung");})
+    .catch(()=>toast("❌ Lưu thất bại"));
+}
+function toggleEdit(){
+  editing=!editing;
+  document.body.classList.toggle("editing",editing);
+  contentDivs().forEach(d=>d.contentEditable=editing?"true":"false");
+  const b=document.getElementById("editBtn");
+  b.textContent=editing?"💾 Xong":"✏️ Sửa";
+  b.classList.toggle("on",editing);
+  if(editing){
+    const act=document.querySelector("section.active");
+    if(act) act.querySelectorAll("details").forEach(d=>d.open=true);
+    toast("✏️ Đang chỉnh sửa — tắt trang sẽ tự lưu");
+  }else{
+    saveContent();
+    decorate();
+  }
+}
+document.addEventListener("input",e=>{
+  if(editing&&e.target.closest&&e.target.closest("div.content")){
+    dirty=true;
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(()=>saveContent(),2000); // tự lưu sau 2s ngừng gõ
+  }
+});
+// tắt tab / chuyển app → tự lưu
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden"&&dirty) saveContent(true);
+});
+window.addEventListener("pagehide",()=>{ if(dirty) saveContent(true); });
+
+async function loadContent(){
+  try{
+    const r=await fetch("/api/content");
+    const data=await r.json();
+    const secs=data.sections||{};
+    contentDivs().forEach(d=>{
+      const h=secs[d.getAttribute("data-sec")];
+      if(!h) return;
+      // Giữ lại toggle mới trong source (index.html) mà bản lưu KV chưa có,
+      // để việc "import bằng cách thêm toggle vào source" luôn hiển thị.
+      const srcTopics=[...d.querySelectorAll(":scope > details[data-track]")];
+      d.innerHTML=h;
+      const have=new Set([...d.querySelectorAll(":scope > details[data-track]")]
+        .map(x=>x.getAttribute("data-track")));
+      srcTopics.forEach(t=>{ if(!have.has(t.getAttribute("data-track"))) d.appendChild(t); });
+    });
+  }catch(e){}
+  lastSavedJSON=JSON.stringify({sections:collectContent()});
+}
+
+/* ===================== Import lecture images → Claude builder ===================== */
+// Local companion server (chạy: node tools/builder.mjs). Chỉ hoạt động khi mở trang qua http://localhost.
+const BUILDER_URL="http://localhost:4545";
+let importImages=[];      // [dataURL]
+let selectedPage=null;    // {key,hash,isNew}
+
+/* Pasted images persist until you remove them or successfully create content.
+   IndexedDB (not localStorage) because base64 screenshots easily exceed the ~5MB localStorage cap. */
+const IMGDB="awslearn-import";
+function _imgStore(mode){return new Promise((ok,bad)=>{const r=indexedDB.open(IMGDB,1);r.onupgradeneeded=()=>r.result.createObjectStore("imgs");r.onerror=()=>bad(r.error);r.onsuccess=()=>{try{ok(r.result.transaction("imgs",mode).objectStore("imgs"));}catch(e){bad(e);}};});}
+async function persistImages(){try{(await _imgStore("readwrite")).put(importImages.slice(),"pending");}catch(e){console.warn("persistImages failed",e);}}
+async function restoreImages(){try{const s=await _imgStore("readonly");return await new Promise(ok=>{const q=s.get("pending");q.onsuccess=()=>ok(Array.isArray(q.result)?q.result:[]);q.onerror=()=>ok([]);});}catch(e){return [];}}
+async function clearPersistedImages(){try{(await _imgStore("readwrite")).delete("pending");}catch(e){}}
+
+function slugify(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"").slice(0,24);}
+
+async function openImport(){
+  selectedPage=null;
+  importImages=await restoreImages();   // keep whatever was pasted earlier
+  document.getElementById("buildStatus").className="";
+  document.getElementById("buildStatus").textContent="";
+  document.getElementById("newPageInput").value="";
+  document.getElementById("newPageInput").classList.remove("on");
+  renderPageChips();
+  renderThumbs();
+  document.getElementById("importModal").classList.add("on");
+  updateBuildBtn();
+  setTimeout(()=>document.getElementById("pasteZone").focus(),50);
+}
+function closeImport(){document.getElementById("importModal").classList.remove("on");}
+
+function renderPageChips(){
+  const box=document.getElementById("pageChips");box.innerHTML="";
+  SECTIONS.forEach(s=>{
+    const c=document.createElement("div");c.className="page-chip";c.textContent=s.icon+" "+s.name;
+    c.onclick=()=>selectPage({key:s.key,hash:s.hash,isNew:false},c);
+    box.appendChild(c);
+  });
+  const nw=document.createElement("div");nw.className="page-chip";nw.textContent="➕ Trang mới";nw.dataset.new="1";
+  nw.onclick=()=>selectPage({isNew:true},nw);
+  box.appendChild(nw);
+}
+function selectPage(p,chip){
+  selectedPage=p;
+  [...document.querySelectorAll("#pageChips .page-chip")].forEach(c=>c.classList.remove("sel"));
+  chip.classList.add("sel");
+  document.getElementById("newPageInput").classList.toggle("on",!!p.isNew);
+  if(p.isNew) setTimeout(()=>document.getElementById("newPageInput").focus(),30);
+  updateBuildBtn();
+}
+
+function addImageFile(file){
+  if(!file||!/^image\//.test(file.type))return;
+  const r=new FileReader();
+  r.onload=()=>{importImages.push(r.result);persistImages();renderThumbs();updateBuildBtn();};
+  r.readAsDataURL(file);
+}
+function renderThumbs(){
+  const box=document.getElementById("thumbs");box.innerHTML="";
+  importImages.forEach((src,i)=>{
+    const d=document.createElement("div");d.className="thumb";
+    d.innerHTML=`<img src="${src}"><button title="Xoá">✕</button>`;
+    d.querySelector("button").onclick=()=>{importImages.splice(i,1);persistImages();renderThumbs();updateBuildBtn();};
+    box.appendChild(d);
+  });
+}
+function updateBuildBtn(){
+  const hasImg=importImages.length>0;
+  const hasPage=selectedPage&&(!selectedPage.isNew || document.getElementById("newPageInput").value.trim());
+  document.getElementById("buildBtn").disabled=!(hasImg&&hasPage);
+}
+
+// Paste / drag-drop / file-pick wiring
+document.addEventListener("paste",e=>{
+  if(!document.getElementById("importModal").classList.contains("on"))return;
+  for(const it of e.clipboardData.items) if(it.type.startsWith("image/")) addImageFile(it.getAsFile());
+});
+document.getElementById("newPageInput").addEventListener("input",updateBuildBtn);
+(function(){
+  const pz=document.getElementById("pasteZone"),fi=document.getElementById("fileInput");
+  pz.onclick=()=>fi.click();
+  fi.onchange=()=>{[...fi.files].forEach(addImageFile);fi.value="";};
+  pz.ondragover=e=>{e.preventDefault();pz.classList.add("drag");};
+  pz.ondragleave=()=>pz.classList.remove("drag");
+  pz.ondrop=e=>{e.preventDefault();pz.classList.remove("drag");[...e.dataTransfer.files].forEach(addImageFile);};
+})();
+
+async function createContent(){
+  const st=document.getElementById("buildStatus");
+  const isNew=!!selectedPage.isNew;
+  const name=isNew?document.getElementById("newPageInput").value.trim():selectedPage.key;
+  const hash=isNew?slugify(name):selectedPage.hash;
+  if(isNew&&!name){st.className="err";st.textContent="Nhập tên trang mới đã nhé.";return;}
+  const payload={section:name,sectionHash:hash,isNew,images:importImages};
+  document.getElementById("buildBtn").disabled=true;
+  st.className="";st.textContent="⏳ Đang gửi ảnh & khởi động Claude…";
+  try{
+    const r=await fetch(BUILDER_URL+"/build",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+    const data=await r.json();
+    if(!r.ok||!data.ok)throw new Error(data.error||"Builder lỗi");
+    importImages=[];clearPersistedImages();renderThumbs();   // consumed → clear the saved batch
+    st.className="ok";
+    st.textContent=`✅ Đã lưu ${data.count} ảnh → Claude đang tạo nội dung trong cửa sổ terminal. Xong thì tải lại trang.`;
+  }catch(e){
+    st.className="err";
+    st.innerHTML=`❌ Không gọi được builder. Hãy chạy <code>node tools/builder.mjs</code> ở thư mục dự án, và mở trang qua <b>http://localhost</b> (wrangler dev). <br><small>${e.message}</small>`;
+  }
+  updateBuildBtn();
+}
+
+route();
+loadContent().then(loadState);
+</script>
+</body>
+</html>
