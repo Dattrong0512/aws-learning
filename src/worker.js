@@ -1,3 +1,5 @@
+import { computeActiveDue, syncTrackedTopics } from "./progress.mjs";
+
 /**
  * AWS Learning – Cloudflare Worker
  * - Serve static site (public/)
@@ -116,22 +118,7 @@ function statusFor(interval) {
 // toggles: [{ title, section }] — gửi lên từ frontend khi tải trang.
 // Toggle nào chưa có trong state → thêm mới ở trạng thái "🆕 Mới", đến hạn ngay.
 function registerToggles(state, toggles) {
-  const today = vnToday();
-  let added = 0;
-  for (const t of toggles || []) {
-    const title = t && t.title;
-    if (!title || state.items[title]) continue; // đã tồn tại → bỏ qua
-    state.items[title] = {
-      section: (t.section || "").trim(),
-      status: "🆕 Mới",
-      interval: 0,
-      last: null,
-      next: today, // đến hạn ngay để bắt đầu học vòng đầu tiên
-      due: false,
-    };
-    added++;
-  }
-  return added;
+  return syncTrackedTopics(state, toggles, vnToday());
 }
 
 // Gộp SEED: lấy bản ghi mới nhất cho mỗi chủ đề
@@ -151,14 +138,7 @@ function seedState() {
 
 // Tính lại toggle nào phải "tô đỏ" (đến hạn ôn)
 function computeDue(state) {
-  const today = vnToday();
-  let n = 0;
-  for (const t of Object.keys(state.items)) {
-    const it = state.items[t];
-    it.due = !!it.next && it.next <= today;
-    if (it.due) n++;
-  }
-  return n;
+  return computeActiveDue(state, vnToday());
 }
 
 async function loadState(env) {
@@ -197,10 +177,10 @@ export default {
       const body = await request.json().catch(() => ({}));
       const toggles = Array.isArray(body.toggles) ? body.toggles : [];
       const state = await loadState(env);
-      const added = registerToggles(state, toggles);
+      const { added, migrated } = registerToggles(state, toggles);
       computeDue(state);
       await saveState(env, state);
-      return json({ today: vnToday(), added, ...state });
+      return json({ today: vnToday(), added, migrated, ...state });
     }
 
     if (url.pathname === "/api/review" && request.method === "POST") {
@@ -223,6 +203,32 @@ export default {
       return json({ ok: true, learned: learned.length, today, ...state });
     }
 
+    // Đổi tên 1 toggle: chuyển thẻ spaced-repetition từ tên cũ → tên mới,
+    // GIỮ NGUYÊN lịch ôn (interval/last/next/status) để không mồ côi bản ghi.
+    if (url.pathname === "/api/rename" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const from = (body.from || "").trim();
+      const to = (body.to || "").trim();
+      const section = typeof body.section === "string" ? body.section.trim() : "";
+      if (!from || !to || from === to) return json({ ok: false, error: "bad names" }, 400);
+      const state = await loadState(env);
+      const it = state.items[from];
+      if (it) {
+        if (!state.items[to]) {
+          state.items[to] = it;                 // giữ nguyên toàn bộ lịch ôn
+          if (section) state.items[to].section = section;
+        }
+        delete state.items[from];               // xoá key cũ → không mồ côi
+      } else if (!state.items[to]) {
+        // Không có bản ghi cũ (vd toggle chưa từng sync) → tạo mới ở trạng thái Mới
+        const today = vnToday();
+        state.items[to] = { section, status: "🆕 Mới", interval: 0, last: null, next: today, due: false };
+      }
+      computeDue(state);
+      await saveState(env, state);
+      return json({ ok: true, from, to, today: vnToday(), ...state });
+    }
+
     // Nội dung page chỉnh sửa được (như Notion) — lưu trong KV
     if (url.pathname === "/api/content") {
       const CONTENT_KEY = "content-v1";
@@ -236,10 +242,20 @@ export default {
         catch { body = JSON.parse(await request.text() || "{}"); }
         const incoming = (body && body.sections) || {};
         const cur = (await env.SR.get(CONTENT_KEY, "json")) || { sections: {} };
-        Object.assign(cur.sections, incoming);
+        // A `null` value for a section means "delete its saved snapshot" so the
+        // fresh source HTML (e.g. a freshly-imported / reorganized section) becomes
+        // authoritative again. Any other value overwrites the snapshot as before.
+        const removed = [];
+        for (const [k, v] of Object.entries(incoming)) {
+          if (v === null) { delete cur.sections[k]; removed.push(k); }
+          else cur.sections[k] = v;
+        }
+        // Persist the content schema so clients can safely ignore old snapshots
+        // whose fragmented markup would otherwise overwrite the grouped source HTML.
+        if (typeof body?.version === "string") cur.version = body.version;
         cur.updated = new Date().toISOString();
         await env.SR.put(CONTENT_KEY, JSON.stringify(cur));
-        return json({ ok: true, saved: Object.keys(incoming) });
+        return json({ ok: true, saved: Object.keys(incoming).filter((k) => !removed.includes(k)), removed });
       }
     }
 

@@ -29,7 +29,7 @@ if errorlevel 1 (
   echo.
 )
 
-echo   [1/3] Starting content builder (port 4545)...
+echo   [1/3] Starting content builder (port 47450)...
 start "AWS Content Builder" cmd /k "node tools\builder.mjs"
 
 echo   [2/3] Starting wrangler dev --remote (shared KV = sync)...
@@ -37,7 +37,7 @@ start "AWS Wrangler (dev --remote)" cmd /k "npx --yes wrangler dev --remote"
 
 echo   [3/3] Opening the site once the servers are up...
 timeout /t 9 /nobreak >nul
-start "" "http://localhost:8787"
+start "" "http://localhost:8788"
 
 echo.
 echo   Done. Two terminal windows are now running.

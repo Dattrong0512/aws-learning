@@ -1,37 +1,69 @@
-# AWS Learning — Import & Tracking Guide (for Claude)
+# AWS Learning — Import & Tracking Guide
 
 A Cloudflare Worker that serves a Notion-style single-page study site (`public/index.html`)
 with a built-in **spaced-repetition** tracker (state stored in Workers KV, namespace `SR`).
 
 - `public/index.html` — the whole study page (content + UI + client JS).
 - `src/worker.js` — API + cron + static serving. Holds the initial `SEED` and the SR algorithm.
-- Content is organized into **sections**; each study item is a **toggle** (`<details>`).
+- Content is organized into **sections**; each major study concept/service is one tracked
+  **toggle** (`<details>`). Features normally remain headings inside that toggle.
 
 ---
 
 ## Run it & sync between machines (company ↔ home)
 
-**One double-click:** open **`AWS Learning`** (the icon in this folder, or on the Desktop).
-It runs `Start AWS Learning.cmd`, which launches two windows — the content builder and
-`wrangler dev --remote` — and opens the site at `http://localhost:8787`.
+**Nothing to click — it runs at login.** The two servers (content builder +
+`wrangler dev`) start **hidden in the background** every time you log in, via a
+Startup-folder shortcut. No terminal windows appear. Open the site whenever you want at
+`http://localhost:8788`.
+
+- `tools/aws-learning-background.vbs` — the silent launcher (starts both servers with hidden windows).
+- **`Enable Auto-Start.cmd`** — run once per machine: registers the login entry, starts the servers now, and removes the old click-to-run icons.
+- **`Disable Auto-Start.cmd`** — removes the login entry on this machine.
+- **`Stop AWS Learning.cmd`** — stops the hidden servers (they have no window to close).
+- `Start AWS Learning.cmd` — optional manual launch that opens the two servers in *visible* windows (fallback/debugging).
+
+**If the site doesn't load, read the logs first.** The background servers have no window, so
+their output (including fatal errors) goes to `tools/logs/builder.log` and `tools/logs/wrangler.log`.
+The most common failure by far: Cloudflare credentials expire → `wrangler dev` can't reach the
+remote KV and the site is silently dead. Fix with `npx wrangler login`, then re-run
+`Enable Auto-Start.cmd` (or just log out and back in).
+
+A healthy start logs this binding table — check the **Mode** column first when debugging:
+
+```
+env.SR (…)     KV Namespace   remote     ← progress syncs between machines
+env.ASSETS     Assets         local
+⎔ Starting local server...
+[wrangler:info] Ready on http://127.0.0.1:8788
+```
+
+If you instead see `⎔ Starting remote preview...` / `Preview token expired`, something has
+re-added `--remote` — see the warning below.
 
 **First-time setup on each machine (one-off):**
 1. Install [Node.js](https://nodejs.org) and Claude Code (the `claude` CLI must be on `PATH`).
-2. `npx wrangler login` (needed once so `--remote` can reach your Cloudflare account).
-3. Double-click **`Create Desktop Icon.cmd`** to generate the `AWS Learning` shortcut with an icon.
+2. `npx wrangler login` (needed once so the remote KV binding can reach your Cloudflare account).
+3. Double-click **`Enable Auto-Start.cmd`** — from then on the servers launch silently at every login.
 
 **How the two things sync — no manual copying:**
 
 | What | Where it lives | How it syncs |
 |------|----------------|--------------|
 | Learning content (toggles in `index.html`) | This folder | **OneDrive** — same folder on both machines |
-| Review progress (intervals, due dates) | Cloudflare **KV** (`SR`) | **`wrangler dev --remote`** uses the *same* production KV namespace everywhere (`id` = `preview_id` in `wrangler.jsonc`) |
+| Review progress (intervals, due dates) | Cloudflare **KV** (`SR`) | the `SR` binding is marked **`"remote": true`** in `wrangler.jsonc`, so every machine reads/writes the *same* production KV namespace |
 
 So: import/study on the company machine → OneDrive syncs the code and KV holds the progress →
-open `AWS Learning` at home and you're on the same content and the same review schedule.
+log in at home and the servers are already running, on the same content and review schedule.
 
-> ⚠️ Use the launcher (`wrangler dev **--remote**`), **not** plain `wrangler dev`. Plain dev uses an
-> isolated *local* KV that would NOT sync — progress would diverge between machines.
+> ⚠️ **Never add `--remote` to the launcher.** It looks like the flag that makes KV sync — it isn't.
+> Syncing comes from `"remote": true` on the `SR` binding in `wrangler.jsonc`, which keeps the Worker
+> running *locally* while KV stays production. `--remote` instead moves the whole Worker onto
+> Cloudflare's preview edge, whose session token expires after a while; the hidden process then stops
+> serving `:8788` **without exiting and without logging an error**. The symptom is
+> `ERR_CONNECTION_REFUSED` on a site that "was working an hour ago", usually noticed right after an
+> import — which is a coincidence of timing, not the cause. (This was the bug: `wrangler.jsonc` had
+> been migrated to remote bindings but `tools/aws-learning-background.vbs` still passed `--remote`.)
 
 > Note: the git `origin` points at the private backup repo (`Dattrong0512/aws-learning`).
 > OneDrive + KV remains the primary sync path between machines; `git push` is for backup/history.
@@ -46,8 +78,9 @@ open `AWS Learning` at home and you're on the same content and the same review s
 Every trackable study item is a toggle whose title carries a `data-track` attribute:
 
 ```html
-<details class="topic" data-track="EC2 Security Groups">
-  <summary>EC2 Security Groups</summary>
+<details class="topic" data-track="EC2 networking, Security Groups & IAM"
+         data-progress-aliases="Security Groups|Elastic IP|Elastic Network Interfaces (ENI)">
+  <summary><span class="t-title">EC2 networking, Security Groups & IAM</span></summary>
   <div class="body">
     ... content ...
   </div>
@@ -56,14 +89,17 @@ Every trackable study item is a toggle whose title carries a `data-track` attrib
 
 - **`data-track="…"` is the tracking key.** It links the toggle to its spaced-repetition record.
 - The value must be **unique across the whole page** and should match the `<summary>` text.
+- **`data-progress-aliases` preserves old tracking keys after grouping.** Separate legacy titles
+  with `|`. The worker migrates the most urgent old review record into the canonical topic once,
+  retains the old records with `mergedInto`, and never postpones an existing review.
 - **No `data-track` → not tracked.** A toggle without it renders but never enters the review schedule.
 
 ### Auto-import (how new toggles get tracked)
 
 You do **not** edit the `SEED` array to add topics. On every page load the client scans all
-`[data-track]` elements and `POST`s them to `/api/sync`. The worker adds any **new** title to the
-KV database as `🆕 Mới` (interval 0, due today) so spaced repetition starts tracking it immediately.
-Existing titles are left untouched.
+`[data-track]` elements and `POST`s their title, section and aliases to `/api/sync`. The worker adds
+a genuinely **new** title as `🆕 Mới`; grouped topics instead aggregate compatible legacy state.
+Merged legacy records remain stored for rollback/audit but no longer inflate due counters.
 
 > So: **add a toggle with a fresh `data-track`, deploy, open the page once → it's now in the schedule.**
 
@@ -71,44 +107,55 @@ Existing titles are left untouched.
 
 ## Import from lecture images (🖼️ "Nhập ảnh" feature)
 
-The site can turn screenshots of lectures into study toggles using Claude. Because a Cloudflare
+The site can turn screenshots of lectures into study toggles using a selectable Claude or Codex
+coding agent. Because a Cloudflare
 Worker can't spawn a terminal, a tiny local companion server (`tools/builder.mjs`) does the work.
 
 **How to use it:**
 
 1. Run both servers from the project root:
    ```bash
-   npx wrangler dev            # serves the site at http://localhost:8787
-   node tools/builder.mjs      # companion server at http://localhost:4545
+   npx wrangler dev            # serves the site at http://localhost:8788
+   node tools/builder.mjs      # companion server at http://localhost:47450
    ```
-2. Open **http://localhost:8787** (must be `http://localhost` — the browser blocks calls to the
+2. Open **http://localhost:8788** (must be `http://localhost` — the browser blocks calls to the
    local builder from an `https://` deployed page).
 3. **Double-click** the `🖼️ Nhập ảnh` icon in the top bar.
 4. Paste lecture images (Ctrl+V), drag-drop, or pick files.
 5. Choose an existing page (IAM / EC2 / …) or `➕ Trang mới` and type a new page name.
-6. Click **🚀 Tạo nội dung**.
+6. Click **🚀 Tạo nội dung**, then choose an agent: **Codex** is the default
+   (`gpt-5.6-terra` with high reasoning); **Claude** uses `claude-opus-4-8`.
 
 The builder saves the images to `tools/inbox/<page>-<timestamp>/`, writes a prompt, and opens a
-**new PowerShell window** running `claude -p --model claude-opus-4-8 --permission-mode acceptEdits`.
-Claude reads the images and adds toggles to that page in `public/index.html` (recreating diagrams as
-HTML/SVG, concise-but-exam-complete Vietnamese for SAA-C03). When Claude finishes successfully, the
-same window automatically runs **`npx wrangler deploy`** to publish the new content to Cloudflare
-(skipped if Claude fails). Then **reload the site** — `/api/sync` registers the new toggles into the
-review schedule automatically.
+**new PowerShell window** running the selected CLI. Claude runs
+`claude -p --model claude-opus-4-8 --permission-mode acceptEdits`; Codex runs
+`codex exec --model gpt-5.6-terra -c model_reasoning_effort="high"` in full-access mode.
+The selected agent interprets every image in the batch together, merges related material into an
+existing major topic when possible, and edits `public/index.html`. Before the agent starts, the
+builder saves `index.before.html`; after it finishes, `tools/validate-import.mjs` checks the result.
+An agent/validation failure restores the backup and skips deployment. A valid result is deployed,
+then the target page's saved content snapshot is cleared so source content becomes authoritative.
 
-**When Claude is invoked by the builder, its prompt already instructs it to:** read `CLAUDE.md`,
-read every image, add one toggle per concept with a unique `data-track`, recreate diagrams/tables as
-code, write concise Vietnamese SAA-C03 content, and edit only `public/index.html`. Follow those
-instructions and the conventions below.
+**When an agent is invoked by the builder, its prompt already instructs it to:** treat all screenshots
+as one conceptual context, reorganize rather than transcribe, merge by AWS service, preserve the
+matching topic's `data-track`, include **Mục đích** and practical **Use cases**, retain useful
+comparison tables and exact technical values, interpret diagrams, avoid cheat-sheet sections,
+validate the HTML, and edit only `public/index.html`.
 
-- `BUILDER_DRYRUN=1 node tools/builder.mjs` saves images + prompt but skips launching Claude (for testing).
-- Config lives at the top of `public/index.html` (`BUILDER_URL`) and `tools/builder.mjs` (`PORT`, `MODEL`).
+- `BUILDER_DRYRUN=1 node tools/builder.mjs` saves images + prompt but skips launching the selected agent (for testing).
+- Config lives at the top of `public/index.html` (`BUILDER_PORTS`) and `tools/builder.mjs` (`PORTS`, `MODEL`).
+  The builder listens on **47450** (IANA dynamic range — not a registered service port, so it doesn't
+  clash with other dev tools) and falls back to 47451–47453 if that one is busy. The page probes
+  `/health` on the same list and uses whichever answers `service: "aws-learning-builder"`, so the two
+  never need to agree on a single fixed port. To force a port: `BUILDER_PORT=48000 node tools/builder.mjs`
+  (then add it to `BUILDER_PORTS` in `public/index.html`).
 
 ---
 
-## How to import content (manually)
+## How to import or update content manually
 
-To import a new study item, add a toggle into the right section's `<div class="content" data-sec="…">`.
+First find the matching major service/topic and update its body. Add another toggle only when the
+material is genuinely distinct. Aim for roughly 3–6 major toggles per page (S3 may need more).
 
 Sections and their `data-sec` / `data-track` section keys:
 
@@ -122,39 +169,29 @@ Sections and their `data-sec` / `data-track` section keys:
 ### Steps
 
 1. Find the target section by its `data-sec` in `public/index.html`.
-2. Add a **top-level topic toggle** inside that `div.content`:
+2. Prefer updating an existing top-level topic. A genuinely new one looks like:
 
 ```html
-<details class="topic" data-track="Amazon EFS – Elastic File System">
-  <summary>Amazon EFS – Elastic File System</summary>
+<details class="topic" data-track="Amazon EFS" data-progress-aliases="">
+  <summary><span class="t-title">Amazon EFS</span></summary>
   <div class="body">
-    <h3>EFS là gì?</h3>
-    <p>...</p>
+    <p><strong>Mục đích:</strong> ...</p>
+    <ul>...</ul>
+    <p><strong>Use cases:</strong></p>
+    <ul>...</ul>
   </div>
 </details>
 ```
 
-3. Give it a **unique** `data-track` (this is the review-schedule key — do not reuse an existing one).
+3. Give a new topic a unique `data-track` and `data-progress-aliases=""`. When consolidating old
+   topics, list every replaced old key in `data-progress-aliases` exactly once.
 4. Deploy (`npx wrangler deploy`) and open the site once so `/api/sync` registers it.
 
-### Nested sub-toggles
+### Topic granularity
 
-A topic can contain sub-toggles. Each sub-toggle can **also** be tracked independently — just give it
-its own unique `data-track`:
-
-```html
-<details class="topic" data-track="EBS Volume Types">
-  <summary>EBS Volume Types</summary>
-  <div class="body">
-    <details class="sub" data-track="EBS – gp3 vs gp2">
-      <summary>gp3 vs gp2</summary>
-      <div class="body">...</div>
-    </details>
-  </div>
-</details>
-```
-
-Use `class="topic"` for section-level items and `class="sub"` for nested ones.
+Do not turn each screenshot or small feature into another tracked/nested toggle. Use normal
+`<h3>`, `<h4>`, paragraphs, lists and focused tables inside the major service toggle. For example,
+SNS filtering, FIFO and SNS+SQS normally belong inside one `Amazon SNS` topic.
 
 ### Content formatting conventions (inside `.body`)
 
@@ -163,9 +200,20 @@ Match the existing page style:
 - `<p>` for prose, `<ul>/<li>` for bullets
 - `<table>…<tr><td>` for comparisons (see existing port/type tables)
 - `<pre><code>…</code></pre>` for commands / config
-- `<blockquote>` for tips / "ghi nhớ" notes
+- `<blockquote>` only where a warning or architectural constraint materially benefits from it
 - `<hr>` to separate blocks
 - Write content in **Vietnamese** to match the rest of the site.
+- Start major services with `<p><strong>Mục đích:</strong> ...</p>`.
+- Include `<p><strong>Use cases:</strong></p>` with concrete architecture-oriented examples.
+- Match the richer existing-topic rhythm: Mục đích + a compact 4–8 bullet overview, descriptive
+  `<h3>` sections for substantial concepts, and `<h4>` for mechanisms/constraints/sub-comparisons.
+  Integrate the old summary instead of repeating it before a second detailed explanation.
+- Keep exact source values such as limits, percentages, timeouts, throughput, IOPS, sizes, ports,
+  supported modes/families and AZ/Region scope. Do not collapse a useful comparison table into
+  generic prose merely to shorten a grouped topic.
+- Treat legible table cells, diagram annotations, footnotes and exceptions as source facts that
+  must be represented in the rewritten topic, not discarded after extracting only the headline.
+- Do not add “Dấu hiệu đề thi”, keyword lists, “Mẹo nhớ” or hidden full-explanation wrappers.
 
 ---
 
@@ -190,7 +238,7 @@ Match the existing page style:
 | Method & path        | Purpose                                                              |
 |----------------------|---------------------------------------------------------------------|
 | `GET  /api/state`    | Current SR state (read-only).                                        |
-| `POST /api/sync`     | Send `{toggles:[{title,section}]}` → **auto-imports new toggles**.   |
+| `POST /api/sync`     | Send `{toggles:[{title,section,aliases}]}` → add/migrate topics.    |
 | `POST /api/review`   | `{learned:[title,…]}` → advance interval / reschedule.              |
 | `GET/POST /api/content` | Live page edits persisted in KV (`content-v1`).                  |
 | `POST /api/reset`    | Reseed SR state from `SEED`.                                         |
@@ -199,16 +247,11 @@ Match the existing page style:
 
 ## Gotcha: live edits vs. source imports
 
-The page supports in-browser editing (`/api/content` saves each section's HTML to KV, key `content-v1`).
-On load, saved KV content **replaces** the source HTML for that section. To keep imports reliable,
-`loadContent()` re-injects any **top-level** source toggle whose `data-track` is missing from the KV
-snapshot — so a topic you add to `index.html` still shows even if the section was previously edited live.
-
-Caveats:
-- A re-injected toggle is appended at the **end** of its section (position from source isn't preserved).
-- This only rescues **top-level** topics. If you add a **sub-toggle** inside a topic that has a saved KV
-  snapshot, it may be hidden. In that case either add it via the live editor, or `POST /api/reset` is not
-  enough (that only resets SR state) — clear/overwrite the section's `content-v1` entry instead.
+The page supports in-browser editing (`/api/content` uses KV key `content-v1`). Content snapshots now
+carry schema `grouped-v2`; older fragmented/compact snapshots are ignored so they cannot overwrite
+the refactored source. Spaced-repetition state lives in a separate KV key and is not reset by this
+content schema. After a successful screenshot import, the builder clears only the target section's
+content snapshot; `/api/sync` then preserves or migrates review progress through tracking aliases.
 
 ---
 

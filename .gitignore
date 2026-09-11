@@ -1,6 +1,19 @@
 # Pasted lecture images + generated prompts (local authoring only)
 tools/inbox/
 
+# Runtime logs from the hidden background servers (machine-specific)
+tools/logs/
+
+# Local agent indexes, editor state, sync backups and account selection
+.cf-account
+.codegraph/
+.cursor/
+.serena/
+.sync-backups/
+
+# Course source decks are local reference material, not application source
+*.pdf
+
 # Wrangler / build
 .wrangler/
 node_modules/

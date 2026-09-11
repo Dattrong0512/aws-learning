@@ -11,14 +11,24 @@
     {
       "binding": "SR",
       "id": "d946c6f1e85f4656b2781cb3939fb656",
-      // Same as id → `wrangler dev --remote` on any machine shares the SAME
-      // KV namespace, so review progress syncs between company & home.
-      "preview_id": "d946c6f1e85f4656b2781cb3939fb656"
+      // Same id everywhere → the SAME KV namespace, so review progress syncs
+      // between company & home.
+      "preview_id": "d946c6f1e85f4656b2781cb3939fb656",
+      // Run plain `wrangler dev` (local worker, fast, reliable) but bind this KV
+      // to the REAL remote namespace. Replaces `wrangler dev --remote`, which put
+      // the whole Worker on Cloudflare's preview edge and caused Error 1031
+      // ("Invalid Workers Preview configuration"). Local worker + remote KV = sync
+      // without the flaky preview session.
+      "remote": true
     }
   ],
   "triggers": {
     // 22:00 UTC = 05:00 sáng giờ Việt Nam (UTC+7)
     "crons": ["0 22 * * *"]
+  },
+  "dev": {
+    // Serve the local site on 8788 (avoids a clash with another process on 8787).
+    "port": 8788
   },
   "observability": { "enabled": true }
 }
