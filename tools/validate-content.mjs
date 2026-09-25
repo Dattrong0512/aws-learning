@@ -15,13 +15,17 @@ const expectedCounts = {
   ebs: 3,
   alb: 6,
   rdsauroraelasticcache: 6,
+  databases: 3,
   route53: 4,
   s3: 8,
   awsstorageextras: 5,
   cloudfrontawsglobalaccel: 4,
   sqssnskinesisactivemq: 6,
   ecsfargateecreks: 4,
-  severlessoverview: 3,
+  severlessoverview: 6,
+  dataanalytics: 8,
+  machinelearning: 6,
+  awsmonitoringauditcloudw: 4,
   manageaccess: 0,
 };
 
@@ -63,7 +67,7 @@ for (let index = 0; index < sectionMatches.length; index++) {
 
 }
 
-assert.equal(allTracks.length, 57, "total topic count must remain at the refactored baseline");
+assert.equal(allTracks.length, 81, "total topic count must remain at the refactored baseline");
 assert.equal(new Set(allTracks).size, allTracks.length, "data-track values must be unique");
 assert.equal(coveredLegacyKeys.length, 239, "all original, imported and historical grouped progress keys must be mapped exactly once");
 assert.equal(new Set(coveredLegacyKeys).size, coveredLegacyKeys.length, "legacy progress aliases must be unique");
@@ -90,7 +94,7 @@ const accessStart = normalized.indexOf(accessMarker, serverlessStart);
 const suffixStart = normalized.indexOf(suffixMarker, accessStart);
 const shortHash = (value) => createHash("sha256").update(value).digest("hex").slice(0, 12);
 assert.equal(shortHash(normalized.slice(ecsStart, serverlessStart)), "57dbe5d171cf", "ECS page changed unexpectedly");
-assert.equal(shortHash(normalized.slice(serverlessStart, accessStart)), "3927661f95f7", "Serverless page changed unexpectedly");
-assert.equal(shortHash(normalized.slice(accessStart, suffixStart)), "6c472a81fd0b", "Manage Access page changed unexpectedly");
+assert.equal(shortHash(normalized.slice(serverlessStart, accessStart)), "304ce7bc6911", "Serverless page changed unexpectedly");
+assert.equal(shortHash(normalized.slice(accessStart, suffixStart)), "d3a2a29fb35c", "Manage Access page changed unexpectedly");
 
 console.log(`Content validation passed: ${sectionMatches.length} sections, ${allTracks.length} topics, 190 original + 49 imported/historical progress keys mapped.`);

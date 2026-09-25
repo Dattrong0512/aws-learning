@@ -54,6 +54,7 @@
   .modal label.lbl{font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.03em}
   .paste-zone{border:2px dashed var(--border);border-radius:10px;padding:22px;text-align:center;color:#888;cursor:pointer;transition:.15s}
   .paste-zone:hover,.paste-zone.drag{border-color:var(--blue);background:#f0f6ff;color:var(--blue)}
+  .capture-status{margin-top:8px;color:#0a7d33;font-size:13px;font-weight:700}
   .thumbs{display:flex;flex-wrap:wrap;gap:8px}
   .thumb{position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
   .thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
@@ -150,6 +151,7 @@
           📋 Nhấp vào đây rồi <b>Ctrl+V</b> để dán ảnh · hoặc kéo-thả · hoặc bấm để chọn file
           <input id="fileInput" type="file" accept="image/*" multiple hidden>
         </div>
+        <div id="captureStatus" class="capture-status" hidden></div>
         <div id="thumbs" class="thumbs" style="margin-top:10px"></div>
       </div>
       <div>
@@ -2841,6 +2843,105 @@
     </div>
   </section>
 
+  <section class="section" id="sec-databases">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>🗃️ <span class="sec-title" data-sec-title="Databases">Databases</span></h2>
+    <div class="content" data-sec="databases">
+      <details class="topic" data-track="Amazon DocumentDB" data-progress-aliases="">
+        <summary><span class="t-title">Amazon DocumentDB</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon DocumentDB là database documents được quản lý hoàn toàn, tương thích API MongoDB, để lưu, query và index dữ liệu JSON mà không phải tự vận hành MongoDB cluster.</p>
+          <ul>
+            <li>Phù hợp với dữ liệu có schema linh hoạt: mỗi document có thể có tập field khác nhau, thay vì ràng buộc bảng/cột của relational database.</li>
+            <li>Ứng dụng dùng MongoDB drivers và ngôn ngữ truy vấn tương thích; đây là dịch vụ AWS tương thích MongoDB, không phải MongoDB tự quản lý.</li>
+            <li>Triển khai theo cluster managed: AWS lo provisioning, patching, backup và replication; application vẫn phải thiết kế document, index và query hiệu quả.</li>
+            <li>Theo slide, service có replication trên <strong>3 AZ</strong>, storage tự tăng theo increment <strong>10 GB</strong>, và có thể tự scale cho workload đến hàng triệu request/giây.</li>
+            <li>Đặt workload trong VPC; quyền quản lý service bằng IAM khác với quyền đọc/ghi document của database user hoặc IAM database authentication khi được hỗ trợ.</li>
+          </ul>
+          <p><strong>Luồng:</strong> Application dùng MongoDB-compatible driver → DocumentDB cluster → document JSON được lưu/index và replicated qua các AZ → application query document theo index.</p>
+          <h3>Document database và MongoDB compatibility</h3>
+          <p>DocumentDB hướng tới ứng dụng cần mô hình document thay đổi nhanh, ví dụ record profile, product catalog hay event metadata. JSON document gom dữ liệu liên quan trong một record nên app không phải join nhiều bảng cho mọi lần đọc; đổi lại, cần cân nhắc duplication và cách tạo index cho query thực tế.</p>
+          <h4>Chọn đúng loại database</h4>
+          <table>
+            <tr><th>Nhu cầu</th><th>Lựa chọn phù hợp</th><th>Lý do</th></tr>
+            <tr><td>Transaction SQL, quan hệ rõ ràng, join</td><td>RDS / Aurora</td><td>Relational model và SQL.</td></tr>
+            <tr><td>JSON document, API/driver MongoDB-compatible</td><td>DocumentDB</td><td>Managed document database với mô hình dữ liệu linh hoạt.</td></tr>
+            <tr><td>Quan hệ nhiều-nhiều cần traverse sâu</td><td>Neptune</td><td>Graph database tối ưu cho relationship, không phải document lookup.</td></tr>
+          </table>
+          <h3>Vận hành, availability và scale</h3>
+          <p>Khái niệm triển khai gần với Aurora ở chỗ application kết nối tới managed cluster thay vì từng node tự cài đặt. Replication qua 3 AZ nhằm tăng availability; storage tăng tự động theo mức sử dụng nên không cần provision trước toàn bộ capacity. Con số increment 10 GB và khả năng hàng triệu request/giây là thông tin theo slide, dùng để nhận diện đặc tính managed, elastic của service thay vì thay cho capacity planning hoặc quota hiện hành.</p>
+          <h4>Điều application vẫn chịu trách nhiệm</h4>
+          <ul>
+            <li>Tạo index đúng cho query; managed database không tự biến full scan thành query nhanh.</li>
+            <li>Chọn data model phù hợp và kiểm tra mức tương thích của MongoDB feature/driver mà ứng dụng thực sự dùng.</li>
+            <li>Giới hạn network bằng Security Group, kết nối TLS, quản lý database role/credential hoặc IAM authentication phù hợp.</li>
+          </ul>
+          <p><strong>Use cases:</strong></p>
+          <ul><li>Product catalog hoặc CMS có thuộc tính khác nhau giữa từng sản phẩm/bài viết.</li><li>Ứng dụng web/mobile đang dùng MongoDB-compatible driver nhưng muốn AWS quản lý cluster, backup và replication.</li><li>Lưu user profile, session metadata hoặc event document cần query theo field đã index.</li></ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Neptune" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Neptune</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Neptune là managed graph database cho dữ liệu có quan hệ dày đặc, giúp truy vấn đường đi và pattern giữa thực thể hiệu quả thay vì phải join hoặc self-join nhiều bảng.</p>
+          <ul>
+            <li>Graph biểu diễn <strong>vertex/node</strong> (User, Post, Product) và <strong>edge</strong> có nhãn (friends, likes, bought); giá trị nằm trên node hoặc edge.</li>
+            <li>Ví dụ social network: user có friend, post có comment, comment nhận like từ user và user share/like post. Giá trị chính là relationship, không chỉ từng record riêng lẻ.</li>
+            <li>Neptune được AWS quản lý hoàn toàn và theo slide có high availability qua <strong>3 AZ</strong>, tối đa <strong>15 read replicas</strong>.</li>
+            <li>Theo slide, Neptune có thể lưu tới hàng tỷ relationship và xử lý graph query với millisecond latency; đây là đặc tính để nhận diện workload graph, không phải cam kết latency cho mọi query.</li>
+            <li>Neptune Streams ghi lại thay đổi graph theo thứ tự để workload downstream phản ứng hoặc đồng bộ dữ liệu.</li>
+          </ul>
+          <h3>Graph data model và khi nào dùng</h3>
+          <p>Neptune tối ưu khi câu hỏi bắt đầu từ một thực thể rồi đi qua nhiều relationship: “bạn của người này đã thích sản phẩm nào?”, “tài khoản nào có đường liên hệ với giao dịch gian lận?”, hoặc “service nào phụ thuộc service đang lỗi?”. Với lookup document đơn giản, DocumentDB thường tự nhiên hơn; với aggregate time-ordered measurements, Timestream phù hợp hơn.</p>
+          <h4>Use case graph điển hình</h4>
+          <ul>
+            <li><strong>Knowledge graph:</strong> liên kết entity, fact và nguồn tham chiếu như Wikipedia.</li>
+            <li><strong>Fraud detection:</strong> lần theo thiết bị, account, địa chỉ và transaction có liên hệ bất thường.</li>
+            <li><strong>Recommendation/social networking:</strong> traverse friend, interaction và product relation để tìm kết nối hay gợi ý.</li>
+          </ul>
+          <h3>Availability, read scale và network</h3>
+          <p>Writer xử lý thay đổi graph; read replicas giúp mở rộng workload đọc. Replication đa AZ hướng tới availability, còn replica chủ yếu phục vụ read scale—application cần chọn endpoint/query path phù hợp. Neptune thường được đặt private trong VPC; Security Group kiểm soát kết nối đến database endpoint, còn IAM có thể kiểm soát cả API quản trị và data-plane khi bật IAM database authentication.</p>
+          <h3>Neptune Streams — change data capture của graph</h3>
+          <p>Streams là chuỗi thay đổi graph <strong>real-time, ordered</strong>. Thay đổi có ngay sau khi ghi, không duplicate và được đọc theo strict order qua HTTP REST API. Vì vậy consumer không cần polling toàn bộ graph để biết node/edge nào vừa thay đổi.</p>
+          <p><strong>Luồng:</strong> Writer ghi node/edge vào Neptune Cluster → Neptune Streams phát record thay đổi theo thứ tự → reader application (ví dụ Lambda) gọi Streams API → gửi notification hoặc đồng bộ sang S3, OpenSearch hay ElastiCache.</p>
+          <h4>Hai kiểu xử lý downstream</h4>
+          <ul>
+            <li><strong>Notification:</strong> consumer nhận sự kiện khi relationship/thuộc tính quan trọng thay đổi, rồi gọi service gửi thông báo.</li>
+            <li><strong>Materialized copy:</strong> consumer cập nhật search index, cache hoặc data lake để hệ thống khác đọc theo access pattern riêng mà không tải query đó lên graph database.</li>
+          </ul>
+          <p><strong>Use cases:</strong></p>
+          <ul><li>Recommendation engine truy vấn quan hệ user–item nhiều tầng.</li><li>Fraud investigation cần trace liên kết giữa transaction, account và device.</li><li>Neptune Streams kích hoạt Lambda để cập nhật OpenSearch cache/search index hoặc lưu bản thay đổi xuống S3.</li></ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Timestream" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Timestream</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Timestream for LiveAnalytics là serverless time series database để ingest, lưu và phân tích measurement gắn timestamp—như telemetry IoT, metric vận hành và event theo thời gian—mà không phải quản lý server hay capacity.</p>
+          <ul>
+            <li>Serverless, fully managed và tự scale up/down theo capacity cần thiết.</li>
+            <li>Theo slide, service có thể store/analyze hàng nghìn tỷ event mỗi ngày; tuyên bố “nhanh hơn hàng nghìn lần và bằng 1/10 chi phí relational database” là benchmark/marketing theo slide, phụ thuộc workload.</li>
+            <li>Hỗ trợ SQL compatibility, scheduled queries và <strong>multi-measure records</strong> để ghi nhiều measurement cùng timestamp/dimension trong một record.</li>
+            <li>Storage tiering tự động: dữ liệu gần đây ở memory store để truy vấn nhanh; dữ liệu lịch sử chuyển sang storage tối ưu chi phí.</li>
+            <li>Có built-in time series analytics functions để tìm pattern gần real-time; encryption được hỗ trợ khi truyền và khi lưu.</li>
+          </ul>
+          <h3>Time series model</h3>
+          <p>Mỗi record thường gồm <strong>timestamp</strong>, dimensions mô tả nguồn (deviceId, region, host) và measures như temperature, CPU hoặc latency. Time là trục chính của query: lọc khoảng thời gian, group theo window, tính aggregate hoặc phát hiện trend. Đừng dùng Timestream như transactional database cho order/customer—nó tối ưu write-heavy measurement và phân tích theo thời gian.</p>
+          <h4>Multi-measure records</h4>
+          <p>Nếu cùng một device tại một thời điểm phát ra temperature, humidity và battery, multi-measure record chứa các value đó cùng timestamp và dimensions. Cách này giảm số record/API write so với tách từng measure, khi các measurement thực sự có cùng time và metadata.</p>
+          <h3>Memory store, historical tier và analytics</h3>
+          <p>Recent data giữ ở memory store để dashboard và operational query phản hồi nhanh. Historical data được chuyển sang tier tối ưu chi phí, nên vẫn query được dữ liệu dài hạn mà không giữ toàn bộ ở lớp nóng. Scheduled query có thể định kỳ aggregate raw events thành bảng summary, ví dụ CPU trung bình theo host mỗi 5 phút, cho dashboard/alert workflow.</p>
+          <p><strong>Luồng:</strong> IoT device hoặc application → Timestream Write API → recent measurements ở memory store → tiering sang historical storage → SQL/scheduled query tạo aggregate cho dashboard, alert hoặc real-time analytics.</p>
+          <h3>Thiết kế access và private connectivity</h3>
+          <p>Producer và query client gọi API bằng AWS credentials; workload trên Lambda, ECS hoặc EC2 nên dùng IAM role thay vì access key tĩnh. Khi cần private path từ VPC, Timestream for LiveAnalytics dùng Interface VPC Endpoint; Write và Query cần endpoint riêng theo Timestream cell, vì hai API có endpoint tách biệt.</p>
+          <p><strong>Use cases:</strong></p>
+          <ul><li>IoT fleet ghi temperature, location, battery và chạy cảnh báo khi measurement vượt ngưỡng.</li><li>Operational monitoring lưu CPU, latency, error count và vẽ dashboard near real-time.</li><li>Ứng dụng phân tích clickstream hoặc financial events theo time window, với summary được tạo bởi scheduled queries.</li></ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
   <section class="section" id="sec-route53">
     <span class="back" onclick="location.hash=''">← AWS</span>
     <h2>🌐 <span class="sec-title" data-sec-title="Route 53">Route 53</span></h2>
@@ -5529,20 +5630,19 @@ Container chạy từ image trong registry (ECR)</code></pre>
       <details class="topic" data-track="Amazon DynamoDB" data-progress-aliases="">
         <summary><span class="t-title">Amazon DynamoDB</span></summary>
         <div class="body">
-          <p><strong>Mục đích:</strong> Amazon DynamoDB là database NoSQL serverless, fully managed cho workload cần latency ổn định ở mức single-digit millisecond và scale lớn mà không phải quản trị server, patch hay replica thủ công.</p>
+          <p><strong>Mục đích:</strong> Amazon DynamoDB là database NoSQL serverless, fully managed cho workload cần latency ổn định ở mức single-digit millisecond và scale lớn mà không phải quản trị server, patch hay replica thủ công. Các tính năng quanh table—DAX, Streams, Global Tables, TTL, backup và S3 import/export—giúp dùng cùng dữ liệu cho cache, event, đa Region, lưu giữ và phân tích.</p>
           <ul>
             <li>Service có tính sẵn sàng cao và replicate qua nhiều Availability Zone; phù hợp distributed workload, từ traffic nhỏ tới hàng triệu request/giây.</li>
             <li>DynamoDB là <strong>NoSQL</strong>, không phải relational database, nhưng vẫn hỗ trợ transaction. Theo slide, nó có thể lưu tới hàng nghìn tỷ item và hàng trăm TB storage.</li>
             <li>Table gồm item (tương đương row); mỗi item gồm các attribute. Attribute có thể xuất hiện thêm theo thời gian hoặc có giá trị <code>NULL</code>, nên schema ngoài primary key linh hoạt.</li>
-            <li>IAM tích hợp cho security, authorization và administration; service tự vận hành, tự scale theo mode/capacity bạn chọn.</li>
-            <li>Có <strong>Standard</strong> Table Class cho dữ liệu truy cập thường xuyên và <strong>Standard-IA</strong> cho dữ liệu truy cập không thường xuyên; chọn class theo access pattern, không phải vì thay đổi dữ liệu thành archive.</li>
+            <li>IAM tích hợp cho security, authorization và administration; service tự vận hành, tự scale theo mode/capacity bạn chọn. Có <strong>Standard</strong> Table Class cho dữ liệu truy cập thường xuyên và <strong>Standard-IA</strong> cho dữ liệu ít truy cập.</li>
+            <li>Không thay relational RDS khi cần join phức tạp, relational schema hoặc connection-based SQL workflow; DynamoDB cần được mô hình hóa theo access pattern và primary key.</li>
           </ul>
 
-          <h3>Table, item, attribute và primary key</h3>
+          <h3>Table, item, attribute và capacity</h3>
           <ul>
             <li>Primary key phải quyết định lúc tạo table. Một table có số item về mặt logic không giới hạn; kích thước tối đa của một item là <strong>400 KB</strong>, gồm cả tên attribute và giá trị.</li>
-            <li><strong>Simple primary key</strong> chỉ có partition key. <strong>Composite primary key</strong> có partition key + sort key; tổ hợp hai giá trị mới định danh duy nhất item, vì vậy cùng một partition key có thể có nhiều item khác sort key.</li>
-            <li>Ví dụ game table: <code>User_ID</code> là partition key và <code>Game_ID</code> là sort key; <code>Score</code> và <code>Result</code> là attributes. Một user có thể có game 1894 và 4521 với score/result riêng mà không bị trùng key.</li>
+            <li><strong>Simple primary key</strong> chỉ có partition key. <strong>Composite primary key</strong> có partition key + sort key; tổ hợp hai giá trị mới định danh duy nhất item. Ví dụ <code>User_ID + Game_ID</code> cho phép một user có nhiều game, cùng attributes như <code>Score</code>, <code>Result</code>.</li>
           </ul>
           <h4>Data types được nêu trong slide</h4>
           <table>
@@ -5551,30 +5651,170 @@ Container chạy từ image trong registry (ECR)</code></pre>
             <tr><td>Document</td><td>List, Map</td><td>Lưu cấu trúc lồng nhau trong item.</td></tr>
             <tr><td>Set</td><td>String Set, Number Set, Binary Set</td><td>Tập giá trị cùng kiểu; không dùng để thay thế List khi cần thứ tự.</td></tr>
           </table>
-          <p>Schema linh hoạt giúp thêm attribute mà không phải migration toàn table, nhưng không thay thế việc thiết kế partition key để phân bố workload và hỗ trợ query pattern từ đầu.</p>
-
-          <h3>Read/write capacity modes</h3>
-          <p>Capacity mode quyết định cách quản lý throughput đọc/ghi của table. Chọn theo mức dự đoán traffic và trách nhiệm capacity planning, không phải theo loại dữ liệu.</p>
           <table>
             <tr><th>Mode</th><th>Capacity &amp; thanh toán</th><th>Khi phù hợp</th></tr>
-            <tr><td><strong>Provisioned</strong></td><td>Chỉ định số reads/writes mỗi giây; trả tiền cho <strong>provisioned RCU và WCU</strong>. Có thể thêm auto scaling cho RCU/WCU.</td><td>Workload dự đoán được, muốn plan capacity và tối ưu chi phí.</td></tr>
-            <tr><td><strong>On-demand</strong></td><td>Read/write tự scale lên/xuống theo workload; trả tiền theo mức dùng, thường đắt hơn.</td><td>Workload khó dự đoán hoặc có sudden, steep spike; không muốn capacity planning.</td></tr>
+            <tr><td><strong>Provisioned</strong></td><td>Chỉ định reads/writes mỗi giây; trả tiền cho <strong>provisioned RCU và WCU</strong>; có thể thêm auto scaling.</td><td>Traffic dự đoán được, muốn plan capacity và tối ưu chi phí.</td></tr>
+            <tr><td><strong>On-demand</strong></td><td>Read/write tự scale lên/xuống; trả tiền theo mức dùng, thường đắt hơn.</td><td>Traffic khó dự đoán hoặc sudden, steep spike.</td></tr>
           </table>
-          <p>Slide gọi Provisioned là default; đây là thông tin theo khóa học và lựa chọn mặc định/giá cần kiểm tra lại trong console, Region và pricing hiện hành trước khi dự toán.</p>
+          <p>Slide gọi Provisioned là default; đây là thông tin theo khóa học—lựa chọn mặc định, quota và giá cần kiểm tra theo Region trước khi dự toán.</p>
 
-          <h3>Vị trí trong kiến trúc serverless</h3>
+          <h3>DAX và cache đọc</h3>
+          <p><strong>DynamoDB Accelerator (DAX)</strong> là in-memory cache fully managed, highly available và tương thích các DynamoDB API hiện có, nên application chuyển endpoint sang DAX thay vì tự viết cache layer/logic cache trong ứng dụng.</p>
           <ul>
-            <li>DynamoDB không cần đặt trong VPC của bạn; Lambda chạy mặc định vẫn gọi DynamoDB qua AWS service endpoint. Lambda gắn VPC có thể dùng DynamoDB Gateway VPC Endpoint để traffic không đi NAT/Internet.</li>
-            <li>Không thay relational RDS khi cần join phức tạp, relational schema hoặc connection-based SQL workflow. Chọn DynamoDB khi access pattern dựa trên key và scale/latency là trọng tâm.</li>
-            <li>Transaction hỗ trợ các thao tác all-or-nothing cần thiết, nhưng không biến DynamoDB thành SQL database; vẫn cần mô hình hóa item và key theo query pattern.</li>
+            <li>DAX cluster có nhiều cache nodes đứng giữa application và DynamoDB; dữ liệu cache hit có latency mức <strong>microseconds</strong>, giúp giảm read congestion lên table.</li>
+            <li>DAX cache individual objects cũng như kết quả <code>Query</code>/<code>Scan</code>. Đây là cache chuyên cho DynamoDB read path, không phải nơi tính toán hay lưu kết quả tổng hợp tùy ý.</li>
+            <li>Amazon ElastiCache và DAX bổ sung nhau: ElastiCache phù hợp khi application cần cache aggregation result hoặc kiểu dữ liệu/logic cache tổng quát; DAX phù hợp khi bottleneck là đọc key/query/scan trên DynamoDB và muốn tương thích API.</li>
           </ul>
-          <p><strong>Luồng:</strong> Client/API Gateway → Lambda → <code>GetItem</code>/<code>PutItem</code> theo primary key → DynamoDB tự phân phối, replicate nhiều AZ và phục vụ throughput theo capacity mode.</p>
+          <p><strong>Luồng:</strong> Application → DAX cluster → cache hit trả dữ liệu ở microseconds; cache miss → DynamoDB → DAX lưu kết quả → application.</p>
+
+          <h3>DynamoDB Streams và xử lý thay đổi</h3>
+          <p>DynamoDB Streams là ordered stream của các thay đổi cấp item—create, update, delete—trong table. Nó không phải cơ chế query lại lịch sử dài hạn mà là change feed để phản ứng gần real-time.</p>
+          <table>
+            <tr><th>Chọn stream</th><th>Retention/consumer theo slide</th><th>Cách xử lý và mục đích</th></tr>
+            <tr><td><strong>DynamoDB Streams</strong></td><td><strong>24 giờ</strong>; số consumer hạn chế</td><td>Lambda trigger hoặc DynamoDB Streams Kinesis Adapter; phản ứng thay đổi của table.</td></tr>
+            <tr><td><strong>Kinesis Data Streams</strong> (newer)</td><td><strong>1 năm</strong>; số consumer cao</td><td>Lambda, Kinesis Data Analytics, Kinesis Data Firehose, AWS Glue Streaming ETL; fan-out/analytics/retention dài hơn.</td></tr>
+          </table>
+          <ul>
+            <li>Processing layer dùng Lambda hoặc DynamoDB KCL Adapter có thể lọc/biến đổi change record, cập nhật derivative table, gửi notification qua SNS hoặc phục vụ use case real-time như welcome email và usage analytics.</li>
+            <li>Luồng qua Kinesis Data Streams rồi Firehose phù hợp để archive vào S3, đưa analytics sang Redshift, hoặc index vào OpenSearch. Đây là pipeline phụ; write vào table vẫn là nguồn sự kiện.</li>
+            <li>Không nhầm Streams với Global Tables: Streams phát change record cho consumer; Global Tables dùng nền tảng Streams để replicate table giữa Region.</li>
+          </ul>
+          <p><strong>Luồng:</strong> Application create/update/delete item → DynamoDB Streams → Lambda/KCL Adapter → SNS hoặc derivative table; hoặc table → Kinesis Data Streams → Firehose → S3/Redshift/OpenSearch.</p>
+
+          <h3>Global Tables: active-active đa Region</h3>
+          <ul>
+            <li>Global Tables làm table có thể truy cập latency thấp ở nhiều Region bằng <strong>two-way, active-active replication</strong>. Application có thể <strong>read và write</strong> tại replica trong bất kỳ Region nào.</li>
+            <li>Phải enable DynamoDB Streams làm prerequisite. Replication phục vụ low-latency local access và khả năng chịu lỗi đa Region, nhưng application vẫn cần chiến lược xử lý xung đột/write đồng thời.</li>
+          </ul>
+
+          <h3>TTL, backup và di chuyển dữ liệu với S3</h3>
+          <h4>TTL cho dữ liệu có hạn</h4>
+          <p>Time To Live (TTL) dùng một attribute timestamp epoch làm thời điểm hết hạn; DynamoDB quét và tự xóa item đã hết hạn. Đó là tiến trình nền, không dùng làm cơ chế xóa chính xác theo từng giây.</p>
+          <ul><li>Dùng để giảm dữ liệu lưu trữ, chỉ giữ item hiện hành, đáp ứng retention/compliance hoặc dọn web session, token và dữ liệu tạm.</li></ul>
+          <h4>Hai loại backup đều restore ra table mới</h4>
+          <table>
+            <tr><th>Loại</th><th>Điểm chính từ slide</th><th>Khi dùng</th></tr>
+            <tr><td><strong>Point-in-time recovery (PITR)</strong></td><td>Continuous backup, bật tùy chọn cho cửa sổ <strong>35 ngày</strong>; restore tới bất kỳ thời điểm nào trong cửa sổ.</td><td>Khôi phục nhầm thao tác/xóa dữ liệu trong thời gian gần đây.</td></tr>
+            <tr><td><strong>On-demand backup</strong></td><td>Full backup giữ dài hạn cho tới khi xóa rõ ràng; không ảnh hưởng performance/latency; AWS Backup có thể quản lý và tạo cross-Region copy.</td><td>Retention/audit dài hạn, policy backup tập trung hoặc DR copy sang Region khác.</td></tr>
+          </table>
+          <h4>Export/import qua Amazon S3</h4>
+          <ul>
+            <li><strong>Export to S3</strong> đòi hỏi PITR, chọn bất kỳ point-in-time trong <strong>35 ngày</strong>; không tiêu thụ read capacity. Dùng snapshot audit, analytics với Athena, hoặc ETL trên S3 trước khi import lại. Output là DynamoDB JSON hoặc ION.</li>
+            <li><strong>Import from S3</strong> nhận CSV, DynamoDB JSON hoặc ION; không tiêu thụ write capacity, luôn tạo <strong>một table mới</strong>, và log import errors vào CloudWatch Logs.</li>
+          </ul>
 
           <p><strong>Use cases:</strong></p>
           <ul>
-            <li>API serverless lưu user profile, session, shopping cart hoặc metadata bằng key để có latency thấp và không quản lý DB server.</li>
-            <li>Game leaderboard/lịch sử trận đấu dùng <code>User_ID + Game_ID</code> để lưu nhiều game cho một user cùng các attribute như score, result.</li>
-            <li>Event-driven workload có traffic biến động mạnh chọn on-demand; hệ thống có traffic ổn định, biết trước chọn Provisioned + auto scaling để kiểm soát chi phí.</li>
+            <li>API serverless lưu user profile, session, shopping cart hoặc metadata bằng key; TTL tự dọn session hết hạn và DAX giảm tải read hotspot.</li>
+            <li>Game/IoT ghi item vào DynamoDB rồi Streams kích hoạt Lambda gửi notification, cập nhật read model hoặc đẩy pipeline analytics/archive tới S3, Redshift và OpenSearch.</li>
+            <li>Ứng dụng toàn cầu dùng Global Tables để ghi/đọc tại Region gần người dùng; PITR cho recovery ngắn hạn, on-demand/AWS Backup cho retention và DR dài hạn.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon API Gateway" data-progress-aliases="">
+        <summary><span class="t-title">Amazon API Gateway</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon API Gateway là lớp managed để công bố API cho client mà không phải vận hành API server/gateway. Nó làm điểm vào cho Lambda, HTTP backend và AWS service, đồng thời tập trung authentication, authorization, throttling, validation, caching và quản lý version/stage.</p>
+          <ul>
+            <li>Hỗ trợ REST/HTTP API và WebSocket API; có thể quản lý API version (<code>v1</code>, <code>v2</code>) và environment như dev, test, prod bằng stage.</li>
+            <li>Cho phép API key/usage plan và request throttling; có thể transform, validate request/response, import Swagger/OpenAPI để định nghĩa nhanh API, và generate SDK/API specification.</li>
+            <li>API response caching giúp giảm request tới backend khi cache semantics phù hợp; không dùng cache để che giấu write hoặc dữ liệu thay đổi liên tục.</li>
+          </ul>
+
+          <h3>Các kiểu integration</h3>
+          <table>
+            <tr><th>Integration</th><th>Backend</th><th>Giá trị kiến trúc</th></tr>
+            <tr><td><strong>Lambda Function</strong></td><td>Invoke Lambda</td><td>Cách trực tiếp để public REST API serverless; API Gateway nhận HTTP request và Lambda xử lý business logic.</td></tr>
+            <tr><td><strong>HTTP</strong></td><td>HTTP endpoint on-premises, internal HTTP API, Application Load Balancer…</td><td>Đặt authentication, API key, rate limit và caching trước backend đang có.</td></tr>
+            <tr><td><strong>AWS Service</strong></td><td>AWS API như Step Functions hoặc SQS</td><td>Public/kiểm soát một thao tác AWS mà không phải viết Lambda trung gian nếu integration đáp ứng được yêu cầu.</td></tr>
+          </table>
+          <p><strong>Luồng:</strong> Client → API Gateway (auth, validate, throttle/cache) → Lambda/HTTP backend/AWS service → response được transform nếu cấu hình → client.</p>
+          <h4>AWS service integration: nhận event rồi lưu S3</h4>
+          <p>Ví dụ từ slide: Client → API Gateway → Kinesis Data Streams → Kinesis Data Firehose → Amazon S3, nơi Firehose lưu record thành file <code>.json</code>. Mẫu này tách HTTP ingress khỏi lưu trữ/batch delivery, thích hợp cho event ingestion thay vì bắt Lambda tự quản lý từng file.</p>
+
+          <h3>Endpoint type và mạng</h3>
+          <table>
+            <tr><th>Endpoint type</th><th>Phạm vi truy cập</th><th>Điểm cần nhớ</th></tr>
+            <tr><td><strong>Edge-optimized</strong> (default theo slide)</td><td>Client toàn cầu</td><td>Request đi qua CloudFront edge locations để cải thiện latency; API Gateway vẫn sống trong một Region.</td></tr>
+            <tr><td><strong>Regional</strong></td><td>Client cùng Region hoặc khi muốn tự thiết kế CDN</td><td>Có thể ghép CloudFront thủ công để kiểm soát cache strategy và distribution nhiều hơn.</td></tr>
+            <tr><td><strong>Private</strong></td><td>Chỉ từ VPC</td><td>Truy cập qua interface VPC endpoint (ENI); Resource Policy quyết định nguồn nào được phép gọi.</td></tr>
+          </table>
+
+          <h3>Security và custom domain</h3>
+          <ul>
+            <li>Chọn <strong>IAM roles</strong> cho internal application, <strong>Cognito User Pools</strong> cho external/mobile users, hoặc <strong>custom authorizer</strong> khi cần logic authorization riêng.</li>
+            <li>Custom domain dùng HTTPS certificate từ AWS Certificate Manager (ACM). Với endpoint edge-optimized, certificate phải ở <strong>us-east-1</strong>; với regional endpoint, certificate phải ở cùng Region với API Gateway.</li>
+            <li>Route 53 cần CNAME hoặc A-alias record trỏ custom domain đến API endpoint. Certificate/domain xác thực TLS không thay thế authorization cho từng request.</li>
+          </ul>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Mobile/web API: Cognito User Pool phát token → API Gateway kiểm tra token → Lambda xử lý request.</li>
+            <li>Đặt rate limiting, API key, validation và cache trước internal ALB hoặc HTTP service để public API an toàn hơn mà không sửa backend.</li>
+            <li>HTTP event ingestion → Kinesis Data Streams/Firehose → S3 JSON cho log, telemetry hoặc analytics pipeline.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="AWS Step Functions" data-progress-aliases="">
+        <summary><span class="t-title">AWS Step Functions</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> AWS Step Functions xây dựng visual serverless workflow để điều phối nhiều bước thay vì nhét sequencing, retry, timeout và error handling vào một Lambda duy nhất. State machine biểu diễn rõ trạng thái, nhánh và kết quả của execution.</p>
+          <ul>
+            <li>Workflow hỗ trợ sequence, parallel branch, condition/choice, wait/timeout, catch error và xử lý failure; execution có thể được quan sát theo từng state.</li>
+            <li>Tích hợp với Lambda, EC2, ECS, on-premises server, API Gateway, SQS và các AWS service integration phù hợp; service không chỉ dành cho Lambda.</li>
+            <li>Có thể xây human approval: workflow dừng/wait ở một bước, nhận tín hiệu approval/rejection rồi đi nhánh tiếp theo.</li>
+          </ul>
+          <h3>Thiết kế workflow thay vì chuỗi gọi thủ công</h3>
+          <p>Mỗi state nên có một trách nhiệm rõ ràng: validate order, chạy các kiểm tra song song, gọi payment/inventory, chờ phê duyệt, rồi hoàn tất hoặc compensation khi lỗi. Tách như vậy giúp retry đúng bước và không chạy lại cả workflow chỉ vì một integration tạm lỗi.</p>
+          <p><strong>Luồng:</strong> Event/API → State machine execution → sequence/parallel/choice/wait states → service integrations → success, caught error hoặc failure path.</p>
+          <h4>Integration và human approval</h4>
+          <ul>
+            <li>API Gateway có thể bắt đầu execution; state machine sau đó gọi Lambda, SQS hoặc service API theo thứ tự/điều kiện đã định nghĩa.</li>
+            <li>Human approval phù hợp khi có timeout và explicit decision: gửi yêu cầu review, chờ callback/task completion, rồi rẽ sang approve hoặc reject. Luôn thiết kế timeout/fallback để execution không chờ vô hạn.</li>
+          </ul>
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Order fulfillment: validate đơn hàng → kiểm kho/thanh toán song song → chờ duyệt khi cần → giao hàng hoặc compensation khi thất bại.</li>
+            <li>Data processing: điều phối bước transform, enrich, archive và thông báo thay vì để một Lambda dài tự gọi tuần tự các service.</li>
+            <li>Web application workflow có nhiều trạng thái nghiệp vụ, retry/timeout rõ ràng hoặc cần human approval/audit trail.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Cognito" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Cognito</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Cognito cung cấp identity cho web/mobile application. <strong>Cognito User Pools</strong> xác thực người dùng và phát token; <strong>Cognito Identity Pools</strong> đổi identity/token đã xác thực thành temporary AWS credentials để client gọi AWS services theo IAM policy.</p>
+          <ul>
+            <li>Không thay IAM cho workforce/admin của AWS account: Cognito phục vụ số lượng lớn end user, mobile user hoặc federated user của ứng dụng.</li>
+            <li>User Pool và Identity Pool giải quyết hai việc khác nhau: có JWT để gọi API khác với có AWS temporary credential để data-plane trực tiếp vào S3/DynamoDB.</li>
+          </ul>
+
+          <h3>Cognito User Pools: đăng nhập ứng dụng</h3>
+          <ul>
+            <li>Là serverless user directory cho web/mobile app: sign-in bằng username (hoặc email)/password, password reset, xác minh email và số điện thoại, MFA.</li>
+            <li>Hỗ trợ federated identities qua Facebook, Google, SAML và identity provider phù hợp; sau authentication, application nhận token.</li>
+            <li>Tích hợp với API Gateway: client authenticate và lấy token → gửi REST API kèm token → API Gateway đánh giá Cognito token trước khi gọi Lambda backend. Cũng tích hợp với Application Load Balancer qua listener/rule.</li>
+          </ul>
+          <p><strong>Luồng:</strong> Web/mobile app → Cognito User Pool hoặc social/SAML IdP → token → API Gateway/ALB kiểm tra token → backend.</p>
+
+          <h3>Cognito Identity Pools: federated identity và AWS credentials</h3>
+          <ul>
+            <li>Nguồn user có thể là Cognito User Pool, third-party/social login, SAML hoặc OpenID Connect. Identity Pool validate token rồi exchange thành temporary AWS credentials.</li>
+            <li>Credentials gắn IAM role/policy được định nghĩa trong Cognito; có default role riêng cho authenticated user và guest/unauthenticated user. Client vì vậy có thể gọi AWS service trực tiếp hoặc vẫn đi qua API Gateway khi cần backend mediation.</li>
+            <li>Không cấp IAM user access key cố định cho mobile app. Quyền AWS của mỗi session là temporary và giới hạn bởi role/policy.</li>
+          </ul>
+          <h4>Row-level security với DynamoDB</h4>
+          <p>Policy có thể dùng condition <code>dynamodb:LeadingKeys</code> với <code>${cognito-identity.amazonaws.com:sub}</code>. Khi partition key của item là identity ID đó, policy chỉ allow các <code>GetItem</code>, <code>Query</code>, <code>PutItem</code>, <code>UpdateItem</code>, <code>DeleteItem</code> và batch actions có leading key khớp—mỗi user chỉ truy cập item của chính họ. Thiết kế key phải hỗ trợ điều kiện này; Identity Pool identity ID không mặc định là mọi username/user attribute của User Pool.</p>
+          <p><strong>Luồng:</strong> User login với User Pool/Google/Facebook/SAML/OIDC → Identity Pool validate token → temporary IAM credentials → direct access private S3 bucket/DynamoDB table theo policy.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>App customer có sign-up/sign-in, MFA và password reset; API Gateway dùng User Pool authorizer để bảo vệ Lambda API.</li>
+            <li>Mobile app upload/download object trong private S3 bằng temporary credential giới hạn theo IAM thay vì nhúng AWS access key.</li>
+            <li>Ứng dụng multi-user lưu record trong DynamoDB với partition key là identity ID để áp dụng fine-grained, row-level access trực tiếp từ client.</li>
           </ul>
         </div>
       </details>
@@ -5639,6 +5879,660 @@ Container chạy từ image trong registry (ECR)</code></pre>
     </div>
   </section>
 
+  <section class="section" id="sec-dataanalytics">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>📊 <span class="sec-title" data-sec-title="Data &amp; Analytics">Data &amp; Analytics</span></h2>
+    <div class="content" data-sec="dataanalytics">
+      <details class="topic" data-track="Amazon Athena" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Athena</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Athena là dịch vụ query serverless dùng SQL chuẩn để phân tích dữ liệu, chủ yếu trong Amazon S3, mà không cần dựng hay vận hành data warehouse. Chi phí theo dữ liệu quét nên cách tổ chức dữ liệu trực tiếp quyết định cả giá lẫn tốc độ.</p>
+          <ul>
+            <li>Query file trên S3 bằng SQL; slide ghi Athena được xây trên Presto và tính giá <strong>$5/TB dữ liệu quét</strong> (giá theo slide, cần kiểm tra theo Region trước khi dự toán).</li>
+            <li>Đọc CSV, JSON, ORC, Avro và Parquet; kết quả query được lưu trở lại Amazon S3.</li>
+            <li>Thường kết hợp Amazon QuickSight để dựng báo cáo và dashboard từ dữ liệu đã query.</li>
+            <li>Phù hợp với business intelligence, analytics/reporting và phân tích log như VPC Flow Logs, ELB logs hoặc CloudTrail trails.</li>
+            <li>Không cần provision cluster: tối ưu chủ yếu là giảm bytes scanned, không phải chọn kích thước instance.</li>
+          </ul>
+
+          <p><strong>Luồng:</strong> Producer ghi dữ liệu vào S3 → Glue Data Catalog mô tả table/partition → Athena đọc các file và chạy SQL → kết quả đặt trong S3 → QuickSight hoặc application đọc kết quả.</p>
+
+          <h3>Query data lake trên Amazon S3</h3>
+          <p>Athena tách compute query khỏi storage: S3 giữ file, còn Athena chỉ chạy khi có query. Vì vậy nó phù hợp cho dữ liệu cần khám phá hoặc báo cáo không liên tục; không phải lựa chọn mặc định khi ứng dụng cần latency giao dịch thấp hay dashboard join/aggregate nặng và liên tục.</p>
+          <p>Schema và vị trí file thường được quản lý qua AWS Glue Data Catalog. Table Athena là metadata trỏ đến prefix S3; đổi schema, format hoặc partition cần được phản ánh đúng trong catalog để query đọc đúng file.</p>
+
+          <h3>Giảm dữ liệu quét: format, compression và partition</h3>
+          <h4>Columnar format trả ít dữ liệu hơn</h4>
+          <p>Với truy vấn chỉ chọn vài cột, format columnar như <strong>Apache Parquet</strong> hoặc <strong>ORC</strong> cho Athena đọc các column cần thiết thay vì toàn bộ row như CSV/JSON. Slide khuyến nghị chuyển dữ liệu bằng AWS Glue sang Parquet/ORC để vừa giảm scan vừa cải thiện đáng kể performance.</p>
+          <table>
+            <tr><th>Kỹ thuật</th><th>Tác động</th><th>Áp dụng thực tế</th></tr>
+            <tr><td><strong>Parquet / ORC</strong></td><td>Column pruning, quét ít cột hơn; giảm bytes scanned.</td><td>Chuyển raw CSV/JSON sang curated data lake trước khi phục vụ BI.</td></tr>
+            <tr><td><strong>Compression</strong></td><td>File nhỏ hơn nên retrieval và scan ít dữ liệu hơn.</td><td>Slide liệt kê bzip2, gzip, lz4, Snappy, zip và zstd; chọn codec tương thích format/workload.</td></tr>
+            <tr><td><strong>Partition</strong></td><td>Prune prefix không liên quan khi query có filter partition.</td><td>Đặt filter <code>year</code>/<code>month</code>/<code>day</code> trong <code>WHERE</code>.</td></tr>
+            <tr><td><strong>File lớn hợp lý</strong></td><td>Giảm overhead mở/rải quá nhiều object nhỏ.</td><td>Slide khuyến nghị file lớn hơn <strong>128 MB</strong>.</td></tr>
+          </table>
+          <h4>Partition là virtual columns từ S3 prefix</h4>
+          <p>Partition không phải một column nằm trong từng file; nó được suy ra từ đường dẫn. Tổ chức theo kiểu Hive giúp Athena chỉ đi vào prefix cần thiết:</p>
+          <pre><code>s3://your-bucket/path-to-table/year=1991/month=1/day=1/</code></pre>
+          <p>Nếu query không lọc partition, Athena vẫn có thể quét tất cả prefix. Do đó chọn partition key có trong điều kiện query phổ biến (thường là thời gian), tránh tạo quá nhiều partition nhỏ, và compact small files sau pipeline ingest.</p>
+
+          <h3>Federated Query: query ngoài S3 bằng một câu SQL</h3>
+          <p>Athena Federated Query cho phép query data ở relational, non-relational, object và custom data sources trên AWS hoặc on-premises. Data source connector chạy trên AWS Lambda làm cầu nối: Athena gửi phần query thích hợp tới connector, connector đọc nguồn dữ liệu rồi trả kết quả để Athena tổng hợp; output cuối vẫn được lưu ở S3.</p>
+          <ul>
+            <li>Các nguồn trong sơ đồ gồm ElastiCache, Amazon DocumentDB, DynamoDB, Redshift, Aurora, SQL Server, MySQL, HBase trên EMR và database on-premises.</li>
+            <li>Đây hữu ích cho phân tích/join ad-hoc giữa nguồn vận hành và data lake, nhưng không biến mọi database thành warehouse; cần tính network path, latency, quota Lambda/nguồn và chi phí scan tại từng nguồn.</li>
+            <li>Connector phải có quyền/credential tới nguồn dữ liệu, còn Athena cần quyền đọc metadata, source và bucket chứa query result. Với nguồn private/on-premises, Lambda connector cần VPC connectivity phù hợp.</li>
+          </ul>
+          <p><strong>Luồng federated:</strong> Analyst chạy SQL trong Athena → Athena gọi Lambda Data Source Connector → connector query DynamoDB/RDS/nguồn khác → Athena hợp nhất kết quả → ghi result file vào S3.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Query CloudTrail, ELB và VPC Flow Logs lưu ở S3 để điều tra sự cố hoặc tạo báo cáo chi phí/bảo mật mà không vận hành cluster.</li>
+            <li>Data lake BI: Glue ETL chuyển raw events sang Parquet, partition theo ngày, Athena query và QuickSight cung cấp dashboard.</li>
+            <li>Phân tích tạm thời giữa S3 và DynamoDB/RDS bằng Federated Query, khi dữ liệu chưa cần nạp thường trực vào Redshift.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Redshift" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Redshift</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Redshift là data warehouse dùng SQL cho OLAP—analytics, báo cáo và aggregate trên dữ liệu lớn—không phải database OLTP cho transaction nhỏ, đồng thời. Nó dựa trên PostgreSQL nhưng được tối ưu cho lưu trữ columnar và xử lý query song song.</p>
+          <ul>
+            <li>Phục vụ analytics/data warehousing, scale tới petabytes theo slide; slide cũng nêu hiệu năng có thể cao hơn 10× data warehouse khác, là benchmark phụ thuộc workload.</li>
+            <li>Hỗ trợ SQL và tích hợp với công cụ BI như Amazon QuickSight hoặc Tableau.</li>
+            <li>Có hai cách dùng: <strong>provisioned cluster</strong> hoặc <strong>Redshift Serverless</strong>.</li>
+            <li>Khác Athena ở chỗ Redshift là warehouse chuyên dụng, phù hợp query, join và aggregate lặp lại trên mô hình dữ liệu đã nạp/tối ưu; Athena vẫn là serverless SQL trực tiếp trên file S3.</li>
+            <li>Slide ghi Redshift nhanh hơn Athena cho query/join/aggregation nhờ cấu trúc tối ưu/indexing; trong thực tế cần hiểu Redshift dựa vào columnar storage, sort key, distribution và MPP, không phải traditional secondary indexes như OLTP database.</li>
+          </ul>
+
+          <h3>OLAP warehouse thay vì OLTP database</h3>
+          <p>OLTP ưu tiên thao tác ngắn, đồng thời và nhất quán như tạo order hay cập nhật tài khoản. Redshift ưu tiên đọc lượng lớn dữ liệu, scan theo cột, group by/join và tạo báo cáo. Vì vậy transaction backend vẫn nên ở Aurora/RDS/DynamoDB, rồi đưa dữ liệu cần phân tích vào Redshift qua pipeline phù hợp.</p>
+          <table>
+            <tr><th>Nhu cầu</th><th>Lựa chọn</th><th>Lý do</th></tr>
+            <tr><td>Ad-hoc SQL trực tiếp trên file S3, không vận hành compute</td><td><strong>Athena</strong></td><td>Serverless, tính tiền theo dữ liệu quét; tổ chức Parquet/partition để giảm scan.</td></tr>
+            <tr><td>BI lặp lại, join/aggregate lớn trên dữ liệu đã model</td><td><strong>Redshift</strong></td><td>MPP, columnar warehouse và data layout tối ưu query.</td></tr>
+            <tr><td>Read/write transaction cho application</td><td><strong>RDS / Aurora / DynamoDB</strong></td><td>Thiết kế cho OLTP/key-value, không dùng Redshift làm primary application database.</td></tr>
+          </table>
+
+          <h3>Kiến trúc cluster và hai mode vận hành</h3>
+          <p>Client dùng JDBC/ODBC gửi SQL tới Redshift. Trong provisioned cluster, <strong>leader node</strong> lập kế hoạch query và tổng hợp kết quả; <strong>compute nodes</strong> thực thi các phần việc song song rồi gửi partial result về leader. Tách vai trò này cho phép warehouse phân phối scan/join/aggregate thay vì một server xử lý mọi thứ.</p>
+          <p><strong>Luồng:</strong> BI tool/JDBC-ODBC → leader node lập plan → compute nodes quét/xử lý song song → leader aggregate kết quả → QuickSight/Tableau hoặc client nhận response.</p>
+          <h4>Provisioned và Serverless</h4>
+          <ul>
+            <li><strong>Provisioned:</strong> chọn instance type và số node trước. Có thể reserve capacity/instances để tiết kiệm chi phí theo slide; đổi lại phải capacity-plan, resize và theo dõi mức sử dụng.</li>
+            <li><strong>Serverless:</strong> không quản lý cluster/node trực tiếp; phù hợp workload biến động hoặc team muốn tập trung vào data/query. Vẫn cần quản trị dữ liệu, workgroup/namespace, security và chi phí sử dụng.</li>
+          </ul>
+
+          <h3>Snapshots, Multi-AZ và disaster recovery</h3>
+          <p>Redshift có mode <strong>Multi-AZ</strong> cho một số cluster theo slide. Snapshot là point-in-time backup của cluster, được lưu nội bộ trong S3, và là <strong>incremental</strong>: chỉ phần đã thay đổi được lưu thêm. Restore snapshot luôn tạo một cluster mới, nên đây là đường recovery/clone chứ không ghi đè cluster đang chạy.</p>
+          <table>
+            <tr><th>Loại snapshot</th><th>Retention / lịch</th><th>Dùng khi</th></tr>
+            <tr><td><strong>Automated</strong></td><td>Theo slide: mỗi <strong>8 giờ</strong>, mỗi <strong>5 GB</strong> thay đổi, hoặc theo schedule; đặt retention.</td><td>Backup vận hành định kỳ, recovery trong cửa sổ retention.</td></tr>
+            <tr><td><strong>Manual</strong></td><td>Giữ cho tới khi người dùng xóa.</td><td>Milestone trước thay đổi lớn, archive hoặc giữ lâu hơn lịch automated.</td></tr>
+            <tr><td><strong>Cross-Region copy</strong></td><td>Có thể copy automated hoặc manual snapshot sang AWS Region khác.</td><td>Disaster recovery khi cần bản backup tách Region nguồn.</td></tr>
+          </table>
+          <p>Cross-Region snapshot copy tạo copied snapshot tại Region đích, sau đó có thể restore thành cluster mới. Các ngưỡng/lịch snapshot trên là số liệu slide; kiểm tra cấu hình và quota hiện hành trước production.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Warehouse hợp nhất sales, product và clickstream để QuickSight/Tableau chạy dashboard với join và aggregate lặp lại.</li>
+            <li>Batch ETL/ELT nạp dữ liệu curated từ S3 vào Redshift khi analytics cần performance ổn định hơn ad-hoc query Athena.</li>
+            <li>Yêu cầu DR cho warehouse: automated snapshot phục vụ recovery thường xuyên, manual snapshot trước migration, và copy cross-Region cho kịch bản mất Region.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon OpenSearch Service" data-progress-aliases="">
+        <summary><span class="t-title">Amazon OpenSearch Service</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon OpenSearch Service là dịch vụ managed search và analytics, kế thừa Amazon Elasticsearch Service, dùng để lập chỉ mục dữ liệu rồi tìm kiếm linh hoạt theo nhiều field—including partial match—thay vì bị giới hạn bởi primary key hoặc index đã thiết kế sẵn như DynamoDB.</p>
+          <ul>
+            <li>Thường là <strong>complement</strong> cho database nguồn: database giữ dữ liệu giao dịch/canonical, OpenSearch giữ bản index phục vụ search, log analytics và visualization.</li>
+            <li>Có thể tìm theo bất kỳ field đã index, full-text search và partial match; không nên coi nó là thay thế trực tiếp cho transactional database.</li>
+            <li>Có hai lựa chọn triển khai trong slide: managed (provisioned) cluster hoặc serverless; chọn theo mức kiểm soát capacity cần thiết.</li>
+            <li>OpenSearch có ngôn ngữ query riêng; SQL không phải khả năng native cốt lõi, nhưng OpenSearch SQL có thể được dùng khi feature/plugin tương ứng được bật.</li>
+            <li>Ingest được từ Kinesis Data Firehose, AWS IoT và CloudWatch Logs; OpenSearch Dashboards dùng để trực quan hóa.</li>
+          </ul>
+
+          <h3>Index tìm kiếm song hành với data store</h3>
+          <p>DynamoDB chỉ query hiệu quả bằng primary key hoặc index đã tạo trước. Khi ứng dụng cần search product theo tên, mô tả, tag và một phần chuỗi, một Lambda có thể chuyển thay đổi từ DynamoDB Streams thành document trong OpenSearch. API đọc theo nhu cầu: retrieve một item chuẩn từ DynamoDB, hoặc search candidates từ OpenSearch; hai store có vai trò khác nhau và cần chấp nhận eventual consistency của index.</p>
+          <p><strong>Luồng:</strong> CRUD vào DynamoDB → DynamoDB Streams → Lambda chuyển đổi record thành search document → Amazon OpenSearch Service index document → application gọi search API; thao tác retrieve theo key vẫn đọc DynamoDB.</p>
+
+          <h3>Ingest log và quan sát hệ thống</h3>
+          <table>
+            <tr><th>Nguồn</th><th>Đường ingest</th><th>Độ trễ theo sơ đồ</th><th>Phù hợp khi</th></tr>
+            <tr><td>DynamoDB thay đổi</td><td>Streams → Lambda → OpenSearch</td><td>Event-driven</td><td>Đồng bộ search index với data store.</td></tr>
+            <tr><td>CloudWatch Logs</td><td>Subscription Filter → Lambda managed by AWS → OpenSearch</td><td>Real time</td><td>Cần xử lý/định dạng log trước khi index.</td></tr>
+            <tr><td>CloudWatch Logs</td><td>Subscription Filter → Kinesis Data Firehose → OpenSearch</td><td>Near real time</td><td>Ưu tiên managed delivery/buffering thay vì custom transform.</td></tr>
+          </table>
+          <p>Subscription Filter chọn log event để đẩy đi; Lambda path cho phép transform riêng, còn Firehose path phù hợp delivery được quản lý. Cần thiết kế mapping/index lifecycle và xử lý retry/error để schema thay đổi hay record lỗi không âm thầm làm lệch index.</p>
+
+          <h3>Security và visualization</h3>
+          <p>Truy cập domain/collection cần IAM và network policy/VPC configuration phù hợp; encryption dùng KMS at rest và TLS in transit. Amazon Cognito có thể dùng để xác thực người dùng OpenSearch Dashboards, trong khi IAM vẫn kiểm soát quyền API. Dashboards là lớp visual hóa của dữ liệu đã index, không tự cấp quyền tới database nguồn.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Product catalog search với full-text, autocomplete/partial match, trong khi DynamoDB vẫn là source of truth của item.</li>
+            <li>CloudWatch application logs được stream gần real-time vào OpenSearch để điều tra lỗi và dựng dashboard vận hành.</li>
+            <li>Index event từ IoT hoặc Kinesis Data Firehose để filter, aggregate và trực quan hóa dữ liệu mới đến.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon EMR" data-progress-aliases="">
+        <summary><span class="t-title">Amazon EMR</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon EMR (Elastic MapReduce) tạo và vận hành managed big-data cluster để xử lý/phân tích khối lượng dữ liệu rất lớn. AWS lo provisioning và cấu hình nền tảng; đội ngũ vẫn chọn framework, node, dữ liệu và chi phí của workload.</p>
+          <ul>
+            <li>Chạy các framework như Apache Spark, HBase, Presto và Flink; dùng cho data processing, machine learning và web indexing.</li>
+            <li>Cluster có thể gồm hàng trăm EC2 instances để thực hiện công việc phân tán.</li>
+            <li><strong>Primary/Master node</strong> (tên “Master” theo slide; hiện AWS thường dùng “primary”) điều phối cluster và theo dõi health; là node long-running.</li>
+            <li><strong>Core node</strong> chạy task và lưu dữ liệu; cũng long-running. <strong>Task node</strong> là tùy chọn, chỉ chạy task và thường hợp với Spot.</li>
+            <li>EMR hỗ trợ auto scaling, Spot Instances và cluster long-running hoặc transient (tạo cho một job rồi kết thúc).</li>
+          </ul>
+
+          <h3>Vai trò node và purchasing model</h3>
+          <table>
+            <tr><th>Node / lựa chọn</th><th>Trách nhiệm</th><th>Đặc tính chi phí và độ bền</th></tr>
+            <tr><td><strong>Primary/Master</strong></td><td>Quản lý, điều phối và health của cluster.</td><td>Long-running; cần ổn định, không phù hợp để coi là compute bị gián đoạn tùy ý.</td></tr>
+            <tr><td><strong>Core</strong></td><td>Chạy task và lưu data.</td><td>Long-running; mất node ảnh hưởng cả compute lẫn data trong cluster.</td></tr>
+            <tr><td><strong>Task</strong></td><td>Chỉ thêm compute để chạy task.</td><td>Thường dùng Spot vì không giữ data; job phải chịu được interruption.</td></tr>
+            <tr><td><strong>On-Demand</strong></td><td>Capacity khi cần.</td><td>Ổn định, dự đoán được, không bị terminate do Spot interruption.</td></tr>
+            <tr><td><strong>Reserved</strong> (tối thiểu 1 năm theo slide)</td><td>EMR dùng khi capacity reservation khả dụng.</td><td>Tiết kiệm cho nhu cầu dài hạn, đều đặn.</td></tr>
+            <tr><td><strong>Spot</strong></td><td>Compute rẻ hơn.</td><td>Có thể bị terminate; dùng cho task/retryable workload.</td></tr>
+          </table>
+
+          <h3>Cluster lâu dài hay transient</h3>
+          <p>Long-running cluster hợp cho môi trường cần service luôn sẵn sàng hoặc notebook/interactive workload. Transient cluster được tạo để chạy một batch job, ghi output vào storage bền vững như S3 rồi terminate: giảm chi phí idle và là lựa chọn tự nhiên cho ETL định kỳ. Đừng đặt data duy nhất trên local cluster storage nếu task có thể bị thu hồi hoặc cluster bị xóa.</p>
+          <p><strong>Luồng:</strong> Dữ liệu trên S3/HDFS → EMR primary node lập lịch Spark/Hadoop job → core/task nodes xử lý song song → output bền vững được ghi về S3 hoặc data store đích → transient cluster terminate.</p>
+
+          <h3>Chọn EMR thay vì serverless query</h3>
+          <p>EMR dành cho workload cần framework big-data, custom Spark/Hadoop/Flink code, control về cluster hoặc xử lý phân tán dài. Athena phù hợp ad-hoc SQL serverless trên S3; AWS Glue phù hợp ETL serverless được quản lý. EMR không loại bỏ việc phải tối ưu partition, file format, data skew hay xử lý task retry.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Chạy Spark batch transform/feature engineering trên dữ liệu lớn trong S3, dùng transient cluster và Spot task nodes.</li>
+            <li>Vận hành HBase hoặc workload cần hệ sinh thái Hadoop/Spark và quyền kiểm soát cluster rõ ràng.</li>
+            <li>Web indexing hoặc machine-learning preprocessing cần parallel computation trên nhiều EC2 nodes.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon QuickSight" data-progress-aliases="">
+        <summary><span class="t-title">Amazon QuickSight</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon QuickSight là dịch vụ business intelligence serverless, machine-learning powered để tạo analysis tương tác và dashboard có thể chia sẻ hoặc embed. Nó tập trung vào trực quan hóa và insight cho người dùng nghiệp vụ, không phải data warehouse hay ETL engine.</p>
+          <ul>
+            <li>Tự scale, có thể embed vào application và slide nêu mô hình giá theo session.</li>
+            <li>Kết nối AWS data sources gồm RDS, Aurora, Athena, Redshift, S3, OpenSearch và Timestream; cũng nhận file import XLSX, CSV, JSON, TSV, ELF/CLF, SaaS như Salesforce/Jira, Teradata và database on-premises qua JDBC.</li>
+            <li>Khi import dữ liệu vào <strong>SPICE</strong>, QuickSight dùng in-memory engine để tăng tốc computation/visualization.</li>
+            <li>Enterprise edition có thể cấu hình <strong>Column-Level Security (CLS)</strong> để người dùng khác nhau thấy các cột khác nhau.</li>
+            <li>QuickSight users và groups là principal trong QuickSight (standard có users; Enterprise có groups), không phải IAM Group; IAM/federation vẫn có thể được dùng cho quản trị và identity integration.</li>
+          </ul>
+
+          <h3>Analysis, dashboard và chia sẻ</h3>
+          <p><strong>Analysis</strong> là nơi tác giả tạo visual, filter, parameter, control và sort. <strong>Dashboard</strong> là snapshot read-only đã publish của analysis, giữ nguyên configuration phân tích để người xem tương tác trong phạm vi publish. Muốn share dashboard phải publish trước; có thể share cả analysis hoặc dashboard cho QuickSight users/groups.</p>
+          <p>Theo slide, người xem dashboard cũng có thể thấy underlying data. Khi triển khai, cần kiểm tra kỹ data-source permission, row/column security và các setting export/drill-down thay vì xem dashboard như ranh giới bảo mật duy nhất.</p>
+
+          <h3>Direct query và SPICE</h3>
+          <table>
+            <tr><th>Mode</th><th>Cách hoạt động</th><th>Đánh đổi</th></tr>
+            <tr><td><strong>Direct query</strong></td><td>Visual query trực tiếp source như Athena, Redshift hoặc RDS.</td><td>Dữ liệu mới hơn nhưng dashboard phụ thuộc latency/capacity/quyền của source.</td></tr>
+            <tr><td><strong>SPICE</strong></td><td>QuickSight import bản sao vào in-memory engine.</td><td>Phản hồi nhanh và giảm tải source; phải quản lý refresh/freshness.</td></tr>
+          </table>
+          <p><strong>Luồng:</strong> RDS/Athena/Redshift/S3 hoặc SaaS/file → QuickSight dataset (direct query hoặc SPICE import) → author tạo analysis → publish dashboard → share/embed cho QuickSight user hoặc group.</p>
+
+          <h3>Phân quyền ở đúng lớp</h3>
+          <p>QuickSight cần service role/credentials để đọc source, nhưng quyền đó khác quyền người xem dashboard. Dùng QuickSight user/group để share asset; dùng CLS để hạn chế cột và các cơ chế row-level security khi cần tách dữ liệu theo tenant/region. Nếu source là private database/on-premises, kết nối JDBC vẫn cần network path và native database credentials.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Dashboard sales kết hợp Redshift/Athena với filter theo region, sau đó embed cho khách hàng hoặc đội business.</li>
+            <li>Operational dashboard từ Timestream/OpenSearch với SPICE khi cần trải nghiệm tương tác nhanh trên snapshot dữ liệu.</li>
+            <li>Chia sẻ cùng một dashboard cho nhiều phòng ban nhưng giới hạn cột nhạy cảm bằng Enterprise CLS.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="AWS Glue & Lake Formation" data-progress-aliases="">
+        <summary><span class="t-title">AWS Glue &amp; Lake Formation</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> AWS Glue cung cấp serverless ETL và metadata catalog để chuẩn bị dữ liệu cho analytics; AWS Lake Formation xây lớp quản trị data lake trên Glue để ingest, catalog và kiểm soát truy cập tập trung trên dữ liệu thường lưu trong S3.</p>
+          <ul>
+            <li>Glue extract, transform, load dữ liệu từ nguồn như S3 hoặc RDS rồi load vào target như Redshift; phù hợp chuẩn hóa dữ liệu trước analytics.</li>
+            <li>Glue Data Crawler khám phá schema từ S3, RDS, DynamoDB hoặc JDBC và ghi metadata database/table vào Glue Data Catalog.</li>
+            <li>Athena, Redshift Spectrum, EMR và Glue jobs dùng Data Catalog để biết table, schema và location; catalog giữ metadata, không phải tự chứa data file.</li>
+            <li>Glue Job Bookmarks theo dõi dữ liệu đã xử lý để tránh reprocess dữ liệu cũ; DataBrew làm sạch/normalize bằng transform dựng sẵn; Glue Studio là GUI tạo, chạy và monitor ETL jobs.</li>
+            <li>Glue Streaming ETL xây trên Apache Spark Structured Streaming và tương thích Kinesis Data Streams, Kafka và Amazon MSK.</li>
+            <li>Lake Formation tự động hóa các bước dựng data lake, source blueprint cho S3/RDS/relational/NoSQL, kết hợp structured và unstructured data, de-duplicate bằng ML Transforms, và thêm row/column-level access control.</li>
+          </ul>
+
+          <h3>ETL, crawler và Data Catalog</h3>
+          <p>Glue Job chạy code/transform để lấy raw data, chuẩn hóa schema/format/partition rồi ghi curated output. Crawler làm nhiệm vụ discovery: đọc nguồn, suy ra schema/partition và viết metadata vào Data Catalog. Do đó crawler không thay ETL; nó giúp engine như Athena hoặc Redshift Spectrum tìm và diễn giải file/table đúng cách.</p>
+          <p><strong>Luồng:</strong> S3/RDS/DynamoDB/JDBC → Glue Crawler khám phá schema → Glue Data Catalog lưu database/table metadata → Glue ETL transform dữ liệu → S3 curated zone hoặc Redshift → Athena/Redshift Spectrum/EMR query metadata đó.</p>
+          <h4>Incremental và streaming</h4>
+          <p>Job Bookmarks ngăn Glue job lặp lại phần input đã xử lý trong các lần chạy sau; cần dùng đúng source/job context và không xem nó là cơ chế exactly-once cho mọi sink. Với dữ liệu liên tục, Glue Streaming ETL đọc Kinesis/Kafka/MSK và áp dụng Spark Structured Streaming để transform trong khi stream tiếp tục đến.</p>
+
+          <h3>Lake Formation: data lake có governance tập trung</h3>
+          <p>Lake Formation không thay S3; S3 là nơi lưu data lake, Glue cung cấp catalog/ETL, còn Lake Formation điều phối ingest, data catalog, security settings và access control. Nó cấp phép tinh hạt ở cấp database/table/column và có thể row-level, để user dùng Athena, Redshift, EMR hoặc Spark nhận đúng tập dữ liệu theo quyền thay vì mỗi consumer tự có S3 access rộng.</p>
+          <table>
+            <tr><th>Lớp</th><th>Vai trò</th><th>Không thay thế</th></tr>
+            <tr><td><strong>S3 data lake</strong></td><td>Lưu raw/curated data structured và unstructured.</td><td>Catalog, ETL hoặc policy cấp table/column.</td></tr>
+            <tr><td><strong>AWS Glue</strong></td><td>Crawler, Data Catalog, ETL/streaming transform.</td><td>Kho dữ liệu hay BI dashboard.</td></tr>
+            <tr><td><strong>Lake Formation</strong></td><td>Setup/governance, source ingest và fine-grained access trên data lake.</td><td>Encryption/key policy của S3/KMS hoặc network boundary cơ bản.</td></tr>
+          </table>
+          <p>Ví dụ centralized permissions của slide: S3/RDS/Aurora ingest vào data lake → Lake Formation áp cột-level access → Athena query → QuickSight đưa dashboard cho users. Quyền Lake Formation phải đi cùng IAM, S3 location permissions và KMS permission nếu object dùng SSE-KMS.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Raw CSV/JSON trên S3 được Glue transform thành Parquet partitioned rồi Athena/QuickSight dùng để giảm scan và tạo BI.</li>
+            <li>Data lake nhiều account/team cần một catalog chung và policy row/column thay vì cấp S3 read cho mọi analyst.</li>
+            <li>Streaming events từ Kinesis/MSK được Glue Streaming ETL làm sạch trước khi load S3, Redshift hoặc analytic sink.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Streaming platforms: Amazon MSK & Managed Service for Apache Flink" data-progress-aliases="">
+        <summary><span class="t-title">Streaming platforms: Amazon MSK &amp; Managed Service for Apache Flink</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon MSK là managed Apache Kafka để truyền event stream theo topic/partition; Amazon Managed Service for Apache Flink (tên cũ Kinesis Data Analytics for Apache Flink) chạy ứng dụng Flink managed để xử lý stream real-time từ Kinesis Data Streams hoặc MSK.</p>
+          <ul>
+            <li>MSK là lựa chọn Kafka managed thay cho tự vận hành Kafka: AWS tạo/quản lý broker nodes và ZooKeeper nodes theo kiến trúc slide, đặt cluster trong VPC và có thể multi-AZ đến 3 AZ cho HA.</li>
+            <li>Producer code ghi vào Kafka topic; broker replicate record giữa broker; consumer code poll topic và đưa event đến EMR, S3, SageMaker, Kinesis, RDS hoặc application khác.</li>
+            <li>MSK lưu dữ liệu trên EBS trong thời gian retention đã cấu hình; có automatic recovery cho common Kafka failures. MSK Serverless tự provision và scale compute/storage, không phải quản capacity broker.</li>
+            <li>Flink dùng Java, Scala hoặc SQL cho stream processing; managed service cung cấp compute provisioned, parallel computation, auto scaling, checkpoint/snapshot backup và toàn bộ feature Flink để transform data.</li>
+            <li>Managed Flink đọc Kinesis Data Streams hoặc Amazon MSK; <strong>không đọc từ Amazon Data Firehose</strong> theo slide.</li>
+          </ul>
+
+          <h3>Kafka model và MSK consumers</h3>
+          <p>Topic là logical stream; partition là đơn vị phân phối/parallelism. Producer và consumer là code của bạn, MSK quản lý Kafka infrastructure chứ không tự diễn giải event business. Một topic chỉ có thể <strong>thêm</strong> partition, không giảm được; cần chọn partition count/capacity cẩn thận để tránh ảnh hưởng ordering và phân bố workload.</p>
+          <p><strong>Luồng:</strong> Application/IoT/RDS/Kinesis producer → Kafka topic trên MSK brokers → replication qua brokers → consumer group poll partitions → Flink, Glue Streaming ETL, Lambda hoặc application trên EC2/ECS/EKS xử lý/đẩy sang sink.</p>
+          <h4>Consumer tích hợp trong slide</h4>
+          <ul>
+            <li>Amazon Managed Service for Apache Flink cho stateful stream transform/analytics.</li>
+            <li>AWS Glue Streaming ETL Jobs (Apache Spark Streaming), Lambda, hoặc application chạy trên EC2, ECS, EKS.</li>
+          </ul>
+
+          <h3>Kinesis Data Streams và MSK</h3>
+          <table>
+            <tr><th>Đặc tính theo slide</th><th>Kinesis Data Streams</th><th>Amazon MSK / Kafka</th></tr>
+            <tr><td>Đơn vị song song</td><td>Data stream với <strong>shards</strong>; có thể split và merge shard.</td><td>Kafka topic với <strong>partitions</strong>; chỉ có thể thêm partition.</td></tr>
+            <tr><td>Message size</td><td>Giới hạn <strong>1 MB</strong>.</td><td>Mặc định <strong>1 MB</strong>, có thể cấu hình cao hơn (ví dụ <strong>10 MB</strong> trong slide).</td></tr>
+            <tr><td>In-transit</td><td>TLS.</td><td>PLAINTEXT hoặc TLS theo cấu hình.</td></tr>
+            <tr><td>At-rest</td><td>KMS encryption.</td><td>KMS encryption.</td></tr>
+          </table>
+          <p>Chọn Kinesis khi muốn AWS-native stream với shard model; chọn MSK khi cần Kafka APIs/ecosystem hoặc đã có Kafka producer/consumer. Cả hai đòi hỏi thiết kế partition key/partitioning để tránh hotspot; managed service không xóa trách nhiệm đó.</p>
+
+          <h3>Flink state, scale và reliability</h3>
+          <p>Flink transform, window, join và giữ state trong dòng event; checkpoint và snapshot là application backup để resume state khi có sự cố. Parallelism/auto scaling giúp tăng compute cho throughput, nhưng semantic đúng vẫn phụ thuộc source offsets, checkpoint configuration, sink idempotency và xử lý late/duplicate event của application.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Ứng dụng event-driven đã dùng Kafka cần managed broker trong VPC và nhiều consumer độc lập cho data lake, ML hay microservices.</li>
+            <li>Flink tính aggregate theo time window, phát hiện fraud hoặc enrich clickstream từ Kinesis/MSK với checkpointed state.</li>
+            <li>Chọn MSK Serverless khi Kafka traffic biến động và không muốn quản broker capacity; chọn provisioned MSK khi cần kiểm soát cluster/capacity.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Serverless big-data ingestion pipeline" data-progress-aliases="">
+        <summary><span class="t-title">Serverless big-data ingestion pipeline</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Đây là pattern ghép các dịch vụ để thu thập event real-time, transform, query bằng SQL, lưu report trong S3 rồi phục vụ warehouse/dashboard—mà không cần vận hành ingestion cluster.</p>
+          <ul>
+            <li>IoT Core harvest event từ IoT devices; Kinesis Data Streams nhận dữ liệu real-time.</li>
+            <li>Kinesis Data Firehose delivery dữ liệu vào S3 theo batch/near real-time; slide minh họa khoảng <strong>mỗi 1 phút</strong> và Lambda có thể transform record cho Firehose.</li>
+            <li>S3 ingestion bucket phát notification sang SQS (optional buffer); Lambda subscribe SQS rồi trigger Athena query. Có thể dùng S3 → Lambda trực tiếp khi không cần buffer/decoupling.</li>
+            <li>Athena là SQL serverless và ghi query result/report vào reporting S3 bucket. QuickSight và Redshift có thể dùng reporting data để dashboard/warehouse analytics.</li>
+            <li>SQS giúp tách tốc độ S3 event và Lambda, retry/backpressure; nó không tự biến pipeline thành exactly-once—consumer vẫn cần idempotency và xử lý retry.</li>
+          </ul>
+
+          <h3>Luồng dữ liệu và vai trò từng lớp</h3>
+          <p><strong>Luồng:</strong> IoT devices → IoT Core → Kinesis Data Streams → Kinesis Data Firehose (Lambda transform tùy chọn) → S3 ingestion bucket → SQS notification tùy chọn → Lambda → Athena SQL → S3 reporting bucket → QuickSight/Redshift → users.</p>
+          <table>
+            <tr><th>Mục tiêu</th><th>Dịch vụ trong pattern</th><th>Điểm kiến trúc cần nhớ</th></tr>
+            <tr><td>Thu thập real-time</td><td>IoT Core + Kinesis Data Streams</td><td>KDS nhận record streaming; chọn partition key phân bố tốt.</td></tr>
+            <tr><td>Delivery/landing</td><td>Data Firehose + S3</td><td>Firehose buffer và delivery managed; Lambda transform là tùy chọn trước khi ghi S3.</td></tr>
+            <tr><td>Decouple event</td><td>S3 notification + SQS + Lambda</td><td>SQS optional, dùng khi cần buffer/retry; Lambda cần idempotent vì event có thể retry.</td></tr>
+            <tr><td>SQL/report</td><td>Athena + reporting S3</td><td>Query result được lưu S3, không phải chỉ nằm trong console.</td></tr>
+            <tr><td>BI/warehouse</td><td>QuickSight / Redshift</td><td>Đọc reporting data cho dashboard hay model analytics sâu hơn.</td></tr>
+          </table>
+
+          <h3>Phân biệt real-time và near real-time</h3>
+          <p>Kinesis Data Streams là lớp streaming ingestion; Firehose tối ưu delivery managed với buffering nên ví dụ của slide là near real-time, không phải cam kết từng event xuất hiện ngay trong S3. Lambda path xử lý một S3 event có thể gọi Athena để tạo report, nhưng query phải hoàn tất và output có trong reporting bucket trước khi dashboard/warehouse dùng được.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>IoT telemetry được đưa vào S3 data lake, aggregate bằng Athena và QuickSight hiển thị báo cáo vận hành.</li>
+            <li>Clickstream/log pipeline cần serverless landing, buffering qua SQS và báo cáo SQL định kỳ lưu dưới dạng S3 result.</li>
+            <li>Curated report data được load tiếp vào Redshift khi dashboard cần join/aggregate warehouse thường xuyên.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" id="sec-machinelearning">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>🤖 <span class="sec-title" data-sec-title="Machine Learning">Machine Learning</span></h2>
+    <div class="content" data-sec="machinelearning">
+      <details class="topic" data-track="Amazon Rekognition &amp; Textract" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Rekognition &amp; Textract</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Rekognition dùng ML có sẵn để hiểu image/video; Amazon Textract trích text, handwriting và dữ liệu có cấu trúc từ tài liệu scan. Chọn Rekognition khi cần nhận diện nội dung thị giác, còn Textract khi cần biến document thành dữ liệu ứng dụng được.</p>
+          <ul>
+            <li>Rekognition tìm object, people, text và scene trong image/video; hỗ trợ labeling, text detection, face detection/analysis, face search/verification và celebrity recognition.</li>
+            <li>Content Moderation phát hiện nội dung không phù hợp, không mong muốn hoặc xúc phạm trong image/video; đặt <strong>minimum confidence threshold</strong> để quyết định item nào bị flag.</li>
+            <li>Item nhạy cảm có thể chuyển sang Amazon Augmented AI (A2I) để manual review, phù hợp khi threshold không thể thay thế phán đoán của người.</li>
+            <li>Face collection lưu các khuôn mặt “familiar” để search/compare; đây là dữ liệu sinh trắc học nhạy cảm, không phải cơ chế authorization thay cho IAM hay identity proofing đầy đủ.</li>
+            <li>Textract đọc PDF/image, nhận text và handwriting, đồng thời extract form fields và tables thành dữ liệu; slide minh họa output gồm Document ID, Name, Sex và DOB.</li>
+          </ul>
+
+          <h3>Moderation và xử lý tài liệu</h3>
+          <p>Moderation là luồng sàng lọc: confidence thấp có thể cho qua hoặc review tùy risk policy, còn confidence cao có thể flag. Không nên tự động xóa chỉ dựa trên một nhãn khi hậu quả sai là lớn; dùng A2I để đưa trường hợp biên vào hàng chờ reviewer và lưu quyết định/audit theo chính sách tổ chức.</p>
+          <p>Textract không chỉ là OCR: form/table extraction giúp hệ thống map field như invoice number, tên hoặc ngày tháng vào workflow. Sau khi trích xuất, application vẫn phải validate schema, confidence và business rule trước khi ghi database hoặc thanh toán.</p>
+          <p><strong>Luồng:</strong> Image/video hoặc PDF scan trong S3/application → Rekognition phân tích nhãn/moderation hoặc Textract trích text/form/table → application áp threshold/validation → A2I review tùy chọn hoặc ghi kết quả vào workflow/data store.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Social media hoặc e-commerce sàng lọc ảnh/video upload, chỉ đẩy nội dung nhạy cảm sang đội review thay vì bắt mọi nội dung chờ thủ công.</li>
+            <li>Search ảnh theo labels, đếm người, theo dõi player/object trong phân tích thể thao, hoặc xác minh/so khớp khuôn mặt trong phạm vi consent và chính sách phù hợp.</li>
+            <li>Financial, healthcare và public-sector intake trích dữ liệu từ invoice, medical record, insurance claim, tax form hoặc ID document để giảm nhập liệu tay.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Transcribe, Polly &amp; Translate" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Transcribe, Polly &amp; Translate</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Ba service managed này xử lý chuyển đổi ngôn ngữ có sẵn: Amazon Transcribe đổi speech thành text, Amazon Polly đổi text thành speech, và Amazon Translate dịch text để localize nội dung mà không phải tự huấn luyện model.</p>
+          <ul>
+            <li>Transcribe dùng automatic speech recognition (ASR) để transcribe audio nhanh và chính xác; dùng cho customer-service calls, closed captions/subtitles và metadata để media archive có thể search.</li>
+            <li>Transcribe hỗ trợ automatic language identification cho audio đa ngôn ngữ và PII redaction để tự động loại bỏ Personally Identifiable Information khỏi transcript.</li>
+            <li>Polly synthesize speech từ plain text hoặc Speech Synthesis Markup Language (SSML).</li>
+            <li>Pronunciation lexicon tùy chỉnh cách đọc từ đặc biệt: ví dụ stylized word <code>St3ph4ne</code> có thể đọc là “Stephane”, hoặc acronym <code>AWS</code> thành “Amazon Web Services”. Lexicon được upload rồi dùng trong <code>SynthesizeSpeech</code>.</li>
+            <li>SSML cho phép nhấn từ/cụm từ, phonetic pronunciation, breathing/whispering và Newscaster speaking style. Translate phục vụ dịch tự nhiên để localize website/application và dịch khối text lớn hiệu quả.</li>
+          </ul>
+
+          <h3>Speech-to-text, text-to-speech và translation</h3>
+          <table>
+            <tr><th>Service</th><th>Input → output</th><th>Điểm cấu hình đáng chú ý</th></tr>
+            <tr><td><strong>Transcribe</strong></td><td>Audio → text</td><td>Language identification; PII redaction khi transcript có dữ liệu cá nhân.</td></tr>
+            <tr><td><strong>Polly</strong></td><td>Text/SSML → speech audio</td><td>Lexicon cho cách đọc; SSML cho pronunciation, emphasis và speaking style.</td></tr>
+            <tr><td><strong>Translate</strong></td><td>Source text → target-language text</td><td>Chọn source/target language; source có thể auto-detect theo minh họa slide.</td></tr>
+          </table>
+          <p><strong>Luồng:</strong> Audio customer call → Transcribe tạo transcript đã redaction khi cần → Translate tạo bản địa hóa cho người dùng quốc tế → Polly đọc text/SSML bằng giọng đã tùy chỉnh.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Tự tạo subtitle và searchable transcript cho video, hoặc lưu transcript cuộc gọi để QA và phân tích customer support.</li>
+            <li>Ứng dụng accessibility đọc nội dung bằng Polly; dùng lexicon/SSML khi tên riêng, acronym hoặc giọng điệu cần đọc đúng.</li>
+            <li>Localize website, product catalog hoặc notification cho nhiều ngôn ngữ mà không duy trì pipeline dịch thủ công cho từng bản phát hành.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Lex &amp; Amazon Connect" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Lex &amp; Amazon Connect</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Lex xây conversational bot bằng công nghệ đứng sau Alexa; Amazon Connect là cloud contact center để nhận cuộc gọi và tạo contact flow. Ghép chúng khi contact center cần bot hiểu yêu cầu người gọi rồi tự động thực hiện bước tiếp theo.</p>
+          <ul>
+            <li>Lex dùng Automatic Speech Recognition (ASR) để đổi speech thành text và Natural Language Understanding (NLU) để nhận diện intent trong text/lời nói của caller.</li>
+            <li>Lex phù hợp cho chatbot và call-center bot; intent là điều người dùng muốn làm, không chỉ là một chuỗi keyword.</li>
+            <li>Connect nhận call và định nghĩa contact flow trong cloud-based virtual contact center; có thể tích hợp hệ CRM hoặc AWS services khác.</li>
+            <li>Sơ đồ slide: khách gọi để đặt lịch → Connect nhận call → stream sang Lex → Lex nhận diện intent → invoke Lambda → Lambda schedule vào CRM.</li>
+            <li>Bot chỉ xử lý được case đã thiết kế: vẫn cần fallback/handoff sang agent và validation của backend trước khi tạo appointment, order hay thay đổi dữ liệu.</li>
+          </ul>
+
+          <h3>Contact flow có bot và backend</h3>
+          <p>Connect điều phối trải nghiệm call; Lex xử lý hội thoại; Lambda thường là adapter gọi CRM/API hoặc business logic. Việc nhận diện đúng intent không tự cấp quyền ghi dữ liệu—Lambda cần xác thực input, authorization và idempotency nếu contact flow retry.</p>
+          <p><strong>Luồng:</strong> Caller → Amazon Connect contact flow → Amazon Lex ASR/NLU → Lambda → CRM hoặc AWS service → xác nhận/kết thúc call hoặc chuyển agent.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Voice/chatbot trả lời FAQ, thu thập slot như ngày giờ và đặt lịch trực tiếp vào CRM.</li>
+            <li>Contact center tự động phân loại yêu cầu đơn giản, sau đó route case phức tạp hoặc confidence thấp tới nhân viên.</li>
+            <li>Tích hợp bot vào application để người dùng tra cứu trạng thái đơn hàng hoặc mở ticket mà không cần giao diện form dài.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Comprehend &amp; Comprehend Medical" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Comprehend &amp; Comprehend Medical</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Comprehend là NLP serverless để tìm insight và quan hệ trong text; Amazon Comprehend Medical áp dụng NLP vào unstructured clinical text để nhận diện thông tin y tế, bao gồm Protected Health Information (PHI).</p>
+          <ul>
+            <li>Comprehend xác định language, key phrases, places, people, brands hoặc events; phân tích sentiment tích cực/tiêu cực và dùng tokenization/parts of speech để hiểu cấu trúc text.</li>
+            <li>Dịch vụ có thể tổ chức collection text files theo topic, hữu ích khi cần phân nhóm nội dung lớn thay vì đọc từng file thủ công.</li>
+            <li>Comprehend Medical xử lý physician's notes, discharge summaries, test results và case notes—đây là dữ liệu clinical text không có cấu trúc.</li>
+            <li><code>DetectPHI</code> là API của Comprehend Medical để nhận diện PHI; kết quả phát hiện không thay thế quy trình de-identification, access control hoặc đánh giá compliance của tổ chức.</li>
+            <li>Slide nêu có thể lấy document từ S3, phân tích real-time qua Kinesis Data Firehose, hoặc transcribe patient narrative bằng Amazon Transcribe trước khi Comprehend Medical phân tích text.</li>
+          </ul>
+
+          <h3>NLP tổng quát và clinical NLP</h3>
+          <p>Comprehend phù hợp để biến feedback/email/article thành metadata có thể search, filter hoặc aggregate. Comprehend Medical thu hẹp vào ngôn ngữ lâm sàng; vì kết quả có thể tác động dữ liệu nhạy cảm, ứng dụng nên giữ source, confidence và reviewer workflow, không dùng nó như chẩn đoán hay quyết định điều trị tự động.</p>
+          <p><strong>Luồng:</strong> Email/review hoặc clinical document/audio → Comprehend/Transcribe → Comprehend hoặc Comprehend Medical (bao gồm <code>DetectPHI</code>) → metadata, routing hoặc dữ liệu đã được xử lý theo policy.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Phân tích customer emails/reviews để phát hiện sentiment, entity và chủ đề gây trải nghiệm tích cực hoặc tiêu cực.</li>
+            <li>Group article/document theo topic và tạo metadata hỗ trợ search hay knowledge workflow.</li>
+            <li>Phát hiện PHI trong clinical text trước khi đưa vào pipeline phân tích, kết hợp S3/Kinesis/Transcribe theo nguồn dữ liệu.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon SageMaker AI" data-progress-aliases="">
+        <summary><span class="t-title">Amazon SageMaker AI</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon SageMaker AI là dịch vụ managed cho developer và data scientist xây, train, tune và triển khai custom ML model, thay vì chỉ gọi một AI service đã có sẵn. Nó giảm việc phải ghép rời data pipeline, training infrastructure và endpoint serving.</p>
+          <ul>
+            <li>Phù hợp khi bài toán cần model riêng—ví dụ dự đoán exam score từ historical data như số năm kinh nghiệm IT/AWS và thời gian học—thay vì capability đóng gói như translation hay text extraction.</li>
+            <li>Training cần historical data có <strong>label</strong>; model học quan hệ giữa feature và outcome rồi nhận new data để tạo prediction.</li>
+            <li>Quy trình slide: historical data → label → build ML model → train and tune → apply model lên new data → prediction, ví dụ “pass with 906”.</li>
+            <li>Managed không đồng nghĩa model tự đúng: phải chọn feature/label hợp lệ, tách evaluation data, theo dõi quality/drift và xác minh prediction trong bối cảnh business.</li>
+          </ul>
+
+          <h3>Vòng đời model tối thiểu</h3>
+          <p>Training tạo model artifact từ dữ liệu có label; tuning thử cấu hình để cải thiện metric đã chọn; deployment/apply model dùng input mới để inference. Nếu training data không đại diện hoặc label sai, mở rộng compute không sửa được chất lượng model. Cần bảo vệ data/feature nhạy cảm và kiểm tra inference trước khi dùng trong workflow có hậu quả cao.</p>
+          <p><strong>Luồng:</strong> Historical labeled data → build/train/tune trong SageMaker AI → model artifact/endpoint → new data → inference prediction → application dùng prediction cùng business rule.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Xây model dự đoán churn, demand, fraud risk hoặc score từ dữ liệu lịch sử nội bộ khi pre-trained AI service không giải quyết đúng bài toán.</li>
+            <li>Data-science team train/tune model rồi expose inference cho application qua endpoint/pipeline managed.</li>
+            <li>Feature engineering từ data lake trước khi train, sau đó monitor prediction và retrain khi dữ liệu thực tế thay đổi.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon Kendra &amp; Amazon Personalize" data-progress-aliases="">
+        <summary><span class="t-title">Amazon Kendra &amp; Amazon Personalize</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon Kendra tạo document search có hiểu ngôn ngữ để trả lời từ knowledge base; Amazon Personalize tạo recommendation/re-ranking theo thời gian thực. Cả hai đem ML application-level vào sản phẩm mà không phải tự build, train và deploy ML solution từ đầu.</p>
+          <ul>
+            <li>Kendra là fully managed ML-powered document search, extract answer từ text, PDF, HTML, PowerPoint, Microsoft Word và FAQ; hỗ trợ natural-language query.</li>
+            <li>Kendra index các nguồn như S3, RDS, Google Drive, SharePoint, OneDrive, Salesforce, ServiceNow và third-party/custom APIs theo sơ đồ slide.</li>
+            <li>Kendra học từ user interaction/feedback để promote kết quả ưu tiên (incremental learning) và cho phép fine-tune theo importance, freshness hoặc custom criteria.</li>
+            <li>Personalize trả personalized recommendation hoặc re-ranking real-time; ví dụ user mua gardening tools thì gợi ý item tiếp theo có liên quan.</li>
+            <li>Personalize tích hợp vào website, mobile app, SMS hoặc email marketing; slide nhấn mạnh triển khai trong ngày thay vì tự build/train/deploy ML solution, và dùng cùng loại technology Amazon.com dùng.</li>
+          </ul>
+
+          <h3>Search khác recommendation</h3>
+          <table>
+            <tr><th>Service</th><th>Câu hỏi nó trả lời</th><th>Input chính</th><th>Output cho application</th></tr>
+            <tr><td><strong>Amazon Kendra</strong></td><td>“Thông tin/đáp án nào trong knowledge base phù hợp câu hỏi này?”</td><td>Document đã index và natural-language query.</td><td>Relevant answer/result, có thể được fine-tune theo freshness/importance.</td></tr>
+            <tr><td><strong>Amazon Personalize</strong></td><td>“User này nên thấy item nào tiếp theo?”</td><td>User/item/interaction data, S3 data và real-time events theo kiến trúc slide.</td><td>Recommendation hoặc re-ranked list cho kênh digital/marketing.</td></tr>
+          </table>
+          <p><strong>Luồng:</strong> Documents từ data sources → Kendra knowledge index → user hỏi bằng natural language → answer/result; hoặc interaction data từ S3/real-time API → Personalize → recommendation API → website, mobile app, SMS hoặc email.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Employee self-service tìm câu trả lời như vị trí IT support desk trong tài liệu nội bộ nhiều nguồn.</li>
+            <li>Customer-help portal search qua FAQ, PDF và knowledge base thay vì chỉ full-text keyword matching.</li>
+            <li>Retail/media đề xuất sản phẩm, nội dung hoặc re-rank catalog theo hành vi mới nhất của từng user.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" id="sec-awsmonitoringauditcloudw">
+    <span class="back" onclick="location.hash=''">← AWS</span>
+    <h2>📈 <span class="sec-title" data-sec-title="Aws Monitoring &amp; Audit: CloudWatch, CloudTrail &amp; Config">Aws Monitoring &amp; Audit: CloudWatch, CloudTrail &amp; Config</span></h2>
+    <div class="content" data-sec="awsmonitoringauditcloudw">
+      <details class="topic" data-track="Amazon CloudWatch: metrics, logs, alarms & insights" data-progress-aliases="">
+        <summary><span class="t-title">Amazon CloudWatch: metrics, logs, alarms &amp; insights</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon CloudWatch tập trung quan sát vận hành: thu thập metrics và logs, phân tích chúng, dựng dashboard và biến một điều kiện đo được thành notification hoặc hành động tự động. Nó trả lời “hệ thống đang hoạt động ra sao?”, không phải công cụ ghi lại ai đã gọi AWS API.</p>
+          <ul>
+            <li><strong>Metric</strong> là biến theo dõi có timestamp, ví dụ <code>CPUUtilization</code> hoặc <code>NetworkIn</code>; AWS services phát metrics vào <strong>namespace</strong>.</li>
+            <li><strong>Dimension</strong> là thuộc tính phân biệt time series, như instance ID hay environment; một metric có tối đa <strong>30 dimensions</strong> theo slide.</li>
+            <li>Có thể tạo dashboard và <strong>custom metrics</strong>; RAM của EC2 là ví dụ quan trọng vì metric EC2 mặc định không cung cấp RAM usage.</li>
+            <li>CloudWatch Metrics, Logs, Alarms và các Insights là các lớp liên kết: log/metric tạo tín hiệu, alarm hoặc query biến tín hiệu thành hành động/điều tra.</li>
+          </ul>
+
+          <h3>Metrics, Metric Streams và dashboard</h3>
+          <p>Metric Streams liên tục đưa CloudWatch metrics gần real-time, low latency tới Amazon Data Firehose hoặc observability partner như Datadog, Dynatrace, New Relic, Splunk và Sumo Logic. Có thể filter để chỉ stream tập metric cần thiết; Firehose sau đó có thể delivery tới S3, Redshift hoặc OpenSearch, và dữ liệu S3 có thể được Athena phân tích.</p>
+          <p><strong>Luồng:</strong> AWS service/custom publisher → CloudWatch metric theo namespace + dimensions → dashboard hoặc Metric Stream → Firehose/partner → S3, Redshift, OpenSearch hay Athena.</p>
+
+          <h3>CloudWatch Logs: ingest, query, export và subscription</h3>
+          <p>Logs có thể đến từ SDK, CloudWatch Logs Agent/Unified Agent, Elastic Beanstalk, ECS containers, Lambda function logs, VPC Flow Logs, API Gateway và CloudTrail theo filter/cấu hình. Với EC2 hoặc on-premises, log <em>không</em> tự đi lên CloudWatch: cài agent, chỉ định file/log group/stream và cấp IAM permission cho agent.</p>
+          <h4>Logs Insights và các cách đưa log ra ngoài</h4>
+          <ul>
+            <li><strong>CloudWatch Logs Insights</strong> là query engine cho dữ liệu lịch sử trong Log Groups, không phải real-time engine. Nó tự khám phá fields của AWS services và JSON logs; query có thể chọn field, filter điều kiện, tính aggregate, sort, limit, lưu query và đưa kết quả vào dashboard.</li>
+            <li>Có thể query nhiều Log Groups ở các AWS accounts. Ví dụ thực tế: tìm IP, đếm <code>ERROR</code>, hoặc xem event mới nhất bằng <code>fields @timestamp, @message | sort @timestamp desc | limit 20</code>.</li>
+            <li><strong>S3 export</strong> dùng API <code>CreateExportTask</code>, là batch: log data có thể mất tới <strong>12 giờ</strong> mới sẵn sàng export. Không dùng nó cho near-real-time/real-time delivery.</li>
+            <li><strong>Subscription Filter</strong> chọn log events và đẩy gần real-time tới Kinesis Data Streams, Amazon Data Firehose hoặc Lambda. Đây là đường dùng cho xử lý/analysis liên tục, ví dụ index OpenSearch hoặc landing S3 qua Firehose.</li>
+          </ul>
+          <p>Để aggregate logs đa account/đa Region, mỗi Log Group đặt Subscription Filter → central Kinesis Data Streams → Firehose → S3. Với cross-account subscription, sender gửi tới subscription destination/stream ở recipient account; destination access policy và IAM role được assume phải cho phép put record.</p>
+
+          <h3>Agents và các lớp Insights</h3>
+          <p><strong>CloudWatch Logs Agent</strong> là agent cũ, chỉ gửi logs. <strong>CloudWatch Unified Agent</strong> gửi cả logs lẫn system metrics chi tiết từ EC2/on-premises và có thể dùng SSM Parameter Store để quản lý cấu hình tập trung. Trên Linux/EC2 nó thu CPU (active/guest/idle/system/user/steal), disk capacity và I/O, RAM, netstat, processes và swap; trong khi EC2 out-of-the-box chỉ có disk/CPU/network mức cao.</p>
+          <table>
+            <tr><th>Insight</th><th>Vai trò</th><th>Điểm kiến trúc</th></tr>
+            <tr><td><strong>Container Insights</strong></td><td>Collect, aggregate, summarize metrics và logs của ECS, EKS/Kubernetes on EC2 và Fargate.</td><td>EKS/Kubernetes dùng containerized CloudWatch Agent để discover containers.</td></tr>
+            <tr><td><strong>Lambda Insights</strong></td><td>Monitoring/troubleshooting serverless, gồm CPU time, memory, disk, network, cold starts và worker shutdowns.</td><td>Được cung cấp dưới dạng Lambda layer.</td></tr>
+            <tr><td><strong>Contributor Insights</strong></td><td>Phân tích logs thành time series top-N contributors và usage.</td><td>Dùng với VPC Flow Logs/DNS/AWS-generated logs để tìm bad host, top talker hoặc URL nhiều lỗi.</td></tr>
+            <tr><td><strong>Application Insights</strong></td><td>Tự tạo dashboard và finding cho application trên EC2 với công nghệ hỗ trợ như Java, .NET, IIS và databases.</td><td>Có thể quan sát EBS, RDS, ELB, ASG, Lambda, SQS, DynamoDB, S3, ECS/EKS, SNS, API Gateway; powered by SageMaker, gửi finding tới EventBridge và SSM OpsCenter.</td></tr>
+          </table>
+          <p><strong>CloudWatch Network Synthetic Monitor</strong> (Network Monitor) theo dõi lỗi mạng giữa app AWS và on-premises data center mà không cần agent: kiểm tra ICMP hoặc TCP tới IPv4 qua Direct Connect hay Site-to-Site VPN, phát hiện packet loss, latency và jitter, rồi publish kết quả thành CloudWatch metrics.</p>
+
+          <h3>Alarms, composite alarms và EC2 recovery</h3>
+          <p>Alarm đánh giá statistic của một metric trong <strong>period</strong> (số giây). Trạng thái là <strong>OK</strong>, <strong>INSUFFICIENT_DATA</strong> hoặc <strong>ALARM</strong>. Theo slide, high-resolution custom metrics dùng period 10 giây, 30 giây hoặc bội số 60 giây. Khi threshold bị breach, alarm có thể gửi SNS, chạy Auto Scaling action, hoặc stop/terminate/reboot/recover EC2.</p>
+          <p>Composite Alarm đánh giá state của nhiều alarm con bằng AND/OR để giảm “alarm noise”; nó không trực tiếp đo metric mới. Có thể tạo metric từ CloudWatch Logs Metric Filter rồi alarm trên metric đó. Khi test notification/runbook, dùng CLI như <code>aws cloudwatch set-alarm-state --alarm-name "myalarm" --state-value ALARM --state-reason "testing purpose"</code>.</p>
+          <p>EC2 status checks tách <strong>instance status</strong> (VM), <strong>system status</strong> (underlying hardware) và <strong>attached EBS status</strong>. Alarm trên <code>StatusCheckFailed_System</code> có thể trigger EC2 instance recovery; recovery giữ private/public/EIP address và placement group theo slide, nhưng không thay backup hay application HA.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Unified Agent đẩy RAM/disk/process metrics từ fleet EC2, dashboard hóa chúng và alarm SNS/Auto Scaling khi capacity có nguy cơ cạn.</li>
+            <li>VPC Flow Logs, Lambda/API Gateway logs → Subscription Filter → Firehose/OpenSearch để điều tra gần real-time; dùng Logs Insights cho truy vấn lịch sử.</li>
+            <li>Metric Streams đưa một tập metrics đã filter sang observability vendor hoặc S3 analytics mà không phải poll API.</li>
+            <li>Composite alarm chỉ báo incident khi CPU và IOPS cùng bất thường; system-status alarm tự recover một EC2 bị lỗi host.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="Amazon EventBridge" data-progress-aliases="">
+        <summary><span class="t-title">Amazon EventBridge</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> Amazon EventBridge (trước đây là CloudWatch Events) là event bus serverless để match event JSON hoặc schedule rồi route chúng tới target. Nó tách producer khỏi consumer: service phát event không cần biết Lambda, SQS hay workflow nào xử lý tiếp.</p>
+          <ul>
+            <li>Rule có thể là <strong>schedule/cron</strong> để chạy script/Lambda định kỳ, hoặc <strong>event pattern</strong> để phản ứng khi một service làm điều gì đó.</li>
+            <li>Source ví dụ: EC2 instance state, CodeBuild failure, S3 event, Trusted Advisor finding, CloudTrail API call, AWS service, SaaS partner và custom application.</li>
+            <li>Event pattern là filter tùy chọn trên JSON event; target có thể là Lambda, AWS Batch, ECS task, SQS, SNS, Kinesis Data Streams, Step Functions, CodePipeline, CodeBuild, SSM hay EC2 actions.</li>
+            <li>Event bus gồm default bus cho AWS services, partner event bus cho SaaS partner như Zendesk/Datadog và custom event bus cho application; resource-based policy có thể chia sẻ bus cross-account.</li>
+          </ul>
+
+          <h3>Rules, targets và event contract</h3>
+          <p>Rule chỉ route event khớp pattern hoặc thời gian biểu; target mới thực hiện công việc. Ví dụ “mỗi giờ” → EventBridge → Lambda, hoặc root user sign-in event → EventBridge → SNS email. Khi target cần quyền gọi service khác, dùng execution role phù hợp hoặc resource-based policy ở target; Lambda chẳng hạn phải allow EventBridge invoke.</p>
+          <p><strong>Luồng:</strong> AWS service/SaaS/custom app/cron → event bus → rule match JSON → Lambda, SQS/SNS, Kinesis, ECS/Batch, Step Functions, CodePipeline/CodeBuild hoặc SSM/EC2 action.</p>
+          <h4>Schema, archive và replay</h4>
+          <p>Schema Registry có thể phân tích event trên bus, suy luận schema và generate code bindings để application biết trước cấu trúc event. Event bus cũng có thể archive toàn bộ hoặc filtered events vô thời hạn hoặc một thời gian đặt trước, rồi replay archive để retest/reprocess rule/target; archive không thay cơ chế xử lý retry/idempotency ở consumer.</p>
+
+          <h3>Cross-account và CloudTrail automation</h3>
+          <p>Event bus resource-based policy quản lý principal/account nào được <code>events:PutEvents</code> vào bus cụ thể. Đây là pattern để aggregate event từ accounts/Regions trong AWS Organizations vào central account; policy có thể allow/deny account khác, còn producer account vẫn cần IAM permission để gọi API.</p>
+          <p>CloudTrail ghi management/API call, EventBridge nhận event tương ứng để tự động hóa. Ví dụ user gọi <code>DeleteTable</code> trên DynamoDB → CloudTrail log API call → EventBridge rule match → SNS alert. Tương tự, match <code>AssumeRole</code> hoặc <code>AuthorizeSecurityGroupIngress</code> để alert security team. Đây là phản ứng sau event, không chặn API call trước khi nó xảy ra.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Schedule Lambda dọn temporary objects mỗi giờ mà không chạy cron server.</li>
+            <li>Đưa event từ nhiều account vào custom/central bus, filter theo service/detail-type rồi chạy Step Functions hoặc SQS workflow.</li>
+            <li>Gửi SNS khi CloudTrail phát hiện DeleteTable, root sign-in, assume role hoặc thay đổi inbound rule của Security Group.</li>
+            <li>Archive event production và replay vào test target khi sửa consumer hay cần điều tra sự cố.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="AWS CloudTrail" data-progress-aliases="">
+        <summary><span class="t-title">AWS CloudTrail</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> AWS CloudTrail là audit trail cho activity/API calls trong AWS account: ai thực hiện action nào, lúc nào và từ đâu. Dùng nó trước tiên khi resource bị xóa hay cấu hình bị đổi; nó không phải performance monitoring như CloudWatch.</p>
+          <ul>
+            <li>CloudTrail ghi event từ Console, CLI, SDK, AWS services và IAM users/roles. Event history cho management events có sẵn theo mặc định; slide nêu retention <strong>90 ngày</strong> trong CloudTrail.</li>
+            <li>Tạo <strong>trail</strong> để delivery logs lâu dài tới S3 và/hoặc CloudWatch Logs; trail có thể áp dụng cho một Region hoặc tất cả Regions.</li>
+            <li>Giữ lâu hơn 90 ngày: lưu vào S3 rồi query bằng Athena. CloudTrail Logs cũng có thể đi CloudWatch Logs để search/alert gần hơn.</li>
+          </ul>
+
+          <h3>Ba nhóm event và lựa chọn logging</h3>
+          <table>
+            <tr><th>Nhóm</th><th>Nội dung</th><th>Hành vi/điểm cần nhớ</th></tr>
+            <tr><td><strong>Management events</strong></td><td>Operations trên resources, như <code>AttachRolePolicy</code>, <code>CreateSubnet</code> hay <code>CreateTrail</code>.</td><td>Trail mặc định log management events; có thể tách Read events (không sửa resource) và Write events (có thể sửa resource).</td></tr>
+            <tr><td><strong>Data events</strong></td><td>High-volume object/function activity, như S3 <code>GetObject</code>/<code>PutObject</code>/<code>DeleteObject</code> và Lambda <code>Invoke</code>.</td><td>Không được log mặc định; phải bật chọn lọc vì volume/cost cao, và cũng có thể tách read/write.</td></tr>
+            <tr><td><strong>CloudTrail Insights events</strong></td><td>Unusual activity dựa trên management events, ví dụ provisioning bất thường, gần service limit, burst IAM actions hay gaps trong periodic maintenance.</td><td>Phân tích baseline management events rồi liên tục phân tích <strong>write events</strong>; anomaly hiện trong console, gửi S3 và phát EventBridge event để automation.</td></tr>
+          </table>
+
+          <h3>Từ audit tới điều tra và phản ứng</h3>
+          <p>CloudTrail console/inspect hỗ trợ truy vết; S3 là archive lâu dài và Athena phân tích SQL. EventBridge không thay log: nó nhận event để tạo notification/remediation workflow. Đường tổng quát là Console/CLI/SDK/IAM role → CloudTrail → CloudWatch Logs hoặc S3; với API event cần phản ứng → EventBridge → SNS/Lambda/SQS.</p>
+          <p><strong>Luồng:</strong> Principal hoặc AWS service → API call → CloudTrail management/data/Insights event → Event history, S3 trail và/hoặc CloudWatch Logs → Athena điều tra hoặc EventBridge rule → SNS/Lambda/SQS automation.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Điều tra instance, bucket hoặc DynamoDB table bị xóa: tìm API caller, source IP, time và request parameters trong CloudTrail.</li>
+            <li>Log S3 object-level hoặc Lambda invoke chỉ cho resource nhạy cảm thay vì bật toàn bộ data events.</li>
+            <li>Lưu trail vào S3 để giữ audit lâu dài và query Athena; match event write nhạy cảm bằng EventBridge để gửi SNS ngay.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="topic" data-track="AWS Config & compliance automation" data-progress-aliases="">
+        <summary><span class="t-title">AWS Config &amp; compliance automation</span></summary>
+        <div class="body">
+          <p><strong>Mục đích:</strong> AWS Config ghi nhận configuration và thay đổi theo thời gian, rồi đánh giá resource có tuân thủ rule hay không. Nó trả lời “resource đang/đã cấu hình thế nào và có compliant không?”, khác với CloudTrail ghi API call và CloudWatch đo trạng thái vận hành.</p>
+          <ul>
+            <li>Dùng để audit/compliance các câu hỏi như Security Group có SSH unrestricted không, bucket có public access không, hay ALB configuration đã thay đổi thế nào.</li>
+            <li>AWS Config là dịch vụ theo Region; có thể aggregate dữ liệu giữa Regions/accounts, lưu configuration data vào S3 và dùng Athena để phân tích.</li>
+            <li>Resource timeline hiển thị compliance qua thời gian, configuration changes và CloudTrail API calls liên quan đến resource.</li>
+            <li>Config có hơn <strong>75 AWS managed rules</strong> theo slide; custom Config rule phải được định nghĩa bằng AWS Lambda.</li>
+            <li>Rule có thể chạy khi có mỗi configuration change và/hoặc theo lịch. Config Rule <strong>không</strong> prevent/deny action xảy ra; nó phát hiện và đánh giá sau đó.</li>
+          </ul>
+
+          <h3>Rules, notifications và remediation</h3>
+          <p>Managed rule phù hợp guardrail phổ biến; custom Lambda rule dùng khi tiêu chí thuộc domain riêng, ví dụ mọi EBS disk phải <code>gp2</code> hoặc EC2 phải là <code>t2.micro</code> theo slide. Khi resource <strong>NON_COMPLIANT</strong>, EventBridge có thể match event để trigger Lambda/SNS/SQS; Config cũng có thể gửi configuration-change và compliance-state notifications tới SNS (lọc bằng SNS filtering hoặc ở client).</p>
+          <p>Config có thể automate remediation bằng SSM Automation Documents. Ví dụ IAM access key expired/non-compliant → Config → SSM document <code>AWSConfigRemediation-RevokeUnusedIAMUserCredentials</code>. Remediation là action riêng cần IAM/SSM permission thích hợp; hãy chọn rule và document để tránh sửa ngoài ý muốn.</p>
+          <p><strong>Luồng:</strong> Resource configuration change hoặc scheduled evaluation → Config recorder/rule → compliant hoặc NON_COMPLIANT → EventBridge/SNS notification và/hoặc SSM Automation remediation → S3/Athena archive/report.</p>
+
+          <h3>Chọn đúng dịch vụ quan sát/audit</h3>
+          <table>
+            <tr><th>Dịch vụ</th><th>Câu hỏi chính</th><th>Ví dụ với Elastic Load Balancer</th></tr>
+            <tr><td><strong>CloudWatch</strong></td><td>Hiệu năng, logs, events/alerting và dashboard.</td><td>Incoming connections, error-code percentage theo thời gian và dashboard performance.</td></tr>
+            <tr><td><strong>CloudTrail</strong></td><td>Ai đã gọi API/thay đổi resource.</td><td>Ai đã sửa Load Balancer hoặc gọi API thay đổi listener/security configuration.</td></tr>
+            <tr><td><strong>AWS Config</strong></td><td>Configuration hiện tại/lịch sử có compliant với rule không.</td><td>Track Security Group/ALB configuration, bảo đảm luôn có SSL certificate được gắn.</td></tr>
+          </table>
+          <p>Giá trong slide là <strong>$0.003</strong> cho mỗi configuration item được record mỗi Region và <strong>$0.001</strong> cho mỗi config-rule evaluation mỗi Region, không có free tier; đây là giá trị source-specific, cần kiểm tra pricing hiện hành trước khi dự toán.</p>
+
+          <p><strong>Use cases:</strong></p>
+          <ul>
+            <li>Central security account aggregate Config từ nhiều accounts/Regions, tìm public S3 hoặc Security Group mở SSH rồi tạo ticket/alert.</li>
+            <li>Tự revoke IAM access key không dùng/expired bằng managed Config rule kết hợp SSM Automation, sau khi có review/approval phù hợp.</li>
+            <li>Điều tra một ALB: CloudWatch xem lỗi/load, CloudTrail tìm người sửa, Config xem timeline và compliance certificate/Security Group.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
   <section class="section" id="sec-manageaccess">
     <span class="back" onclick="location.hash=''">← AWS</span>
     <h2>🔐 <span class="sec-title" data-sec-title="ManageAccess">Bảng tra nhanh — Access &amp; Encryption</span></h2>
@@ -5653,6 +6547,29 @@ Container chạy từ image trong registry (ECR)</code></pre>
         <tr><td><strong>ELB / ASG / Beanstalk</strong></td><td>IAM cho control plane; Service Role/Service-linked Role; SG cho traffic</td><td>TLS certificate bằng ACM; EBS encryption cho EC2</td><td>IAM quyết định ai được tạo/sửa ALB/ASG. Traffic thực tế đến app được quyết định bởi Listener + SG + target configuration.</td></tr>
         <tr><td><strong>RDS / Aurora</strong></td><td>IAM cho RDS API; SG; DB User/Password + GRANT; IAM DB Authentication nếu hỗ trợ; IAM role + Lambda resource policy khi DB invoke Lambda</td><td>KMS at rest; SSL/TLS in transit</td><td>IAM tạo/quản lý DB không đồng nghĩa được SELECT. DB access vẫn cần network + native credential; DB gọi Lambda còn cần outbound path (public/NAT/VPC Endpoint) và permission ở cả DB lẫn Lambda.</td></tr>
         <tr><td><strong>ElastiCache</strong></td><td>IAM control plane; SG; Redis AUTH/RBAC hoặc IAM Authentication tùy engine/deployment</td><td>Encryption at rest + TLS</td><td>Thường nằm private trong VPC. App muốn connect cần đường mạng/SG + authentication của cache; IAM chủ yếu quản lý resource.</td></tr>
+        <tr><td><strong>Amazon DocumentDB</strong></td><td>IAM identity policy cho control plane; VPC SG; database user/RBAC hoặc IAM database authentication khi hỗ trợ</td><td>AES-256 at rest với AWS KMS; TLS in transit</td><td>Không có resource-based policy. IAM quản lý cluster không tự cấp quyền CRUD; instance-based cluster 5.0 có thể dùng IAM auth, nhưng primary user vẫn dùng password.</td></tr>
+        <tr><td><strong>Amazon Neptune</strong></td><td>IAM cho management API; SG/VPC cho endpoint; IAM database authentication/SigV4 cho data-plane khi bật</td><td>KMS at rest; HTTPS/TLS</td><td>Control plane và graph query là hai lớp riêng. Khi bật IAM auth, request data-plane phải ký SigV4; Neptune yêu cầu kết nối HTTPS/TLS.</td></tr>
+        <tr><td><strong>Amazon Timestream</strong></td><td>IAM cho control plane và Write/Query data-plane; workload dùng IAM role; Interface VPC Endpoint policy khi private access</td><td>KMS at rest (default <code>alias/aws/timestream</code> hoặc customer managed key); HTTPS/TLS</td><td>Không dùng database password: caller API phải có AWS credentials. Private access cần endpoint riêng cho Write và Query theo Timestream cell.</td></tr>
+        <tr><td><strong>Amazon Athena</strong></td><td>IAM cho workgroup/query/catalog API; quyền data-plane đọc source S3, Glue Data Catalog/Lake Formation khi dùng và ghi S3 result; Lambda connector role cho Federated Query</td><td>HTTPS/TLS; query result mã hóa SSE-S3 hoặc SSE-KMS; dữ liệu nguồn dùng cơ chế mã hóa của source</td><td>Quyền chạy query không tự cấp quyền đọc object hoặc ghi result. Federated Query còn cần connector Lambda có network/credential tới từng source.</td></tr>
+        <tr><td><strong>Amazon Redshift</strong></td><td>IAM cho control plane; VPC SG cho endpoint; database user/role hoặc IAM authentication cho SQL; IAM role cho <code>COPY</code>/<code>UNLOAD</code> tới S3</td><td>KMS at rest cho cluster/snapshot; TLS in transit</td><td>IAM tạo cluster khác quyền chạy <code>SELECT</code>. Role gắn cluster phải được S3 allow; encrypted snapshot/cross-Region copy cần KMS permissions phù hợp.</td></tr>
+        <tr><td><strong>Amazon OpenSearch Service</strong></td><td>IAM identity/resource policy cho API; fine-grained access control; VPC security groups hoặc network/data access policies; Cognito cho Dashboards khi cấu hình</td><td>KMS at rest; HTTPS/TLS in transit</td><td>Quyền vào Dashboards/API không tự cho phép đọc database nguồn. Nếu dùng VPC domain, network path/SG vẫn là lớp bắt buộc; indexer Lambda/Firehose cần quyền ghi index.</td></tr>
+        <tr><td><strong>Amazon EMR</strong></td><td>IAM cho EMR API; EMR service role + EC2 instance profile/service role; SG/VPC; application/native permissions tới S3, Hive/HBase…</td><td>EBS encryption và KMS cho data/log/snapshot khi cấu hình; TLS in transit</td><td>Người tạo cluster không tự làm cho Spark/Hadoop job đọc được S3. Quyền data-plane thuộc role của nodes/job, và Spot task node không nên giữ data duy nhất.</td></tr>
+        <tr><td><strong>Amazon QuickSight</strong></td><td>IAM cho account/control plane; QuickSight users/groups cho asset sharing; service role/credentials + VPC connection cho data source; CLS/RLS cho data hiển thị</td><td>HTTPS/TLS; SPICE và service data được mã hóa at rest, dùng KMS key khi tính năng/source hỗ trợ</td><td>QuickSight user/group không phải IAM Group. Share dashboard không thay permission của data source; dùng CLS/RLS và cấu hình export/drill-down để bảo vệ dữ liệu người xem.</td></tr>
+        <tr><td><strong>Amazon Rekognition</strong></td><td>IAM cho Rekognition API; caller/service role cần quyền đọc image/video S3 và KMS key nếu object dùng SSE-KMS</td><td>TLS cho API; dữ liệu nguồn và collection dùng encryption do service/S3/KMS quản lý</td><td>Quyền gọi Detect/Start API không tự cấp quyền đọc media trong S3. Face collection là dữ liệu nhạy cảm; giới hạn IAM và lifecycle/retention theo policy.</td></tr>
+        <tr><td><strong>Amazon Textract</strong></td><td>IAM cho Textract API; caller/service role cần quyền đọc document S3 và ghi/đọc output workflow khi dùng</td><td>TLS cho API; document S3 dùng SSE-S3/SSE-KMS, KMS permission khi áp dụng</td><td>Textract phân tích document nhưng không bỏ qua S3/KMS permission. Bảo vệ output vì form/table có thể chứa PII.</td></tr>
+        <tr><td><strong>Amazon Transcribe</strong></td><td>IAM cho Transcribe API; service/caller role truy cập audio input, transcript output S3 và KMS key khi mã hóa</td><td>TLS cho API; S3 input/output SSE-S3/SSE-KMS theo cấu hình</td><td>PII redaction là xử lý nội dung, không thay thế việc giới hạn bucket, transcript output và KMS key.</td></tr>
+        <tr><td><strong>Amazon Polly</strong></td><td>IAM cho <code>SynthesizeSpeech</code>, lexicon và control plane; application dùng role/user credentials để gọi API</td><td>TLS cho API; audio output do application lưu dùng cơ chế encryption của destination như S3/KMS</td><td>Polly không cấp quyền public cho audio đã tạo. Kiểm soát quyền đọc object ở nơi application lưu output.</td></tr>
+        <tr><td><strong>Amazon Translate</strong></td><td>IAM cho Translate API; application dùng IAM role/user credentials</td><td>TLS cho API; dữ liệu application lưu sau dịch dùng encryption của destination</td><td>Translate là API service, không tự tạo data-plane policy cho content nguồn/đích. Không gửi text nhạy cảm nếu policy không cho phép.</td></tr>
+        <tr><td><strong>Amazon Lex</strong></td><td>IAM cho bot/control plane; Lex service role cho Lambda/AWS integrations; Lambda resource policy hoặc integration role phải allow invoke</td><td>TLS cho runtime/API; dữ liệu bot/log dùng encryption/KMS theo cấu hình destination</td><td>Intent được nhận diện không đồng nghĩa caller được phép làm action backend; Lambda vẫn phải authenticate/authorize request.</td></tr>
+        <tr><td><strong>Amazon Connect</strong></td><td>IAM cho instance/contact-flow control plane; service-linked roles/integration permissions; agent access quản lý trong Connect</td><td>TLS cho web/API; recording, chat transcript và data stores dùng encryption/KMS theo cấu hình</td><td>Connect điều phối call; quyền gọi CRM/Lex/Lambda thuộc integration role/policy của từng service, không phải chỉ quyền agent.</td></tr>
+        <tr><td><strong>Amazon Comprehend / Comprehend Medical</strong></td><td>IAM cho NLP/medical APIs; caller role cần quyền S3/Kinesis/Transcribe source-destination và KMS nếu dữ liệu mã hóa</td><td>TLS cho API; source/output dùng encryption của S3/Kinesis/KMS theo cấu hình</td><td><code>DetectPHI</code> phát hiện PHI nhưng không thay IAM, KMS, logging controls hay compliance process cho clinical data.</td></tr>
+        <tr><td><strong>Amazon SageMaker AI</strong></td><td>IAM cho SageMaker API; execution role cho training/processing/endpoint truy cập S3, ECR, logs và data source; VPC/SG khi private</td><td>KMS cho volume, model artifact, endpoint/data khi cấu hình; TLS cho API/endpoint</td><td>Người tạo model khác role mà training/inference job dùng. Grant S3/KMS tối thiểu cho execution role, không nhúng credential vào notebook/code.</td></tr>
+        <tr><td><strong>Amazon Kendra</strong></td><td>IAM cho index/control plane; data-source connector/service role đọc S3, SharePoint, database hoặc SaaS source; application IAM cho query API</td><td>TLS cho API/connectors; index/data encryption at rest với KMS theo cấu hình service/source</td><td>Kendra result quality không thay access control nguồn. Connector chỉ nên đọc tập document được phép index; giữ ACL/filter phù hợp cho search audience.</td></tr>
+        <tr><td><strong>Amazon Personalize</strong></td><td>IAM cho dataset/campaign/recommendation API; service role đọc S3 import data, caller/application role gửi event và gọi recommendation API</td><td>TLS cho API; dataset/import/output encryption at rest với KMS theo cấu hình</td><td>Personalize cần role riêng để đọc data, còn app caller cần quyền runtime. Giảm quyền và bảo vệ user interaction data vì có thể là dữ liệu cá nhân.</td></tr>
+        <tr><td><strong>AWS Glue</strong></td><td>IAM cho Glue API; Glue job role đọc/ghi source-destination; Data Catalog permissions; VPC/SG cho JDBC private source</td><td>KMS cho Data Catalog, job bookmarks/logs và S3/source-destination theo cấu hình; TLS in transit</td><td>Crawler/catalog chỉ giữ metadata; job role mới cần quyền đọc data thật. Glue chạy được job không có nghĩa consumer Athena/Redshift có quyền đọc output.</td></tr>
+        <tr><td><strong>AWS Lake Formation</strong></td><td>IAM admin/data-lake settings + Lake Formation grants trên database/table/column/row; S3 data location permission; engine role/user cần quyền tương ứng</td><td>Dữ liệu dùng S3 SSE-S3/SSE-KMS và TLS; KMS key policy vẫn áp dụng</td><td>Lake Formation governance bổ sung, không thay S3/IAM/KMS. Grant table/column không vượt qua S3 location hoặc KMS permission bị thiếu.</td></tr>
+        <tr><td><strong>Amazon MSK</strong></td><td>IAM cho control plane; IAM client authentication hoặc Kafka ACL/SASL theo cấu hình; VPC SG/NACL cho broker; MSK cluster policy khi áp dụng</td><td>KMS at rest; TLS in transit (hoặc PLAINTEXT nếu chọn theo slide)</td><td>IAM tạo cluster khác authorization của producer/consumer vào topic. Network đến private broker và Kafka/IAM client auth đều phải đúng; chọn TLS thay vì PLAINTEXT cho production.</td></tr>
+        <tr><td><strong>Amazon Managed Service for Apache Flink</strong></td><td>IAM cho application API; execution role đọc Kinesis/MSK, checkpoint/snapshot S3 và ghi sink; VPC/SG khi source/sink private</td><td>Managed application data/checkpoint theo KMS khi cấu hình; TLS tới AWS sources/sinks</td><td>Service chạy Flink code bằng execution role, không phải quyền của người deploy. Đọc MSK còn cần network và Kafka/IAM client authorization; Firehose không phải source Flink của slide.</td></tr>
         <tr><td><strong>Route 53</strong></td><td>IAM quản lý Hosted Zone/Record; Resolver Rule/Policy khi hybrid DNS</td><td>DNSSEC cho integrity</td><td>IAM kiểm soát ai được sửa DNS records, không phải ai trên Internet được query public DNS. DNSSEC giúp xác minh DNS response không bị giả mạo/chỉnh sửa.</td></tr>
         <tr><td><strong>S3</strong></td><td>IAM + Bucket Policy + Access Point Policy + VPC Endpoint Policy + ACL legacy</td><td>SSE-S3 / SSE-KMS / SSE-C; TLS</td><td>S3 có nhiều lớp access. Cross-account thường cần IAM + Bucket Policy. Block Public Access là guardrail chống public ngoài ý muốn. SSE-KMS → kiểm tra thêm KMS permission.</td></tr>
         <tr><td><strong>Snow / Storage Gateway / DataSync / Transfer</strong></td><td>IAM + Service Role + quyền vào source/destination</td><td>KMS at rest; TLS/SSH/FTPS khi transfer</td><td>Người dùng có quyền tạo DataSync job không có nghĩa job đọc được S3. Chính Service Role mà service sử dụng phải có quyền source/destination.</td></tr>
@@ -5663,9 +6580,16 @@ Container chạy từ image trong registry (ECR)</code></pre>
         <tr><td><strong>SNS</strong></td><td>IAM + Topic Policy + policy/auth của subscriber + KMS</td><td>SSE-KMS; TLS</td><td>Topic Policy quyết định ai được Publish/Subscribe. Nhưng SNS gửi sang SQS → SQS cũng phải cho phép SNS gửi vào queue.</td></tr>
         <tr><td><strong>AWS Lambda</strong></td><td>IAM cho control plane; execution role cho code gọi AWS; resource-based policy cho invoke từ API Gateway/S3/EventBridge/RDS; SG/NACL + route khi gắn VPC</td><td>Package và environment variables at rest được Lambda mã hóa bằng KMS (có thể dùng CMK); TLS cho API/event source</td><td>Ai được <code>InvokeFunction</code> tách biệt với quyền mà code có sau khi chạy. VPC attachment cấp đường mạng qua ENI, không tự cấp Internet; dùng role/Secrets Manager thay vì credential trong env vars.</td></tr>
         <tr><td><strong>Amazon DynamoDB</strong></td><td>IAM cho control plane và data-plane API; table resource policy/VPC Endpoint policy khi áp dụng; Lambda dùng execution role</td><td>Server-side encryption at rest mặc định (AWS owned key hoặc KMS key); TLS in transit</td><td>Quyền tạo table khác quyền <code>GetItem</code>/<code>PutItem</code>. Lambda trong VPC có thể dùng DynamoDB Gateway VPC Endpoint để không cần NAT; SSE-KMS cần quyền KMS phù hợp.</td></tr>
+        <tr><td><strong>Amazon API Gateway</strong></td><td>IAM cho control plane; IAM auth, Cognito authorizer hoặc Lambda/custom authorizer cho caller; resource policy + interface VPC endpoint cho private API; Lambda/AWS-service integration cần permission/role phù hợp</td><td>TLS/HTTPS; ACM certificate cho custom domain</td><td>API Gateway xác thực caller không tự cấp quyền cho backend: Lambda resource policy hoặc integration role vẫn phải allow invoke. Edge-optimized custom domain dùng ACM ở <code>us-east-1</code>; Regional dùng certificate cùng Region.</td></tr>
+        <tr><td><strong>AWS Step Functions</strong></td><td>IAM control plane; state machine execution role cho service integrations; caller cần quyền start/describe execution; integration target vẫn cần resource policy/role khi áp dụng</td><td>Execution data at rest dùng AWS-owned key hoặc KMS key cấu hình; TLS cho API/integration calls</td><td>Execution role là quyền mà workflow dùng để gọi Lambda/SQS/ECS… chứ không phải quyền của người bấm StartExecution. Khi dùng CMK, kiểm tra cả key policy và quyền KMS của role/service.</td></tr>
+        <tr><td><strong>Amazon Cognito</strong></td><td>IAM quản lý User Pool/Identity Pool; User Pool token authorizer ở API Gateway/ALB; Identity Pool assume IAM role để cấp temporary credentials; IAM policy điều khiển S3/DynamoDB data plane</td><td>Managed encryption at rest; TLS cho hosted/auth APIs và token flow</td><td>User Pool phát token, còn Identity Pool cấp AWS credentials. Policy của Identity Pool có thể dùng <code>cognito-identity.amazonaws.com:sub</code>/<code>dynamodb:LeadingKeys</code> để giới hạn item theo identity; không nhúng IAM access key vào app.</td></tr>
         <tr><td><strong>Kinesis Data Streams</strong></td><td>IAM + Resource Policy cho cross-account + KMS</td><td>Server-side encryption + TLS</td><td>Producer cần quyền như PutRecord; Consumer cần GetRecords, GetShardIterator... Có quyền ghi không có nghĩa có quyền đọc.</td></tr>
         <tr><td><strong>ECS / Fargate / ECR / EKS</strong></td><td>IAM cho control plane; ECS task execution role/task role; ECR repository policy; EKS IAM access entries + Kubernetes RBAC; SG cho task/pod network</td><td>ECR encryption at rest (AWS managed key/KMS); TLS cho ECR/EKS APIs; EFS/EBS encryption khi task/pod dùng storage</td><td>Task execution role pull image/logs; task role là quyền code trong container. EKS IAM access không tự cấp Kubernetes permission: cần RBAC. Fargate là compute type, không phải orchestration.</td></tr>
         <tr><td><strong>Amazon MQ</strong></td><td>IAM quản lý broker; Broker User/Password + SG cho application</td><td>KMS at rest; TLS</td><td>IAM cho phép tạo/sửa/delete broker. App muốn connect ActiveMQ/RabbitMQ lại cần network + broker credential/protocol authentication.</td></tr>
+        <tr><td><strong>Amazon CloudWatch</strong></td><td>IAM cho metrics/logs/dashboard/alarm API; IAM role cho Unified Agent, Logs subscription/Metric Stream delivery và alarm action; Logs resource policy khi AWS service delivery/cross-account</td><td>CloudWatch Logs có thể mã hóa at rest bằng KMS key theo Log Group; metrics/alarms dùng service-managed encryption; TLS in transit</td><td>Quyền xem dashboard không tự cho phép đọc log group. Agent/delivery role cần quyền riêng để publish metric/log hoặc ghi Firehose/OpenSearch/S3; KMS key policy phải cho phép CloudWatch Logs khi dùng CMK.</td></tr>
+        <tr><td><strong>Amazon EventBridge</strong></td><td>IAM cho bus/rule/archive API; event-bus resource policy cho cross-account <code>PutEvents</code>; execution role hoặc target resource policy để invoke Lambda/SQS/SNS/Step Functions…</td><td>AWS-owned key hoặc customer managed KMS key cho event bus khi cấu hình; TLS in transit</td><td>Cho phép gửi event vào bus khác với cho phép rule gọi target. Cấu hình cả bus policy và permission/role ở target; consumer vẫn phải xử lý retry/idempotency.</td></tr>
+        <tr><td><strong>AWS CloudTrail</strong></td><td>IAM cho trail/event-data-store API; S3 Bucket Policy cho CloudTrail write; CloudWatch Logs delivery role; KMS key policy khi S3 dùng SSE-KMS</td><td>Trail logs lưu S3 với SSE-S3 hoặc SSE-KMS; TLS in transit</td><td>CloudTrail audit API activity chứ không cấp quyền đọc resource data. Trail ghi S3/CloudWatch cần destination policy/role đúng, còn Athena query tiếp tục cần S3/Glue permissions.</td></tr>
+        <tr><td><strong>AWS Config</strong></td><td>IAM cho Config API; Config recorder/service role đọc configuration và ghi S3/SNS; aggregator authorization; SSM Automation execution role cho remediation</td><td>S3 delivery dùng SSE-S3/SSE-KMS; TLS in transit; KMS key policy phải cho phép Config khi dùng CMK</td><td>Config phát hiện/evaluate sau thay đổi, không deny API call. Rule non-compliant chỉ tự sửa được khi remediation document và execution role có đúng quyền trên resource.</td></tr>
       </table>
       <blockquote>🧠 Cách làm đề thi: tách <strong>control plane</strong> (ai tạo/sửa service — IAM) khỏi <strong>data plane</strong> (ai đọc/ghi/kết nối dữ liệu — resource policy, network policy và credential native). Nếu dữ liệu mã hóa KMS, kiểm tra thêm KMS key policy.</blockquote>
     </div>
@@ -5681,6 +6605,7 @@ const SECTIONS=[
   {hash:"ebs", el:"sec-ebs", icon:"🏬", name:"EBS",       key:"EBS"},
   {hash:"alb", el:"sec-alb", icon:"⚖️", name:"ALB & ASG", key:"ALB & ASG"},
   {hash:"rdsauroraelasticcache", el:"sec-rdsauroraelasticcache", icon:"🗄️", name:"RDS + Aurora + ElasticCache", key:"RDS + Aurora + ElasticCache"},
+  {hash:"databases", el:"sec-databases", icon:"🗃️", name:"Databases", key:"Databases"},
   {hash:"route53", el:"sec-route53", icon:"🌐", name:"Route 53", key:"Route 53"},
   {hash:"s3", el:"sec-s3", icon:"🪣", name:"S3", key:"S3"},
   {hash:"cloudfrontawsglobalaccel", el:"sec-cloudfrontawsglobalaccel", icon:"🌍", name:"Cloud Front & AWS Global Accelerator", key:"Cloud Front & AWS Global Accelerator"},
@@ -5688,6 +6613,9 @@ const SECTIONS=[
   {hash:"sqssnskinesisactivemq", el:"sec-sqssnskinesisactivemq", icon:"📨", name:"SQS, SNS, Kinesis, Active MQ", key:"SQS, SNS, Kinesis, Active MQ"},
   {hash:"ecsfargateecreks", el:"sec-ecsfargateecreks", icon:"🐳", name:"ECS, Fargate, ECR & EKS", key:"ECS, Fargate, ECR & EKS"},
   {hash:"severlessoverview", el:"sec-severlessoverview", icon:"⚡", name:"Severless Overview", key:"Severless Overview"},
+  {hash:"dataanalytics", el:"sec-dataanalytics", icon:"📊", name:"Data & Analytics", key:"Data & Analytics"},
+  {hash:"machinelearning", el:"sec-machinelearning", icon:"🤖", name:"Machine Learning", key:"Machine Learning"},
+  {hash:"awsmonitoringauditcloudw", el:"sec-awsmonitoringauditcloudw", icon:"📈", name:"Aws Monitoring & Audit: CloudWatch, CloudTrail & Config", key:"Aws Monitoring & Audit: CloudWatch, CloudTrail & Config"},
   {hash:"manageaccess", el:"sec-manageaccess", icon:"🔐", name:"Access & Encryption", key:"ManageAccess"},
 ];
 let STATE=null;
@@ -6274,18 +7202,22 @@ function selectPage(p,chip){
   updateBuildBtn();
 }
 
+async function addImageDataUrl(dataUrl){
+  importImages.push(dataUrl);renderThumbs();updateBuildBtn();
+  // Never let a failed save be silent — that's what made images vanish before.
+  const saved=await persistImages();
+  if(!saved){
+    const st=document.getElementById("buildStatus");
+    st.className="err";
+    st.textContent="⚠ Ảnh chỉ đang nằm trong bộ nhớ tạm (không lưu được — có thể hết dung lượng). Đừng tải lại trang trước khi bấm 🚀 Tạo nội dung.";
+  }
+  return saved;
+}
+
 function addImageFile(file){
   if(!file||!/^image\//.test(file.type))return;
   const r=new FileReader();
-  r.onload=async()=>{
-    importImages.push(r.result);renderThumbs();updateBuildBtn();
-    // Never let a failed save be silent — that's what made images vanish before.
-    if(!await persistImages()){
-      const st=document.getElementById("buildStatus");
-      st.className="err";
-      st.textContent="⚠ Ảnh chỉ đang nằm trong bộ nhớ tạm (không lưu được — có thể hết dung lượng). Đừng tải lại trang trước khi bấm 🚀 Tạo nội dung.";
-    }
-  };
+  r.onload=()=>addImageDataUrl(r.result);
   r.readAsDataURL(file);
 }
 function renderThumbs(){
@@ -6315,6 +7247,26 @@ function updateBuildBtn(){
 document.addEventListener("paste",e=>{
   if(!document.getElementById("importModal").classList.contains("on"))return;
   for(const it of e.clipboardData.items) if(it.type.startsWith("image/")) addImageFile(it.getAsFile());
+});
+let captureImportChain=Promise.resolve();
+window.addEventListener("message",e=>{
+  const data=e.data;
+  if(e.source!==window||data?.source!=="aws-learning-capture-extension"||data.type!=="capture"||!/^data:image\/png;base64,/.test(data.dataUrl||""))return;
+  captureImportChain=captureImportChain.then(async()=>{
+    try{
+      if(!document.getElementById("importModal").classList.contains("on"))await openImport();
+      if(!await addImageDataUrl(data.dataUrl))throw new Error("Không lưu được ảnh");
+      const time=new Date().toLocaleTimeString("vi-VN");
+      const status=document.getElementById("captureStatus");
+      status.hidden=false;
+      status.textContent=`✅ Đã chụp và lưu ảnh #${importImages.length} lúc ${time}`;
+      toast(`📸 Đã thêm ảnh bài giảng (${importImages.length})`);
+      window.postMessage({source:"aws-learning-page",type:"capture-added",requestId:data.requestId,ok:true,count:importImages.length,time},location.origin);
+    }catch(err){
+      toast("❌ Không thêm được ảnh: "+err.message);
+      window.postMessage({source:"aws-learning-page",type:"capture-added",requestId:data.requestId,ok:false,error:err.message},location.origin);
+    }
+  });
 });
 document.getElementById("newPageInput").addEventListener("input",updateBuildBtn);
 // Note survives accidental reloads, same as the pasted images (small text → localStorage is enough)
@@ -6353,6 +7305,7 @@ async function createContent(){
     const data=await r.json();
     if(!r.ok||!data.ok)throw new Error(data.error||"Builder lỗi");
     importImages=[];clearPersistedImages();renderThumbs();   // consumed → clear the saved batch
+    document.getElementById("captureStatus").hidden=true;
     document.getElementById("noteInput").value="";localStorage.removeItem("awslearn-import-note");
     st.className="ok";
     st.textContent=`✅ Đã lưu ${data.count} ảnh → ${data.agent||agentLabel} đang tạo nội dung trong cửa sổ terminal. Xong thì tải lại trang.`;

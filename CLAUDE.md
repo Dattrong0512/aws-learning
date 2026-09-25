@@ -126,6 +126,14 @@ Worker can't spawn a terminal, a tiny local companion server (`tools/builder.mjs
 6. Click **🚀 Tạo nội dung**, then choose an agent: **Codex** is the default
    (`gpt-5.6-terra` with high reasoning); **Claude** uses `claude-opus-4-8`.
 
+Optional Udemy shortcut: load `tools/aws-capture-extension/` once from
+`chrome://extensions` (**Developer mode → Load unpacked**). While a Udemy lesson is focused,
+press backtick (`` ` ``) to capture the visible video frame directly into this import modal.
+Normal mode crops to the player; fullscreen captures the whole visible player. Chrome keeps the
+extension running, and opens the local AWS Learning tab in the background if needed. Success is
+acknowledged only after the image is persisted: the Udemy toast shows the batch count and the import
+modal shows the latest capture number and time.
+
 The builder saves the images to `tools/inbox/<page>-<timestamp>/`, writes a prompt, and opens a
 **new PowerShell window** running the selected CLI. Claude runs
 `claude -p --model claude-opus-4-8 --permission-mode acceptEdits`; Codex runs

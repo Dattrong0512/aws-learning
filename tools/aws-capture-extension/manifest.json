@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "AWS Learning Capture",
+  "version": "1.1.0",
+  "description": "Press ` on Udemy to capture the visible lecture frame into AWS Learning.",
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.udemy.com/*",
+        "http://localhost:8788/*",
+        "http://127.0.0.1:8788/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
