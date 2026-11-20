@@ -32,7 +32,7 @@ function renderCards(){
     card.setAttribute("data-domain",s.domain);
     card.onclick=()=>{location.hash="#/"+s.hash;};
     card.innerHTML=`<div>
-      <div class="card-top"><span class="card-domain">${s.domainLabel}</span></div>
+      <div class="card-top"><img class="service-icon" src="${s.icon}" alt="" width="44" height="44" decoding="async"><span class="card-domain">${s.domainLabel}</span></div>
       <div class="name">${s.name}</div>
       <p class="desc">${s.desc}</p>
     </div>

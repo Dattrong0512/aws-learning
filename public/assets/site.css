@@ -33,6 +33,7 @@
   }
 
   * { box-sizing: border-box; }
+  .service-icon { display: block; flex-shrink: 0; object-fit: contain; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0;

@@ -31,7 +31,10 @@ Governance/Cost/Other Services.
 
 - `public/index.html`: bản tiếng Việt.
 - `public/en/index.html`: bản tiếng Anh đầy đủ.
-- `public/assets/`: CSS và JavaScript dùng chung.
+- `public/assets/`: CSS, JavaScript dùng chung và icon SVG chính thức của AWS.
+
+Icon lấy từ [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/),
+bộ phát hành ngày 31/07/2026. Các chuyên đề dùng icon dịch vụ chính hoặc nhóm dịch vụ tương ứng.
 
 Source biên soạn, test, cấu hình deploy, backup và tài liệu tham khảo được giữ local
 và không đưa lên GitHub. Không có API chỉnh sửa nội dung trên website.

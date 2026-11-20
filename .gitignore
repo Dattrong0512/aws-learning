@@ -13,3 +13,6 @@
 !/public/assets/*.css
 !/public/assets/*.js
 !/public/assets/*.mjs
+!/public/assets/icons/
+/public/assets/icons/*
+!/public/assets/icons/*.svg
