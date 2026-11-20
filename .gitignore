@@ -35,3 +35,13 @@ tmp/
 
 # Rebuilt by tools/build-site.mjs; edit content/ and src/ instead
 public/
+AGENTS.md
+Deploy AWS Learning.cmd
+Disable Auto-Start.cmd
+Enable Auto-Start.cmd
+README.md
+Start AWS Learning.cmd
+wrangler.jsonc
+Stop AWS Learning.cmd
+skills/aws-exam/
+CLAUDE.md
