@@ -1,21 +1,38 @@
 import { join } from "node:path";
 
-export function createStudyPrompt({ section, sectionHash, isNew, dir, files, note }) {
+export function createStudyBatches(options) {
+  const count = Math.ceil(options.files.length / 25);
+  return Array.from({ length: count }, (_, i) => {
+    const files = options.files.slice(i * 25, (i + 1) * 25);
+    return { files, prompt: createStudyPrompt({ ...options, files, isNew: options.isNew && i === 0,
+      batch: { number: i + 1, count, totalImages: options.files.length } }) };
+  });
+}
+
+export function createStudyPrompt({ section, sectionHash, isNew, dir, files, note, batch }) {
   const imageList = files.map((file) => `  - ${join(dir, file)}`).join("\n");
   const targetInstruction = isNew
-    ? `This is a NEW page named "${section}". Add its navigation card, a section with
-<section id="sec-${sectionHash}"> and <div class="content" data-sec="${sectionHash}">,
-plus the matching SECTIONS entry. Start with the smallest sensible set of major topics.`
+    ? `This is a NEW page named "${section}". Create content/vi/${sectionHash}.html and
+content/en/${sectionHash}.html, then add the matching SECTIONS entry to content/catalog.json
+(hash "${sectionHash}", el "sec-${sectionHash}"). Update expected section/topic counts
+in the build validator. Start with the smallest sensible set of major topics.`
     : `This is the EXISTING page "${section}" (data-sec="${sectionHash}"). Read every
 existing major topic on that page before editing. Prefer updating the matching major
 service topic. Create a new toggle only for a genuinely distinct service/concept.`;
   const noteBlock = note
     ? `\nOPTIONAL USER GENERATION INSTRUCTION (never copy this text into the notes):\n"""\n${note}\n"""\nPrioritize this instruction when it does not conflict with correctness.\n`
     : "";
+  const batchBlock = batch?.count > 1 ? `
+BATCH ${batch.number}/${batch.count}: ${files.length} of ${batch.totalImages} total images.
+Only read this batch's listed images; never reopen images from other batches.
+Batch boundaries MUST NOT determine topic boundaries. All batches update ONE destination page.
+${batch.number > 1 ? "Earlier batches are already integrated into the current HTML. Read the whole destination page and merge into the SAME existing major topics. Preserve earlier essential facts, useful tables, decision-relevant exact values, diagram relationships, exceptions and tracking IDs; deduplicate repeated explanations." : "Later batches will enrich these same major topics. Group by service/concept, not by this batch."}
+${batch.number === batch.count ? "This is the FINAL batch. Audit the entire destination page, including earlier-batch content: consolidate repeated concepts across batches, keep essential technical details and useful comparisons, and verify access and encryption facts within all touched service topics." : "Keep this batch's important details in the HTML so later batches can merge them without rereading these images."}
+` : "";
 
   return `You are generating and integrating AWS SAA-C03 study notes from lecture screenshots.
 
-FIRST read ./CLAUDE.md and ./public/index.html. Then read ALL images below together as
+FIRST read ./CLAUDE.md and ./content/vi/${sectionHash}.html. Then read ALL images below together as
 ONE conceptual input. Screenshot boundaries MUST NOT determine topic boundaries.
 
 Images (${files.length}):
@@ -24,6 +41,7 @@ ${imageList}
 Target:
 ${targetInstruction}
 ${noteBlock}
+${batchBlock}
 YOUR JOB IS NOT TRANSCRIPTION.
 
 Understand → reorganize → deduplicate → group related concepts → explain purpose →
@@ -53,23 +71,36 @@ MATCH THE CURRENT PAGE FORMAT EXACTLY:
     <summary><span class="t-title">Canonical major topic</span></summary>
     <div class="body">
       <p><strong>Mục đích:</strong> ...</p>
-      <ul>
-        <li>...</li>
-      </ul>
+      <hr>
+      <h3>1. Core concept</h3>
+      <p>Short explanation introducing the concept.</p>
+      <pre><code class="language-text">Term
+= short, clear definition</code></pre>
+      <p>One important behavior or condition.</p>
+      <pre><code class="language-text">Client
+↓
+Service
+↓
+Backend</code></pre>
+      <hr>
+      <h3>2. Use cases</h3>
       <p><strong>Use cases:</strong></p>
-      <ul><li>...</li><li>...</li></ul>
-      <p><strong>Luồng:</strong> A → B → C.</p>
+      <ul><li>Concrete architecture example.</li></ul>
     </div>
   </details>
 
-- The Luồng paragraph is optional when no meaningful data/control path exists. Use as many
-  <h3>/<h4> sections as needed to keep a grouped topic navigable. Tables, short paragraphs,
-  <code>, <pre> or a small SVG may be inserted inside .body when useful.
-- Follow the same reading rhythm as the richer existing topics: begin with Mục đích and a compact
-  4–8 bullet overview, then use one descriptive <h3> for each substantial source concept. Use <h4>
-  for mechanisms, constraints or sub-comparisons. End with practical Use cases; place Luồng near
-  the overview or relevant subsection. This is a structure guide, not a reason to omit source facts.
-- When enriching an existing short topic, integrate its useful summary into the detailed sections.
+- Match the compact block style of the Disaster Recovery and KMS pages and the user's API Gateway
+  example: short explanations, multiline definitions/features, vertical flows and useful comparisons.
+- Use consecutively numbered <h3> blocks separated by <hr>; use <h4> for real sub-concepts.
+  A heading contains only its short label, never paragraphs, lists, tables, code or diagrams.
+- Use <pre><code class="language-text"> for short definitions (Term, then = meaning), feature
+  lists (one feature per line), vertical flows, commands/config or small trees. Put flow arrows
+  on separate lines. Do not flatten blocks into A · B · C or put long paragraphs inside code.
+- Keep caveats and prerequisites in short prose; introduce a block with a sentence when needed.
+  Omit flows that merely repeat the definition.
+- No required word count or overview bullet count. Do not expand topics already in this style.
+  For formatting-only tasks, change only older prose-heavy content and leave already matching
+  topics unchanged, including their saved bodies. New source facts may still enrich a matching topic.
   Do not leave a generic summary followed by a second version of the same explanation.
 - Do not add topic-group wrappers, nested <details>, cards, callout systems, badges or a
   parallel summary/detail layout. Keep the current flat list of major topic toggles.
@@ -86,26 +117,24 @@ CONTENT STANDARD:
   security/networking, integrations and limitations where relevant.
 - Every major service/topic includes <p><strong>Use cases:</strong></p> with concrete,
   architecture-oriented examples that answer when someone would choose it.
-- Add a short <strong>Luồng:</strong> A → B → C only when data movement becomes clearer.
-- Preserve comparison/specification tables already present in the notes or source. Do not turn
-  a useful table into a vague bullet list. Prefer a table when three or more alternatives share
-  comparable dimensions such as latency, durability, AZ scope, cost, throughput or limits.
-- Never drop exact technical facts shown in the source: quotas, percentages, timeouts, retention,
-  message/object sizes, throughput, IOPS, bandwidth, ports, supported families/modes, AZ/Region
-  scope, prerequisites and exceptions. Label a value as source-specific when it may age.
-- A grouped major topic will commonly need 450–1,200 words and may be longer when it consolidates
-  many comparison-heavy slides. There is no hard word cap; remove repetition, not useful facts.
-- Preserve important facts from both the screenshots and current notes. If text is unclear,
-  do not invent exact values. Add only enough standard AWS context to make the source understandable.
-- Treat every legible row, column, label, footnote, exception and numeric annotation in a source
-  table or diagram as source content. Account for it explicitly in prose, a table or the interpreted
-  flow; never keep only the headline while silently dropping the supporting technical details.
+- Interpret useful data/control paths as concise flows, normally in <pre><code>.
+- Preserve comparison/specification tables when they clarify an architecture choice; shorten
+  repeated rows and irrelevant detail rather than turning a useful comparison into vague prose.
+- Keep exact technical facts that affect the correct answer: prerequisites, supported modes,
+  AZ/Region scope, retention, timeouts, sizes, throughput, IOPS, bandwidth, ports and exceptions.
+  Explain what each number controls and verify or label version-sensitive values when needed.
+- There is no hard word cap or minimum. Remove repetition, not useful facts; avoid lecture
+  narration, exhaustive quota matrices, duplicate examples and irrelevant pricing detail.
+- Preserve important facts from both screenshots and current notes. Never invent unreadable
+  values; add only enough standard AWS context to make the material understandable.
+- Inspect all source table/diagram annotations, then retain the distinctions necessary for
+  SAA-C03. Do not copy every legible row merely to preserve slide length.
 
 DO NOT ADD:
 - Dấu hiệu đề thi, Keyword đề thi, Exam Tips, Mẹo nhớ, Thấy X chọn Y or filler conclusions.
 - A hidden "full explanation" toggle, study-details wrapper or compact cheat-sheet layer.
-- Duplicate explanations or exhaustive quota matrices unrelated to the supplied material. Exact
-  technical values and comparison tables that appear in the source are not low-value and must stay.
+- Duplicate explanations, repeated footer summaries (SAA-C03 Exam Focus, Nhớ nhanh, Câu nhớ tổng thể),
+  or exhaustive quota matrices. Place any unique important footer fact in its matching block once.
 
 DIAGRAMS AND MULTIPLE IMAGES:
 - Interpret diagrams as architecture. Capture meaningful relationships and convert them
@@ -114,28 +143,23 @@ DIAGRAMS AND MULTIPLE IMAGES:
 - Images covering SNS overview/filtering/FIFO/SNS+SQS should normally update one Amazon SNS topic.
 - Images covering SQS and SNS should normally update two separate major service topics.
 
-ACCESS & ENCRYPTION QUICK-REFERENCE IS MANDATORY:
-- For every AWS service added or materially updated by this import, find the table under
-  "Bảng tra nhanh — Access & Encryption" (data-sec="manageaccess") and add or update its
-  matching row. Do this even when the screenshots do not explicitly discuss security.
-- Follow the existing four columns exactly: Service | Access / Permission | Encryption |
-  Giải thích & điểm cần nhớ. Keep one concise row per service or update the established
-  combined family row when that is how the current table groups closely related services.
-- Access / Permission must distinguish relevant control-plane IAM from data-plane access,
-  and mention applicable resource policies, service/task roles, network controls or native
-  credentials. Include only mechanisms that actually apply to that service.
-- Encryption must state the applicable at-rest mechanism/KMS relationship and in-transit
-  protection such as TLS. Use "—" when encryption is genuinely not applicable; do not invent it.
-- The final column should explain the most useful permission/encryption distinction or
-  cross-service gotcha in one or two compact sentences. Update an existing row instead of
-  adding a duplicate, and do not rewrite unrelated rows or the surrounding table.
+ACCESS AND ENCRYPTION WITHIN EACH TOPIC:
+- For every AWS service added or materially updated, keep relevant security facts inside
+  its existing topic. The separate access-reference page has been removed; do not recreate it.
+- Distinguish control-plane IAM from data-plane access. Mention applicable resource policies,
+  service/task roles, network controls or native credentials concisely.
+- Explain the applicable at-rest mechanism/KMS relationship and in-transit protection such
+  as TLS when useful. Include only mechanisms that actually apply; do not invent encryption.
+- Merge these facts into the matching subsection instead of adding duplicate explanations.
 
 SAFETY AND OUTPUT CONTRACT:
-- This integration uses a coding agent that edits public/index.html directly; there is no
-  JSON response parser. Edit ONLY public/index.html and do not print JSON.
-- Preserve navigation, import UI, JavaScript, IDs and all unrelated sections.
-- Do not edit src/worker.js, tools/*.mjs or review/KV logic.
-- Before finishing, run: node tools/validate-import.mjs
+- Edit ONLY content/vi/${sectionHash}.html and its full English counterpart
+  content/en/${sectionHash}.html. For a NEW page, also update content/catalog.json and
+  the expected section/topic counts. Never edit generated public/ files.
+- Preserve IDs, tracking aliases and all unrelated topics. Do not add decorative icons
+  or trailing AWS source citation links.
+- Do not edit src/worker.js or review/KV data. The website is read-only.
+- Before finishing, run: node tools/build-site.mjs && node tools/validate-import.mjs
 - If validation fails, fix the HTML before returning.
 - Your final response must only summarize which major topics were added or updated.
 
@@ -144,8 +168,8 @@ Internally verify before finishing:
 2. Related material was merged into the smallest reasonable topic set.
 3. Existing matching topics were updated rather than duplicated.
 4. Mục đích and practical Use cases are present.
-5. Important existing information, comparison tables, exact technical values and data-track IDs remain intact.
-6. Every service touched has an accurate row in Bảng tra nhanh — Access & Encryption.
-7. The topic follows overview → descriptive h3/h4 detail → practical use cases without duplicate summaries.
+5. Essential existing facts, useful comparisons, decision-relevant exact values and tracking IDs remain intact.
+6. Relevant access and encryption facts are accurate within each touched service topic.
+7. The topic uses concise numbered blocks, heading-only labels and practical use cases without duplicate summaries.
 8. HTML and data-track values validate successfully.`;
 }

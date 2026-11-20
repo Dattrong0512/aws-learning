@@ -32,7 +32,7 @@ $s.TargetPath       = "$env:SystemRoot\System32\wscript.exe"
 $s.Arguments        = '"' + $vbs + '"'
 $s.WorkingDirectory = $proj
 $s.IconLocation     = "$env:SystemRoot\System32\shell32.dll,13"
-$s.Description       = 'AWS Learning - background servers (builder + wrangler dev --remote), hidden'
+$s.Description       = 'AWS Learning - background server (wrangler dev), hidden'
 $s.Save()
 
 # Task Manager stores a separate StartupApproved flag. Recreating the shortcut

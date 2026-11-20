@@ -1,0 +1,165 @@
+<details class="topic" data-progress-aliases="CloudFront – Origins|CloudFront – VPC Origin cho private ALB NLB EC2|Amazon CloudFront" data-track="Amazon CloudFront: CDN &amp; origins">
+<summary><span class="t-title">Amazon CloudFront: CDN &amp; origins</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Phân phối web/file qua edge gần người dùng để giảm latency và tải lên backend.</p>
+<h3 class="subheading">1. Cache ở edge</h3>
+<pre class="flow-diagram"><code class="language-text">Viewer → edge location
+          ├─ cache hit → trả nội dung
+          └─ cache miss → origin → cache khi policy cho phép → trả nội dung</code></pre>
+<p class="definition"><strong>Origin:</strong> nơi có nội dung gốc.</p>
+<p>Distribution có một hoặc nhiều origins; cache behavior quyết định origin và policy cho từng URL path.</p>
+<p>CloudFront phân phối cả static và dynamic HTTP(S), không chỉ file tĩnh. Request không cache vẫn có thể dùng đường mạng và connection optimization.</p>
+<p><strong>CloudFront và origin không cần cùng AZ.</strong> CloudFront là dịch vụ toàn cầu chạy ở edge locations; origin có thể nằm trong AWS Region hoặc on-premises. VPC origin phải dùng Region và tài nguyên được hỗ trợ. </p>
+<h3 class="subheading">2. Các origin</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Origin / cơ chế</th><th>Chức năng</th><th>Ví dụ</th></tr></thead><tbody>
+<tr><td>S3 Origin</td><td>Lấy nội dung từ S3 bucket</td><td>HTML, CSS, JS, ảnh</td></tr>
+<tr><td>Custom Origin</td><td>Lấy nội dung từ HTTP/HTTPS server</td><td>Public ALB, EC2, web server on-premises</td></tr>
+<tr><td>VPC Origin</td><td>Kết nối riêng tới tài nguyên VPC được hỗ trợ</td><td>Internal ALB, NLB, EC2</td></tr>
+<tr><td>Origin Group</td><td>Nhóm primary + secondary origins để failover</td><td>Primary ALB lỗi → secondary S3 phục vụ trang dự phòng</td></tr>
+</tbody></table></div>
+<p><strong>Origin Group là nhóm dự phòng, không phải một loại server.</strong> Failover theo lỗi kết nối/status codes đã cấu hình, chỉ cho GET/HEAD/OPTIONS; OPTIONS còn phải được bật trong cached HTTP methods. Không dùng cơ chế này để tự failover POST. </p>
+<p>VPC origin giúp origin private, nhưng vẫn phải đáp ứng các yêu cầu SG/network và tính năng được hỗ trợ.</p>
+<p>Public custom origin cần hạn chế việc người dùng bỏ qua CloudFront nếu yêu cầu bảo vệ ở edge.</p>
+<h3 class="subheading">3. Cache Behaviors chọn origin</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Path pattern</th><th>Origin</th><th>Request ví dụ</th></tr></thead><tbody>
+<tr><td>/images/*</td><td>S3</td><td>/images/logo.png</td></tr>
+<tr><td>/api/*</td><td>ALB</td><td>/api/orders</td></tr>
+<tr><td>Default (*)</td><td>On-premises server</td><td>/home</td></tr>
+</tbody></table></div>
+<p>CloudFront xét behaviors <strong>theo thứ tự đã cấu hình</strong> và dùng behavior khớp đầu tiên; không tự chọn pattern cụ thể nhất. Nếu không khớp behavior riêng, dùng <strong>Default Cache Behavior (*)</strong>. </p>
+<h3 class="subheading">4. Private S3 và OAC</h3>
+<p>OAC ký request từ CloudFront, bucket policy cho distribution được đọc; không cần mở public bucket. Object SSE-KMS còn cần KMS key policy phù hợp.</p>
+<p>S3 REST bucket origin khác S3 website endpoint. Website endpoint là custom HTTP origin, không dùng OAC theo cách private bucket origin.</p>
+<h3 class="subheading">5. TLS và bảo vệ edge</h3>
+<p>Custom domain cần certificate đúng tên.</p>
+<p>ACM certificate cho viewer → CloudFront phải ở us-east-1; certificate cho origin là chặng riêng. <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html" rel="noopener noreferrer" target="_blank">AWS CloudFront certificate requirements</a>.</p>
+<p>WAF lọc request ứng dụng; Shield giúp bảo vệ DDoS; signed URL/cookie kiểm soát viewer truy cập private content.</p>
+<p>OAC cấp quyền CloudFront đọc S3, không tự xác thực từng user.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Website/ảnh/video toàn cầu: CloudFront + S3. App private cần edge delivery: VPC origin phù hợp. API HTTP(S): behavior/cache policy theo nội dung và security requirements.</p>
+<h3 class="subheading">7. CloudFront Video Streaming (VOD vs Live) &amp; Custom Domain HTTPS</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Kiểu Streaming</th><th>Kiến trúc chuẩn trên AWS</th><th>Cơ chế cache trên CloudFront</th></tr></thead><tbody>
+<tr><td><strong>Video On-Demand (VOD)</strong></td><td><code>S3 (Origin) → CloudFront → Users</code></td><td>Cache trực tiếp các file/segments video tĩnh đã lưu sẵn trên S3</td></tr>
+<tr><td><strong>Live Streaming</strong></td><td><code>Camera → Elemental MediaLive (encode) → MediaPackage (segments/playlist) → CloudFront</code></td><td>CloudFront không encode nhưng <strong>cache ngay từng segment đã tạo xong</strong> (manifest giữ TTL ngắn)</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Custom Domain HTTPS trên CloudFront:
+1. Xin Public Certificate trong ACM tại Region us-east-1
+2. Khai báo Alternate Domain Name (CNAME) trên CloudFront + gắn chứng chỉ ACM
+3. Tạo Route 53 A/AAAA Alias trỏ tên miền về CloudFront Distribution</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>CloudFront là CDN cache gần người dùng, phân phối từ origins. S3 origin và custom origin có chính sách bảo vệ origin khác nhau.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="CloudFront – Geo Restriction|CloudFront – Cache Invalidation" data-track="CloudFront caching, delivery controls &amp; geo restriction">
+<summary><span class="t-title">CloudFront caching, delivery controls &amp; geo restriction</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Cache đúng nội dung, cập nhật đúng lúc và giới hạn người được nhận nội dung.</p>
+<p class="lead-in">Luồng cache:</p>
+<pre class="flow-diagram"><code class="language-text">Viewer request
+↓ Cache key
+CloudFront edge
+├─ hit → cached response
+└─ miss → origin → response / cache theo policy</code></pre>
+<h3 class="subheading">1. Cache key</h3>
+<p>Cache key xác định request nào dùng chung response. Path là phần chính; có thể thêm query strings, headers/cookies làm nội dung khác nhau.</p>
+<p>Đưa quá nhiều biến vào key làm giảm cache hit.</p>
+<p>Bỏ biến thật sự thay đổi nội dung có thể trả nhầm dữ liệu; response riêng theo user cần policy an toàn hoặc không cache.</p>
+<h3 class="subheading">2. Cache policy và origin request policy</h3>
+<p>Cache policy quyết định key/TTL. Origin request policy chuyển thêm thông tin xuống origin dù không nằm trong key.</p>
+<p>Forward header/cookie không tự đảm bảo response riêng biệt. Kiểm tra cache behavior cùng Cache-Control của origin, đặc biệt minimum TTL và dữ liệu nhạy cảm.</p>
+<h3 class="subheading">3. TTL, file version và invalidation</h3>
+<pre class="flow-diagram"><code class="language-text">TTL quy định thời gian cache.
+Origin đổi file không tự làm mọi edge lấy bản mới ngay.
+Dùng tên version như app.abc123.js cho asset lâu đổi; HTML có thể TTL ngắn
+hơn.</code></pre>
+<p>Invalidation loại path khỏi cache trước TTL: /index.html, /images/* hoặc /*.</p>
+<p>Wildcard path giúp xóa nhiều object nhưng invalidation vẫn có quota/chi phí; không phải cơ chế backup hay sửa file gốc.</p>
+<h3 class="subheading">4. Signed URL và signed cookie</h3>
+<pre class="flow-diagram"><code class="language-text">Signed URL hợp một file cụ thể; signed cookie hợp nhiều file như video có
+nhiều segment.
+Cả hai kiểm soát thời hạn/điều kiện truy cập private content qua CloudFront.</code></pre>
+<p>Chặn truy cập trực tiếp origin nếu muốn mọi user phải qua kiểm tra này. S3 pre-signed URL là cơ chế khác, cấp request trực tiếp tới S3 bằng quyền signer.</p>
+<h3 class="subheading">5. Geo restriction</h3>
+<pre class="flow-diagram"><code class="language-text">Allowlist/blocklist theo quốc gia ở distribution dựa vào Geo-IP.
+VPN/proxy có thể ảnh hưởng vị trí nhận diện; không thay
+authentication/authorization theo user.</code></pre>
+<h3 class="subheading">6. Price Class</h3>
+<p><strong>Price Class</strong> chọn nhóm edge locations phục vụ distribution để cân bằng chi phí và latency.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Price Class</th><th>Phạm vi</th><th>Mục tiêu</th></tr></thead><tbody>
+<tr><td>100</td><td>Mỹ, Canada, châu Âu, Israel</td><td>Giới hạn ở các khu vực có chi phí thấp hơn</td></tr>
+<tr><td>200</td><td>Class 100 + nhiều khu vực châu Á, châu Phi, Trung Đông; có Việt Nam</td><td>Cân bằng chi phí và độ phủ</td></tr>
+<tr><td>All</td><td>Tất cả CloudFront edge locations</td><td>Độ phủ toàn cầu lớn nhất</td></tr>
+</tbody></table></div>
+<p>Ví dụ khách hàng ở Việt Nam: Class 100 không bao gồm edge ở Việt Nam nên có thể phải đi xa hơn; Class 200 bao gồm Việt Nam nên có thể giảm latency; All mở toàn bộ mạng edge. Chi phí thực tế phụ thuộc traffic và khu vực phục vụ. </p>
+<p><strong>Price Class không chặn người dùng theo vị trí.</strong> Người ở ngoài phạm vi vẫn truy cập được; muốn giới hạn quốc gia thì dùng Geo Restriction/WAF.</p>
+<h3 class="subheading">7. Viewer Protocol Policy</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Policy</th><th>Ý nghĩa</th></tr></thead><tbody>
+<tr><td>HTTP and HTTPS</td><td>Cho phép cả hai giao thức</td></tr>
+<tr><td>Redirect HTTP to HTTPS</td><td>Chuyển viewer HTTP sang HTTPS; request HTTP/1.0 dùng các method ghi có thể bị từ chối</td></tr>
+<tr><td>HTTPS Only</td><td>Chỉ cho HTTPS; HTTP bị trả 403</td></tr>
+</tbody></table></div>
+<p>Policy áp dụng cho chặng <strong>viewer → CloudFront</strong>; chặng CloudFront → origin có protocol policy riêng. </p>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  JS/CSS versioned: TTL dài. HTML đổi gấp: invalidation. Nội dung trả phí một file: signed URL; nhiều video segments: signed cookie. Nội dung khác nhau theo query: cache key chứa query cần thiết.</p>
+<h3 class="subheading">9. Automatic Compression (Gzip/Brotli) &amp; 4 Điểm móc Viewer/Origin Events</h3>
+<p class="definition"><strong>Automatic Compression:</strong> khi trình duyệt gửi <code>Accept-Encoding: br, gzip</code>, CloudFront tự nén các file đủ điều kiện bằng <strong>Brotli/Gzip</strong> tại Edge, cache bản nén và trả kèm <code>Content-Encoding</code>.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Event Hook</th><th>Thời điểm chạy</th><th>Hỗ trợ bởi</th></tr></thead><tbody>
+<tr><td><code>Viewer Request</code> / <code>Viewer Response</code></td><td>Mỗi request từ người dùng tới Edge và trước khi trả về (kể cả khi Cache HIT)</td><td><strong>CloudFront Functions</strong> &amp; <strong>Lambda@Edge</strong></td></tr>
+<tr><td><code>Origin Request</code> / <code>Origin Response</code></td><td>Chỉ chạy khi Cache MISS và Edge phải gọi về Origin</td><td>Chỉ <strong>Lambda@Edge</strong></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Cache key/TTL ảnh hưởng hit ratio; behaviors và origin request policy điều khiển nội dung/headers/cookies được gửi và cache.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="AWS Global Accelerator – Bài toán độ trễ Internet|Unicast IP và Anycast IP|AWS Global Accelerator – Cách hoạt động và endpoint" data-track="AWS Global Accelerator">
+<summary><span class="t-title">AWS Global Accelerator</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Đưa traffic TCP/UDP vào mạng AWS gần client, giữ IP ổn định và chuyển tới endpoint khỏe.</p>
+<h3 class="subheading">1. Anycast và đường mạng</h3>
+<pre class="flow-diagram"><code class="language-text">Anycast
+= nhiều điểm mạng quảng bá cùng IP; client đi tới edge phù hợp rồi traffic
+theo AWS backbone tới endpoint.</code></pre>
+<pre class="flow-diagram"><code class="language-text">Client → static Anycast IP → AWS edge → AWS backbone → regional endpoint</code></pre>
+<p>Global Accelerator IPv4 thường cung cấp hai static IPv4; dual-stack có thêm IPv6. IP giữ ổn định khi đổi backend, hữu ích cho firewall allowlist.</p>
+<h3 class="subheading">2. Endpoint và health</h3>
+<pre class="flow-diagram"><code class="language-text">Endpoint group theo Region chứa ALB, NLB, EC2 hoặc EIP theo cấu hình hỗ trợ.
+Health kiểm soát nơi nhận traffic; endpoint weight và traffic dial điều chỉnh
+phân phối.</code></pre>
+<pre class="flow-diagram"><code class="language-text">Traffic dial đổi tỷ lệ traffic vào một Region; endpoint weight chia trong
+group.
+Khi lỗi, service đổi network routing mà không phải đợi client hết DNS cache để
+nhận một IP mới.</code></pre>
+<h3 class="subheading">3. Không có cache</h3>
+<pre class="flow-diagram"><code class="language-text">Global Accelerator tăng tốc đường mạng, không cache HTTP object.
+Nội dung mới vẫn tới ứng dụng; TLS, authentication và kiểm soát request vẫn
+cần ở endpoint/ứng dụng.</code></pre>
+<p>Không nhầm static IP của Global Accelerator với static IP theo AZ của một NLB: Accelerator đưa traffic toàn cầu tới regional endpoints.</p>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Game UDP, VoIP, app TCP toàn cầu; API nhiều Region cần IP allowlist ổn định và nhanh chuyển khỏi endpoint lỗi. Website cần cache ảnh/video gần user: cân nhắc CloudFront.</p>
+<h3 class="subheading">5. Các loại Endpoint đích được Global Accelerator hỗ trợ</h3>
+<p>Global Accelerator định tuyến được tới cả <strong>Internet-facing ALB/NLB</strong>, <strong>Internal ALB/NLB</strong>, <strong>EC2 Instances</strong> và <strong>Elastic IP</strong> trong một hoặc nhiều Region mà không để lộ cấu trúc mạng nội bộ.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Global Accelerator dùng static anycast IP và mạng AWS toàn cầu để cải thiện đường tới regional endpoints; không cache nội dung như CloudFront.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="CloudFront so với S3 Cross-Region Replication|CloudFront và AWS Global Accelerator – Chọn dịch vụ|CloudFront, Global Accelerator và S3 CRR – Chọn kiến trúc" data-track="CloudFront vs Global Accelerator vs S3 CRR">
+<summary><span class="t-title">CloudFront vs Global Accelerator vs S3 CRR</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Phân biệt tăng tốc nội dung, tăng tốc mạng và sao chép dữ liệu bền vững.</p>
+<p class="lead-in">Ba cơ chế:</p>
+<pre class="flow-diagram"><code class="language-text">CloudFront = HTTP(S) delivery + cache
+Global Accelerator = TCP/UDP acceleration, không cache
+S3 CRR = copy object sang Region khác</code></pre>
+<h3 class="subheading">1. Bảng so sánh</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Cơ chế</th><th>Làm gì?</th><th>Khi chọn</th></tr></thead><tbody><tr><td>CloudFront</td><td>CDN cho HTTP(S), cache tại edge và đưa request tới origin</td><td>Web/API, ảnh, video, signed content</td></tr><tr><td>Global Accelerator</td><td>TCP/UDP qua AWS backbone với static Anycast IP, không cache</td><td>App toàn cầu, IP allowlist, network failover</td></tr><tr><td>S3 CRR</td><td>Replicate object sang bucket ở Region khác, bất đồng bộ</td><td>DR, compliance, dữ liệu phải có bản sao regional</td></tr></tbody></table></div>
+<h3 class="subheading">2. Cache khác replica</h3>
+<p>CloudFront cache có thể bị evict hoặc hết TTL; origin vẫn là nguồn dữ liệu.</p>
+<p>CRR tạo object thật ở bucket đích, cần Versioning và permission; app muốn đọc bản đích phải truy cập đúng bucket/endpoint.</p>
+<p>Không dùng CloudFront cache thay backup/DR cho S3. CRR không tự phân phối HTTP tới edge hoặc tự chuyển mọi client sang bucket dự phòng.</p>
+<h3 class="subheading">3. CloudFront khác Accelerator</h3>
+<pre class="flow-diagram"><code class="language-text">CloudFront hiểu HTTP và có cache behavior, signed URL/cookie, geo restriction.
+Global Accelerator xử lý đường TCP/UDP và static IP; không có cache key/TTL
+như CDN.</code></pre>
+<p>HTTP app cũng có thể dùng Accelerator khi cần IP cố định/failover mạng. Chọn theo yêu cầu chính, không chỉ dựa vào từ “global”.</p>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Website ảnh: CloudFront. Game UDP nhiều Region: Global Accelerator. Object cần bản sao Region khác: CRR. Có thể CRR cho DR và CloudFront cho delivery, nhưng vẫn phải cấu hình origin/failover phù hợp.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>CloudFront tối ưu HTTP content caching; Global Accelerator tối ưu network path/TCP-UDP; S3 CRR sao chép dữ liệu giữa Regions.</p></aside>
+</div>
+</details>

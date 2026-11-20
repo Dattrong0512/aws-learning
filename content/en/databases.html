@@ -1,0 +1,267 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon DocumentDB">
+<summary><span class="t-title">Amazon DocumentDB</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon DocumentDB is a managed document database compatible with MongoDB API, used to store data in JSON document format with flexible schema.</p>
+<p><strong>DocumentDB</strong> = Document Database = MongoDB-compatible = Managed by AWS</p>
+<h3 class="subheading">1. Document Model</h3>
+<p><strong>Other relational databases:</strong> <strong>RDS / Aurora</strong> = Table = Row / Column = Clear Schema</p>
+<p><strong>DocumentDB:</strong> <strong>Document</strong> = JSON-like object = each document can have different fields</p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Product A
+{
+  name: "Phone",
+  color: "Black"
+}
+
+Product B
+{
+  name: "Laptop",
+  ram: "16GB",
+  cpu: "M3"
+}</code></pre>
+<p>→ No need for all records to have the same column.</p>
+<h3 class="subheading">2. MongoDB Compatibility</h3>
+<p class="lead-in">Applications can use:</p>
+<pre class="flow-diagram"><code class="language-text">MongoDB Driver
+↓
+DocumentDB</code></pre>
+<p><strong>But remember:</strong> <strong>DocumentDB</strong> ≠ MongoDB self-hosted</p>
+<p><strong>DocumentDB</strong> = AWS service compatible with MongoDB API</p>
+<p>So still need to check which MongoDB features are supported.</p>
+<h3 class="subheading">3. Managed Cluster</h3>
+<p class="compact-line"><strong>AWS admin:</strong> <code>Provisioning · Patching · Backup · Replication · Storage scaling</code></p>
+<p class="compact-line"><strong>Application still has to worry about:</strong> <code>Document Design · Indexes · Queries · Security</code></p>
+<h3 class="subheading">4. Availability &amp; Storage</h3>
+<p class="lead-in">DocumentDB has replication across multiple AZs:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DocumentDB Cluster
+↓
+Replicas across AZs</code></pre>
+<p><strong>Objective:</strong> <strong>High Availability</strong> + Failover</p>
+<p>Storage can expand automatically as data increases.</p>
+<h3 class="subheading">5. Index</h3>
+<p>If you want to query quickly, you still need an index.</p>
+<pre class="flow-diagram"><code class="language-text">Query by email
+↓
+Index: email
+↓
+Search faster</code></pre>
+<p class="lead-in">If there is no suitable index:</p>
+<pre class="flow-diagram"><code class="language-text">Full Scan
+↓
+Query is slow</code></pre>
+<blockquote class="caution"><p>Managed database does not mean automatically optimized queries.</p></blockquote>
+<h3 class="subheading">6. DocumentDB vs RDS vs Neptune</h3>
+<ul class="fact-list"><li><strong>RDS / Aurora</strong> = SQL = relational = join multiple tables</li><li><strong>DocumentDB</strong> = JSON document = flexible schema = MongoDB-compatible</li><li><strong>Neptune</strong> = Graph Database = relationship / traversal</li></ul>
+<pre class="flow-diagram"><code class="language-text">Bank Transaction
+→ RDS / Aurora
+
+Product Catalog
+→ DocumentDB
+
+Social Network Relationship
+→ Neptune</code></pre>
+<h3 class="subheading">7. Security</h3>
+<p class="lead-in">DocumentDB typically runs in:</p>
+<pre class="flow-diagram"><code class="language-text">VPC
+↓
+Security Group
+↓
+TLS
+↓
+DocumentDB Cluster</code></pre>
+<p>IAM is used to manage AWS resources, but permissions to read/write database data still require appropriate authentication/authorization mechanisms.</p>
+<h3 class="subheading usage-heading">8. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Product Catalog
+↓
+DocumentDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">User Profile
+↓
+DocumentDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">CMS / Content Metadata
+↓
+DocumentDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">MongoDB-compatible Application
+↓
+DocumentDB</code></pre>
+<h3 class="subheading">9. Document Size &amp; DocumentDB Serverless</h3>
+<p>DocumentDB supports maximum document size <strong>16 MB</strong> and there is a regime <strong>DocumentDB Serverless</strong> Self-scaling capacity every second based on DCU.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>DocumentDB = document database compatible with MongoDB API; RDS/Aurora = relational SQL; Neptune = graph. Managed does not mean the query is self-optimized.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Neptune">
+<summary><span class="t-title">Amazon Neptune</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Neptune is a managed graph database used when data has many relationships and connections between them need to be queried.</p>
+<p><strong>Neptune</strong> = Graph Database = Node + Relationship</p>
+<h3 class="subheading">1. Graph Model</h3>
+<p><strong>Graph includes:</strong> <strong>Node / Vertex</strong> = entity</p>
+<p><strong>Edge</strong> = relationship between entities</p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">User A
+↓ FRIEND_OF
+User B
+↓ BOUGHT
+Product X</code></pre>
+<p class="lead-in">Or:</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓ LIKES
+Post
+↓ HAS_COMMENT
+Comment</code></pre>
+<blockquote class="insight"><p>Neptune is strong when the question needs to go through many relationships.</p></blockquote>
+<h3 class="subheading usage-heading">2. When to use Neptune?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">User A
+↓ friend
+User B
+↓ bought
+Product X</code></pre>
+<p><strong>Query:</strong> <code>"What product did User A's friend buy?"</code></p>
+<p>Neptune can traverse the graph directly instead of having to join multiple tables.</p>
+<h3 class="subheading usage-heading">3. Use Cases</h3>
+<pre class="flow-diagram"><code class="language-text">Social Network
+↓
+Friend / Like / Share relationships</code></pre>
+<pre class="flow-diagram"><code class="language-text">Fraud Detection
+↓
+Account → Device → Transaction → Address
+↓
+Look for suspicious connections</code></pre>
+<pre class="flow-diagram"><code class="language-text">Recommendation
+↓
+User → Product → Related Product</code></pre>
+<pre class="flow-diagram"><code class="language-text">Knowledge Graph
+↓
+Entity → Relationship → Entity</code></pre>
+<h3 class="subheading">4. Availability</h3>
+<p class="compact-line"><strong>AWS admin:</strong> <code>Cluster · Replication · Backup · Failover</code></p>
+<p>Read replicas can be used to scale reading workload.</p>
+<h3 class="subheading">5. Neptune Streams</h3>
+<p><strong>Neptune Streams = records changes in the graph sequentially.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Graph changes
+↓
+Neptune Streams
+↓
+Consumer/Lambda
+↓
+OpenSearch / S3 / Cache</code></pre>
+<pre class="flow-diagram"><code class="language-text">User A LIKE Product X
+↓
+Neptune Streams
+↓
+Lambda
+↓
+Update Recommendation Index</code></pre>
+<blockquote class="caution"><p>No need to poll the entire graph to find out what just changed.</p></blockquote>
+<h3 class="subheading">6. Neptune vs Other Databases</h3>
+<ul class="fact-list"><li><strong>RDS / Aurora</strong> = relational SQL</li><li><strong>DocumentDB</strong> = JSON document</li><li><strong>Neptune</strong> = relationship / graph traversal</li><li><strong>Timestream</strong> = data over time</li></ul>
+<h3 class="subheading">7. Graph query language: SPARQL vs Gremlin/openCypher</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Data model on Neptune</th><th>Query language</th></tr></thead><tbody>
+<tr><td><strong>RDF (Resource Description Framework)</strong> — triples &amp; knowledge graph</td><td><strong>SPARQL</strong></td></tr>
+<tr><td><strong>Property Graph</strong> — Vertices and edges carry attributes</td><td><strong>Apache TinkerPop Gremlin</strong> or <strong>openCypher</strong></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Neptune is for data with many relationships that need traversal; Different from relational SQL database and document database.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Timestream">
+<summary><span class="t-title">Amazon Timestream</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Timestream is a serverless time-series database used to store and analyze timestamp data.</p>
+<p><strong>Timestream</strong> = Time Series Database = Timestamp + Measurements</p>
+<h3 class="subheading">1. Time Series Data</h3>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">10:00 → CPU = 40%
+10:01 → CPU = 55%
+10:02 → CPU = 80%</code></pre>
+<p class="compact-line"><strong>Or IoT:</strong> <code>Timestamp · DeviceId · Temperature · Humidity · Battery</code></p>
+<blockquote class="insight"><p>Time is the most important part of data.</p></blockquote>
+<h3 class="subheading">2. Data Model</h3>
+<p><strong>A record usually has:</strong> <strong>Timestamp</strong> + Dimensions + Measures</p>
+<p class="compact-line"><code>Timestamp = 10:00 · Dimensions: · deviceId = sensor-01 · region = ap-southeast-1 · Measures: · temperature = 30 · humidity = 70</code></p>
+<h3 class="subheading">3. Multi-measure Record</h3>
+<p class="lead-in">If multiple measurements have the same timestamp:</p>
+<p class="compact-line"><code>10:00 · Temperature = 30 · Humidity = 70 · Battery = 90%</code></p>
+<p><strong>Can be saved together:</strong> <strong>1 Timestamp</strong> + many Measures</p>
+<p>→ reduce the number of records/writes.</p>
+<h3 class="subheading">4. Storage Tiering</h3>
+<p class="lead-in">Timestream divides the data itself:</p>
+<pre class="flow-diagram"><code class="language-text">Recent Data
+↓
+Memory Store
+= query nhanh</code></pre>
+<pre class="flow-diagram"><code class="language-text">Old Data
+↓
+Historical Storage
+= cheaper</code></pre>
+<p>You can still query both.</p>
+<h3 class="subheading">5. Query</h3>
+<p>Timestream supports SQL for temporal analysis.</p>
+<p class="compact-line"><code>Average CPU per 5 minutes · Highest temperature today · Request latency in the last 1 hour</code></p>
+<pre class="flow-diagram"><code class="language-text">Time-series Data
+↓
+Timestream
+↓
+SQL / Aggregation
+↓
+Dashboard / Analytics</code></pre>
+<h3 class="subheading">6. Scheduled Query</h3>
+<p class="lead-in">The query can be run periodically:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CPU Metrics
+↓
+Scheduled Query
+↓
+Average CPU every 5 minutes
+↓
+Summary Table</code></pre>
+<p>Suitable for creating aggregates for dashboards.</p>
+<h3 class="subheading">7. Popular flow</h3>
+<pre class="flow-diagram"><code class="language-text">IoT / Application
+↓
+Timestream Write API
+↓
+Recent Data
+↓
+Memory Store
+↓
+Historical Storage
+↓
+SQL / Dashboard</code></pre>
+<h3 class="subheading usage-heading">8. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">IoT Sensors
+↓
+Temperature / Battery / Location
+↓
+Timestream</code></pre>
+<pre class="flow-diagram"><code class="language-text">Application Monitoring
+↓
+CPU / Latency / Error Count
+↓
+Timestream</code></pre>
+<pre class="flow-diagram"><code class="language-text">Financial / Clickstream Events
+↓
+Time-window Analytics</code></pre>
+<h3 class="subheading">9. Timestream should not be used for</h3>
+<p class="compact-line"><code>Customer · Order · Payment Transaction</code></p>
+<p>If this is transactional business data, regular CRUD/relationship is needed.</p>
+<p class="lead-in">Those cases are often more suitable for:</p>
+<p class="compact-line"><code>RDS / Aurora · DynamoDB</code></p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Timestream specializes in time-series data by timestamp; Adapt IoT metrics, monitoring and data that changes over time.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Keyspaces (for Apache Cassandra)">
+<summary><span class="t-title">Amazon Keyspaces (for Apache Cassandra)</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Run an Apache Cassandra compatible wide-column database in fully serverless mode on AWS.</p>
+<h3 class="subheading">1. Architecture, Capacity &amp; Integration Mode</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Aspect</th><th>Features on Amazon Keyspaces</th></tr></thead><tbody>
+<tr><td><strong>Platform architecture</strong></td><td>NoSQL managed, CQL-compatible serverless Apache Cassandra; automatically cloned via <strong>3 Availability Zones</strong> with single-digit millisecond latency</td></tr>
+<tr><td><strong>On-Demand Mode</strong></td><td>Pay according to each actual read/write request, suitable for unpredictable load fluctuations</td></tr>
+<tr><td><strong>Provisioned Mode (+ Auto Scaling)</strong></td><td>Preset read/write capacity for stable load to optimize costs</td></tr>
+<tr><td><strong>Data Protection &amp; CDC</strong></td><td>Default encryption (AWS Owned Key or CMK), <strong>PITR</strong> Continuous recovery in <strong>35 days</strong> and <strong>CDC Streams</strong> push record changes to Lambda, EventBridge, or Kinesis</td></tr>
+</tbody></table></div>
+</div>
+</details>

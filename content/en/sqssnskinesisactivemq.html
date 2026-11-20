@@ -1,0 +1,789 @@
+<details class="topic" data-progress-aliases="SQS – Vì sao cần hàng đợi và decoupling|SQS Standard Queue – Đặc tính và giới hạn|SQS – Vòng đời gửi, nhận và xóa message|SQS – Scale consumer, ASG và tách tầng ứng dụng|SQS – Bảo mật với IAM, Queue Policy và KMS|SQS – Visibility Timeout, retry và DLQ|SQS – Long Polling|SQS FIFO Queue – Thứ tự và chống trùng" data-track="Amazon SQS">
+<summary><span class="t-title">Amazon SQS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Use managed message queue to:</p>
+<p class="compact-line"><code>Decouple producers and consumers · Asynchronous processing · Buffer traffic spike · Retry workload when consumer fails</code></p>
+<p class="lead-in">Basic flow:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓ SendMessage
+SQS Queue
+↓ ReceiveMessage
+Consumer
+↓ processing
+DeleteMessage</code></pre>
+<h3 class="subheading">1. Why do we need SQS?</h3>
+<p class="lead-in">If the producer calls the consumer directly:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+Consumer</code></pre>
+<p>Consumer is slow/error → producer is also affected.</p>
+<p class="lead-in">With SQS:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+SQS Queue
+↓
+Consumer</code></pre>
+<p class="compact-line"><strong>SQS keeps messages temporarily so:</strong> <code>Producer scale independent · Consumer scale independent · Traffic spike is buffered</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Web App
+↓ 1,000 video jobs
+SQS
+↓
+Workers handle it gradually</code></pre>
+<blockquote class="insight"><p><strong>SQS = decouple + async + buffer.</strong></p></blockquote>
+<h3 class="subheading">2. Message Lifecycle</h3>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓ SendMessage
+SQS
+↓
+Consumer ReceiveMessage
+↓
+Process
+↓
+DeleteMessage</code></pre>
+<p><strong>ReceiveMessage</strong> ≠ delete message</p>
+<p class="lead-in">The message is only deleted when the consumer calls:</p>
+<p><code>DeleteMessage</code></p>
+<p class="lead-in">If the consumer crashes before deletion:</p>
+<pre class="flow-diagram"><code class="language-text">Message
+↓
+Visibility Timeout is over
+↓
+Visible again
+↓
+Another consumer retry</code></pre>
+<h3 class="subheading">3. Visibility Timeout</h3>
+<p class="lead-in">After the consumer receives the message:</p>
+<pre class="flow-diagram"><code class="language-text">Message
+↓ Receive
+Temporarily invisible
+↓
+Consumer processing</code></pre>
+<p><strong>Default according to slide:</strong> <code>30 seconds</code></p>
+<p><strong>Configurable to:</strong> <code>12 hours</code></p>
+<p class="lead-in">If processing is complete:</p>
+<pre class="flow-diagram"><code class="language-text">DeleteMessage
+↓
+Messages disappeared</code></pre>
+<p class="lead-in">If not delete:</p>
+<pre class="flow-diagram"><code class="language-text">Visibility Timeout is over
+↓
+The message reappears
+↓
+Retry</code></pre>
+<p class="lead-in">Points to remember:</p>
+<pre class="flow-diagram"><code class="language-text">Timeout is too short
+→ duplicate processing
+
+Timeout is too long
+→ slow retry when consumer crashes</code></pre>
+<p><strong>Can be changed with:</strong> <code>ChangeMessageVisibility</code></p>
+<blockquote class="insight"><p><strong>Visibility Timeout = time the message is hidden while being processed.</strong></p></blockquote>
+<h3 class="subheading">4. Dead-Letter Queue (DLQ)</h3>
+<p class="lead-in">If an error message persists:</p>
+<pre class="flow-diagram"><code class="language-text">Receive
+↓ fail
+Retry
+↓ fail
+Retry
+↓
+maxReceiveCount
+↓
+DLQ</code></pre>
+<p class="compact-line"><strong>DLQ is used to hold:</strong> <code>Poison messages · Messages error processing multiple times</code></p>
+<p>→ help debug or reprocess later.</p>
+<pre class="flow-diagram"><code class="language-text">Main Queue
+↓ fail many times
+DLQ</code></pre>
+<h3 class="subheading">5. SQS Standard Queue</h3>
+<p>Standard is the default choice when strict ordering is not needed.</p>
+<p><strong>Standard</strong> = very high throughput = at-least-once delivery = best-effort ordering</p>
+<p><strong><code dir="ltr">At-least-once</code> means:</strong> <code>A message can be delivered more than once</code></p>
+<p><strong>Therefore consumers must:</strong> <code>Idempotent</code></p>
+<pre class="flow-diagram"><code class="language-text">Order ID = 123
+↓ 1st processing
+↓ duplicate
+second processing</code></pre>
+<p><strong>Consumers should check:</strong> <code>Has Order 123 been processed yet?</code></p>
+<p>to avoid charging/paying twice.</p>
+<h3 class="subheading">6. SQS FIFO Queue</h3>
+<p><strong>FIFO is used when needed:</strong> <strong>Strict ordering</strong> + Deduplication</p>
+<p><strong>Queue name must:</strong> <code>*.fifo</code></p>
+<pre class="flow-diagram"><code class="language-text">1
+2
+3
+↓
+FIFO Queue
+↓
+1
+2
+3</code></pre>
+<p><strong>Ordering is guaranteed in:</strong> <code>MessageGroupId</code></p>
+<pre class="flow-diagram"><code class="language-text">customer-A
+↓
+1 → 2 → 3</code></pre>
+<p class="lead-in">While:</p>
+<pre class="flow-diagram"><code class="language-text">customer-B
+↓
+1 → 2 → 3</code></pre>
+<p>Two different groups can process in parallel.</p>
+<p><strong>Multiple MessageGroupIds</strong> = increase parallelism</p>
+<p class="lead-in">If there is only 1 group:</p>
+<pre class="flow-diagram"><code class="language-text">every message
+↓
+sequential processing</code></pre>
+<p>→ lower throughput.</p>
+<h3 class="subheading">7. FIFO Deduplication</h3>
+<p><strong>FIFO supports:</strong> <code>MessageDeduplicationId</code></p>
+<p><strong>or:</strong> <code>Content-Based Deduplication</code></p>
+<p>to avoid sending the same message multiple times in the deduplication window.</p>
+<p><strong>FIFO deduplication</strong> ≠ business exactly-once processing</p>
+<p>Consumers should still design idempotent.</p>
+<h3 class="subheading">8. Standard vs FIFO</h3>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th></th><th>Standard</th><th>FIFO</th></tr><tr><td>Throughput</td><td>Very high</td><td>Lower/limited</td></tr><tr><td>Delivery</td><td>At-least-once</td><td>Deduplication helps avoid duplicate sends</td></tr><tr><td>Ordering</td><td>Best-effort</td><td>Strict in MessageGroupId</td></tr><tr><td>Use case</td><td>Job processing, async workloads</td><td>Order/customer workflow requires order</td></tr></tbody></table></div>
+<p class="lead-in">Quick select:</p>
+<pre class="flow-diagram"><code class="language-text">No need for strict order
+↓
+Standard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Need to be in the correct order according to customer/order
+↓
+FIFO</code></pre>
+<h3 class="subheading">9. Message Size &amp; Retention</h3>
+<p><strong>Maximum messages:</strong> <code>1 MiB</code></p>
+<p class="lead-in">If payload is larger:</p>
+<pre class="flow-diagram"><code class="language-text">Large payload
+↓
+S3
+↓
+SQS only sends S3 reference</code></pre>
+<p class="lead-in">Retention:</p>
+<pre class="flow-diagram"><code class="language-text">Default
+= 4 days
+
+Configurable
+= 1 minute → 14 days</code></pre>
+<p class="compact-line"><strong>Messages exist until:</strong> <code>DeleteMessage · or · Retention exhausted</code></p>
+<h3 class="subheading">10. Long Polling</h3>
+<p><strong>Consumer calls:</strong> <code>ReceiveMessage</code></p>
+<p class="lead-in">If using short polling:</p>
+<pre class="flow-diagram"><code class="language-text">No messages
+↓
+Return empty response immediately</code></pre>
+<p class="lead-in">Long polling:</p>
+<pre class="flow-diagram"><code class="language-text">ReceiveMessage
+↓
+SQS waits for messages
+↓ maximum 20 seconds
+Message arrives → pay immediately</code></pre>
+<p class="compact-line"><strong>Advantages:</strong> <code>Fewer empty responses · Fewer API calls · Reduced polling costs</code></p>
+<p><strong>Frequently used:</strong> <code>WaitTimeSeconds = 20</code></p>
+<h3 class="subheading">11. Scaling Consumers</h3>
+<p class="lead-in">Queue can be a buffer between:</p>
+<pre class="flow-diagram"><code class="language-text">Web Tier
+↓
+SQS
+↓
+Processing Tier</code></pre>
+<p class="compact-line"><strong>Consumers can be:</strong> <code>EC2 · Auto Scaling Group · Lambda</code></p>
+<p class="lead-in">When backlog increases:</p>
+<pre class="flow-diagram"><code class="language-text">Queue depth increased
+↓
+CloudWatch
+↓
+Scale out consumers</code></pre>
+<p><strong>Commonly used metrics:</strong> <code>ApproximateNumberOfMessagesVisible</code></p>
+<p><strong>Better yet, you can use:</strong> <strong>Backlog per instance</strong> = Queue depth / number of consumers</p>
+<p>→ Producer and consumer do not need to scale together.</p>
+<h3 class="subheading">12. SQS + Lambda</h3>
+<p class="lead-in">Popular flows:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+SQS
+↓
+Lambda
+↓
+Process messages</code></pre>
+<p>Lambda will scale consumers based on the backlog.</p>
+<p class="compact-line"><strong>SQS helps:</strong> <code>Buffer burst · Retry failed processing · Decouple producer from Lambda</code></p>
+<h3 class="subheading">13. Security</h3>
+<h4 class="minor-heading">13.1. In Transit</h4>
+<p><code>HTTPS / TLS</code></p>
+<h4 class="minor-heading">13.2. At Rest</h4>
+<p><strong>Can be used:</strong> <code>SSE-SQS</code></p>
+<p><code>SSE-KMS</code></p>
+<p class="lead-in">If using KMS customer managed key:</p>
+<pre class="flow-diagram"><code class="language-text">Principal
+↓
+Needs appropriate KMS permissions</code></pre>
+<h3 class="subheading">14. IAM and Queue Policy</h3>
+<p class="compact-line"><strong>IAM Policy controls:</strong> <code>sqs:SendMessage · sqs:ReceiveMessage · sqs:DeleteMessage</code></p>
+<p class="compact-line"><strong>Queue Policy is:</strong> <code>Resource Policy · directly attached to SQS Queue</code></p>
+<p class="lead-in">Often used for:</p>
+<pre class="flow-diagram"><code class="language-text">Cross-account
+SNS → SQS
+S3 → SQS</code></pre>
+<pre class="flow-diagram"><code class="language-text">SNS Topic
+↓
+Queue Policy allowed
+↓
+SQS Queue</code></pre>
+<p><strong>Can be limited by:</strong> <code>aws:SourceArn</code></p>
+<h3 class="subheading">15. SQS vs SNS</h3>
+<p><strong>Points that are easy to confuse:</strong> <strong>SQS</strong> = Queue = a message processed by a consumer</p>
+<p><strong>SNS</strong> = Pub/Sub = one fan-out message to many subscribers</p>
+<p class="lead-in">If multiple systems need the same event:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+SNS Topic
+├─ SQS Queue A
+├─ SQS Queue B
+└─ SQS Queue C</code></pre>
+<p>→ Each system has its own queue.</p>
+<h3 class="subheading">16. Overall flow</h3>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+SendMessage
+↓
+SQS Queue
+↓
+Consumer ReceiveMessage
+↓
+Visibility Timeout
+↓
+Process
+↓
+DeleteMessage</code></pre>
+<p class="lead-in">If error:</p>
+<pre class="flow-diagram"><code class="language-text">No Delete
+↓
+Message is visible again
+↓
+Retry
+↓
+maxReceiveCount
+↓
+DLQ</code></pre>
+<h3 class="subheading usage-heading">17. When to use SQS?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Decouple application components
+↓
+SQS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Traffic spike / burst
+↓
+SQS buffer</code></pre>
+<pre class="flow-diagram"><code class="language-text">Async background jobs
+↓
+SQS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Strict ordering by customer/order
+↓
+FIFO</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>SQS decouple producer/consumer. Standard = at-least-once, best-effort ordering; FIFO = ordering in MessageGroupId and deduplication support.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Amazon SNS – Pub/Sub và các subscriber|Amazon SNS – Nguồn tích hợp và bảo mật|SNS + SQS – Fan-out bền vững|Amazon SNS FIFO Topic – Thứ tự và chống trùng|Amazon SNS Message Filtering – Lọc tại subscription|SNS → Amazon Data Firehose – Lưu event đến đích" data-track="Amazon SNS">
+<summary><span class="t-title">Amazon SNS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Using pub/sub push format for a publisher to send the same event to many subscribers.</p>
+<pre class="flow-diagram"><code class="language-text">Publisher
+↓ Publish
+SNS Topic
+├─ SQS
+├─ Lambda
+├─ Email / SMS
+└─ HTTP(S)</code></pre>
+<blockquote class="insight"><p><strong>SNS = Pub/Sub + Push + Fan-out.</strong></p></blockquote>
+<h3 class="subheading">1. Topic, Publisher &amp; Subscriber</h3>
+<p><strong>Producers just need to publish to:</strong> <code>SNS Topic</code></p>
+<p>SNS will push messages to appropriate subscriptions.</p>
+<pre class="flow-diagram"><code class="language-text">Publisher
+↓
+SNS Topic
+↓
+Subscribers</code></pre>
+<p class="compact-line"><strong>Popular subscribers:</strong> <code>SQS · Lambda · Amazon Data Firehose · HTTP / HTTPS · Email · SMS · Mobile Push</code></p>
+<p>→ Publisher does not need to know how many consumers are behind it.</p>
+<h3 class="subheading">2. SNS Fan-out</h3>
+<p class="lead-in">A message can be sent to multiple systems:</p>
+<pre class="flow-diagram"><code class="language-text">Order Created
+↓
+SNS Topic
+├─ Fraud Queue
+├─ Shipping Queue
+└─ Analytics Queue</code></pre>
+<p>Each subscriber receives <strong>a copy</strong> of event.</p>
+<p><strong>This is called:</strong> <code>Fan-out</code></p>
+<h3 class="subheading">3. SNS + SQS</h3>
+<p class="lead-in">Pattern is very important:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+SNS Topic
+├─ SQS Queue A
+├─ SQS Queue B
+└─ SQS Queue C</code></pre>
+<p>SNS: <code>= fan-out event</code></p>
+<p>SQS: <strong>= keep message</strong> = retry = buffer = consumer processes at its own pace</p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Order Created
+↓
+SNS
+├─ Fraud SQS
+├─ Payment SQS
+└─ Shipping SQS</code></pre>
+<p>→ Each system is independent, a slow consumer does not affect other consumers.</p>
+<p class="lead-in">Queue Policy must allow:</p>
+<pre class="flow-diagram"><code class="language-text">SNS Topic
+↓ sqs:SendMessage
+SQS Queue</code></pre>
+<h3 class="subheading">4. Subscription Filter Policy</h3>
+<p class="lead-in">Default:</p>
+<pre class="flow-diagram"><code class="language-text">There is no Filter Policy
+↓
+subscriber receives every message</code></pre>
+<p class="lead-in">Filter Policy available:</p>
+<pre class="flow-diagram"><code class="language-text">SNS Topic
+↓
+Filter Policy
+↓
+Only suitable messages
+↓
+Subscriber</code></pre>
+<pre class="flow-diagram"><code class="language-text">OrderStatus = Placed
+↓
+Shipping Queue</code></pre>
+<pre class="flow-diagram"><code class="language-text">OrderStatus = Cancelled
+↓
+Cancellation Queue</code></pre>
+<p>→ No need to create multiple SNS topics just to separate message types.</p>
+<h3 class="subheading">5. AWS Services → SNS</h3>
+<p>Many AWS services can send notifications to SNS.</p>
+<p class="compact-line"><strong>Important examples:</strong> <code>CloudWatch Alarm · S3 Event · Auto Scaling · AWS Budgets · Lambda · RDS Events</code></p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Alarm
+↓
+SNS Topic
+↓
+Email / SMS / Lambda</code></pre>
+<h3 class="subheading">6. SNS Security</h3>
+<h4 class="minor-heading">6.1. In Transit</h4>
+<p><code>HTTPS / TLS</code></p>
+<h4 class="minor-heading">6.2. At Rest</h4>
+<p><strong>Can be encrypted with:</strong> <code>SSE-KMS</code></p>
+<h4 class="minor-heading">6.3. Access Control</h4>
+<p><strong>IAM Policy</strong> = who called the SNS API</p>
+<p><strong>SNS Topic Policy</strong> = resource policy of Topic</p>
+<p class="lead-in">Topic Policy is often used for:</p>
+<pre class="flow-diagram"><code class="language-text">Cross-account
+
+or
+
+AWS Service
+↓
+publish to SNS</code></pre>
+<pre class="flow-diagram"><code class="language-text">S3
+↓ Topic Policy allowed
+SNS Topic</code></pre>
+<p class="lead-in">If using customer managed KMS key:</p>
+<pre class="flow-diagram"><code class="language-text">Publisher / AWS Service
+↓
+Needs appropriate KMS permissions</code></pre>
+<h3 class="subheading">7. SNS FIFO Topic</h3>
+<p><strong>SNS also supports FIFO when needed:</strong> <strong>Ordering</strong> + Deduplication</p>
+<p><strong>Ordering is based on:</strong> <code>MessageGroupId</code></p>
+<p><strong>Deduplication uses:</strong> <code>MessageDeduplicationId</code></p>
+<p><strong>or:</strong> <code>Content-Based Deduplication</code></p>
+<p class="lead-in">Pattern when needing fan-out but still maintaining order:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+SNS FIFO Topic
+↓
+SQS FIFO Queue
+↓
+Consumer</code></pre>
+<p><strong>→ suitable when needed:</strong> <strong>Fan-out</strong> + Ordering + Deduplication</p>
+<h3 class="subheading">8. SNS vs SQS</h3>
+<p class="lead-in">Extremely confusing point:</p>
+<pre class="flow-diagram"><code class="language-text">SNS
+= Pub/Sub
+= push
+= 1 message → many subscribers</code></pre>
+<p><strong>SQS</strong> = Queue = Consumer poll = buffer / retry</p>
+<pre class="flow-diagram"><code class="language-text">1 event
+↓
+Many systems need to receive
+↓
+SNS</code></pre>
+<pre class="flow-diagram"><code class="language-text">1 job
+↓
+Need worker to handle async
+↓
+SQS</code></pre>
+<p class="lead-in">If both are needed:</p>
+<pre class="flow-diagram"><code class="language-text">SNS
+↓ fan-out
+multiple SQS queues
+↓
+Each consumer processes independently</code></pre>
+<h3 class="subheading">9. S3 Fan-out Pattern</h3>
+<p class="lead-in">If an S3 event needs to trigger multiple pipelines:</p>
+<pre class="flow-diagram"><code class="language-text">S3 ObjectCreated
+↓
+SNS Topic
+├─ SQS Queue A
+├─ SQS Queue B
+└─ Lambda</code></pre>
+<p>→ publish once but many systems receive the event.</p>
+<h3 class="subheading">10. Overall flow</h3>
+<pre class="flow-diagram"><code class="language-text">Publisher / AWS Service
+↓
+SNS Topic
+↓
+Subscription Filter
+↓
+SQS / Lambda / Firehose
+HTTP(S) / Email / SMS</code></pre>
+<h3 class="subheading usage-heading">11. When to use SNS?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">An event
+↓
+many consumers need to receive
+↓
+SNS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Notification
+Email / SMS / HTTP
+↓
+SNS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Fan-out to multiple queues
+↓
+SNS + SQS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Fan-out + strict ordering
+↓
+SNS FIFO + SQS FIFO</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>SNS is pub/sub fan-out, pushing to many subscribers; SQS is a queue for consumer pull/private processing. Combine SNS → SQS when you need sustainable fan-out.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Kinesis Data Streams – Stream có replay|Kinesis Data Streams – Provisioned và On-demand" data-track="Amazon Kinesis Data Streams">
+<summary><span class="t-title">Amazon Kinesis Data Streams</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Collect and save real-time streaming data for multiple consumers to process independently.</p>
+<pre class="flow-diagram"><code class="language-text">Producers
+↓
+Kinesis Data Stream
+↓
+Shards
+↓
+Consumers</code></pre>
+<p class="compact-line"><strong>KDS is suitable when needed:</strong> <code>Real-time streaming · High-volume events · Ordering · Multiple consumers · Replay data</code></p>
+<h3 class="subheading">1. Data flow</h3>
+<p class="compact-line"><strong>Producers can be:</strong> <code>Application · IoT Device · Clickstream · Logs / Metrics · Kinesis Agent</code></p>
+<p class="compact-line"><strong>Consumers are usually:</strong> <code>Lambda · Application / KCL · Amazon Data Firehose · Apache Flink</code></p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+Partition Key
+↓
+Kinesis Stream
+↓
+Shard
+↓
+Consumer</code></pre>
+<h3 class="subheading">2. Shard &amp; Partition Key</h3>
+<p><strong>Kinesis Stream is divided into:</strong> <code>Shards</code></p>
+<p><strong>Each record has:</strong> <code>Partition Key</code></p>
+<p>Kinesis hash partition key to decide which shard the record goes into.</p>
+<pre class="flow-diagram"><code class="language-text">Record
+↓
+Partition Key
+↓ hash
+Shard</code></pre>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">customer-123
+↓
+Shard A</code></pre>
+<p class="lead-in">Records with the same partition key:</p>
+<pre class="flow-diagram"><code class="language-text">customer-123
+Event 1
+Event 2
+Event 3
+↓
+same shard
+↓
+keep the correct order</code></pre>
+<p><strong>Ordering</strong> = ensure in the same partition key / shard ≠ entire stream</p>
+<h3 class="subheading">3. Hot Shard</h3>
+<p class="lead-in">If partition keys are unevenly distributed:</p>
+<pre class="flow-diagram"><code class="language-text">Many records
+↓
+same Partition Key
+↓
+with Shard
+↓
+Hot Shard</code></pre>
+<p><strong>Bad example:</strong> <code>Partition Key = "default"</code></p>
+<p>→ Almost all records are put into one shard.</p>
+<p class="compact-line"><strong>You should choose a well-distributed key such as:</strong> <code>Customer ID · Device ID · User ID</code></p>
+<h3 class="subheading">4. Retention &amp; Replay</h3>
+<p>KDS does not delete records immediately after the consumer reads them.</p>
+<pre class="flow-diagram"><code class="language-text">Record
+↓
+Kinesis Stream
+↓
+kept in retention period</code></pre>
+<p class="lead-in">According to the slides:</p>
+<pre class="flow-diagram"><code class="language-text">24 hours
+→
+365 days</code></pre>
+<p class="lead-in">During that time:</p>
+<pre class="flow-diagram"><code class="language-text">Consumer A → read
+Consumer B → read
+Consumer C → replay</code></pre>
+<p>→ multiple consumers can process the same data independently.</p>
+<p><strong>Other points of SQS:</strong> <strong>SQS</strong> = message is processed by consumer and then deleted</p>
+<p><strong>Kinesis</strong> = record still exists in retention = can be replayed</p>
+<h3 class="subheading">5. Capacity Modes</h3>
+<p class="compact-line"><strong>There are 2 modes:</strong> <code>Provisioned · On-Demand</code></p>
+<h4 class="minor-heading">5.1. Provisioned</h4>
+<p>You manage the shard number.</p>
+<p><strong>Each shard follows the slide:</strong> <strong>Write</strong> = 1 MB/s or 1,000 records/s</p>
+<p><strong>Read</strong> = 2 MB/s</p>
+<p class="lead-in">If traffic increases:</p>
+<pre class="flow-diagram"><code class="language-text">Traffic increased
+↓
+add shards</code></pre>
+<p>→ suitable when the throughput is relatively predictable.</p>
+<h4 class="minor-heading">5.2. On-Demand</h4>
+<pre class="flow-diagram"><code class="language-text">Does not self-manage shard numbers
+↓
+Kinesis self-scales capacity</code></pre>
+<p>→ suitable for workloads that are difficult to predict or want to reduce capacity management.</p>
+<blockquote class="insight"><p>Throughput/pricing details may vary by AWS; remember priority <strong>Provisioned = shard management</strong>, <strong>On-Demand = AWS scales itself</strong>.</p></blockquote>
+<h3 class="subheading">6. Consumer Throughput</h3>
+<p>There are 2 main ways of reading.</p>
+<h4 class="minor-heading">6.1. Shared / Standard Consumer</h4>
+<pre class="flow-diagram"><code class="language-text">Shard
+↓
+many consumers
+↓
+share read throughput</code></pre>
+<p>Multiple consumers reading at the same time will share the capacity of the shard.</p>
+<h4 class="minor-heading">6.2. Enhanced Fan-Out</h4>
+<pre class="flow-diagram"><code class="language-text">Shard
+├─ Consumer A → 2 MB/s
+├─ Consumer B → 2 MB/s
+└─ Consumer C → 2 MB/s</code></pre>
+<p><strong>Each registered consumer has:</strong> <code>2 MB/s / shard / consumer</code></p>
+<p>→ suitable when many consumers need to read the stream with high throughput and low latency.</p>
+<h3 class="subheading">7. KPL &amp; KCL</h3>
+<h4 class="minor-heading">7.1. KPL</h4>
+<p><strong>Kinesis Producer Library</strong> = supports producers in sending records effectively</p>
+<h4 class="minor-heading">7.2. KCL</h4>
+<p><strong>Kinesis Client Library</strong> = supports consumers reading shards + coordinating multiple workers + checkpoint</p>
+<p><strong><code dir="ltr">Checkpoint</code> Help consumers remember:</strong> <code>Which record has been processed?</code></p>
+<p>to continue processing after restart/failure.</p>
+<h3 class="subheading">8. Data Size &amp; Storage</h3>
+<p><strong>According to slide v48:</strong> <strong>Record max</strong> = 10 MiB</p>
+<p class="compact-line"><strong>KDS is suitable for:</strong> <code>Multiple streaming records · sent continuously</code></p>
+<p class="lead-in">KDS only keeps data during the retention period:</p>
+<p><strong>Kinesis</strong> = temporary streaming storage ≠ long-term data lake</p>
+<p class="lead-in">If you need to save long term:</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis
+↓
+Firehose / Consumer
+↓
+S3</code></pre>
+<h3 class="subheading">9. Security</h3>
+<h4 class="minor-heading">9.1. In Transit</h4>
+<p><code>HTTPS / TLS</code></p>
+<h4 class="minor-heading">9.2. At Rest</h4>
+<p><code>KMS Encryption</code></p>
+<p class="compact-line"><strong>Access control:</strong> <code>IAM · Resource Policy</code></p>
+<p><strong>Can be used:</strong> <code>VPC Endpoint</code></p>
+<p>Traffic to Kinesis does not need to go through the public Internet.</p>
+<h3 class="subheading">10. Kinesis vs SQS</h3>
+<p><strong>Mistaken points:</strong> <strong>SQS</strong> = Queue = async job processing = consumer processes then deletes</p>
+<p><strong>Kinesis</strong> = Stream = real-time data = many consumers read the same data = has retention + replay</p>
+<pre class="flow-diagram"><code class="language-text">Video processing job
+↓
+SQS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Clickstream / IoT / logs real-time
+↓
+Kinesis</code></pre>
+<h3 class="subheading">11. Overall flow</h3>
+<pre class="flow-diagram"><code class="language-text">Producers
+↓
+Partition Key
+↓
+Kinesis Data Stream
+↓
+Shards
+↓
+Lambda / KCL / Flink / Firehose
+↓
+Real-time Processing / Analytics / S3</code></pre>
+<h3 class="subheading usage-heading">12. When to use KDS?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Website clickstream
+↓
+Kinesis</code></pre>
+<pre class="flow-diagram"><code class="language-text">IoT telemetry
+↓
+Kinesis</code></pre>
+<pre class="flow-diagram"><code class="language-text">Logs / metrics real-time
+↓
+Kinesis</code></pre>
+<pre class="flow-diagram"><code class="language-text">One stream
+↓
+many independent consumers
+↓
+Kinesis</code></pre>
+<pre class="flow-diagram"><code class="language-text">Need to replay old data
+↓
+Kinesis</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Kinesis Data Streams holds the stream for multiple consumers to process/replay according to retention; Different from SQS because stream data is not deleted when a consumer reads it.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Amazon Data Firehose – Delivery stream được quản lý" data-track="Amazon Data Firehose">
+<summary><span class="t-title">Amazon Data Firehose</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Bring streaming data to storage/analytics destination using managed service, not self-managing shard and consumer fleet.</p>
+<h3 class="subheading">1. Delivery pipeline</h3>
+<pre class="flow-diagram"><code class="language-text">Producer / Kinesis Data Streams / logs
+ → Firehose → buffer / optional transform → destination + backup S3 when configuring</code></pre>
+<p>Destination includes S3, Redshift, OpenSearch and HTTP/vendor supported. Delivery Redshift uses S3 as staging before COPY.</p>
+<h3 class="subheading">2. Buffer and latency</h3>
+<p>Firehose often collects data by size/time and then delivers it; suitable for near real-time ingestion, not having to default to logic that must respond to each event instantaneously.</p>
+<p>There is a configuration to reduce/zero buffering at some destinations, but does not make Firehose a replayable stream for many consumers.</p>
+<p>Service self-managed delivery capacity; There are still quotas and limits based on source/destination.</p>
+<h3 class="subheading">3. Transform and format conversion</h3>
+<p>Lambda can transform records before delivery.</p>
+<p>Format conversion native converts JSON to Parquet/ORC for S3, using Glue Data Catalog schema; CSV needs to be transformed to JSON first, not directly converting all formats.</p>
+<p>Compression/columnar format helps reduce storage and scan data when querying. <a href="https://docs.aws.amazon.com/firehose/latest/dev/record-format-conversion.html" rel="noopener noreferrer" target="_blank">AWS Firehose format conversion</a>.</p>
+<h3 class="subheading">4. Replay, backup and permissions</h3>
+<p>Firehose does not provide retention streams for consumers to freely replay like Kinesis Data Streams does. If multiple consumers/replays are needed, put KDS first and Firehose as a consumer delivery.</p>
+<p>There are retry and S3 backup for all/failed records depending on destination/configuration.</p>
+<p>Service role needs source, destination, Lambda and KMS permissions; Design error monitoring and reprocess backup data.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Logs/clickstream → S3 data lake; data → Redshift/OpenSearch; Lambda transform → JSON → Parquet. Need to process real-time multiple consumers and read back events: Kinesis Data Streams.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Data Firehose is managed to deliver stream data to storage/analysis destinations; Does not require consumer self-management by shard like Data Streams.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Amazon MQ – Broker managed cho ứng dụng legacy" data-track="Amazon MQ">
+<summary><span class="t-title">Amazon MQ</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Use managed message broker for legacy applications that need traditional messaging protocols/APIs.</p>
+<p><strong>Amazon MQ</strong> = managed ActiveMQ / RabbitMQ = keep old protocol = lift-and-shift compatible</p>
+<h3 class="subheading usage-heading">1. When to use Amazon MQ?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<p>SQS/SNS uses AWS's own API.</p>
+<p class="compact-line"><strong>But the old app might be using:</strong> <code>AMQP · MQTT · STOMP · OpenWire · WSS · JMS</code></p>
+<p class="lead-in">If rewriting to SQS/SNS is too expensive:</p>
+<pre class="flow-diagram"><code class="language-text">Existing Application
+↓ keep current protocol
+Amazon MQ</code></pre>
+<p>→ no need to change the entire messaging code.</p>
+<h3 class="subheading">2. ActiveMQ &amp; RabbitMQ</h3>
+<p class="compact-line"><strong>Amazon MQ supports:</strong> <code>ActiveMQ · RabbitMQ</code></p>
+<p class="compact-line"><strong>Clients still use:</strong> <code>Native Library · Native Protocol</code></p>
+<p class="compact-line"><strong>Broker can provide:</strong> <code>Queue · ≈ same as SQS · Topic · ≈ same as SNS</code></p>
+<p>but still retains the routing, acknowledgment and semantics of ActiveMQ/RabbitMQ.</p>
+<h3 class="subheading">3. Amazon MQ vs SQS / SNS</h3>
+<p><strong>Amazon MQ</strong> = traditional message broker = protocol compatibility = runs on broker instances</p>
+<p><strong>SQS / SNS</strong> = AWS-native messaging = serverless / managed scale is better</p>
+<pre class="flow-diagram"><code class="language-text">Legacy app needs AMQP/JMS/MQTT
+↓
+Amazon MQ</code></pre>
+<pre class="flow-diagram"><code class="language-text">New AWS-native app
+↓
+SQS/SNS preferred</code></pre>
+<p>Amazon MQ does not scale nearly infinitely like SQS/SNS.</p>
+<p class="compact-line"><strong>You still have to pay attention to:</strong> <code>Broker size · Storage · Connections · Throughput · Queue depth</code></p>
+<h3 class="subheading">4. High Availability</h3>
+<p>Amazon MQ can deploy multiple AZ brokers depending on engine/configuration.</p>
+<p class="lead-in">For example:</p>
+<p class="compact-line"><code>AZ A · Active Broker · AZ B · Standby Broker</code></p>
+<p class="lead-in">When active broker fails:</p>
+<pre class="flow-diagram"><code class="language-text">Active Broker fail
+↓
+Standby Broker
+↓
+Client reconnect</code></pre>
+<p>→ increase High Availability.</p>
+<p class="lead-in">According to the ActiveMQ architecture in the slide:</p>
+<pre class="flow-diagram"><code class="language-text">Active / Standby
+↓
+Shared EFS Storage</code></pre>
+<h3 class="subheading">5. Network &amp; Security</h3>
+<p><strong>Broker runs in:</strong> <code>VPC</code></p>
+<p class="lead-in">Security Group controls:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+Consumer
+↓
+broker connected or not</code></pre>
+<p class="compact-line"><strong>Commonly used authentication:</strong> <code>Broker credentials · Native broker authorization</code></p>
+<p><strong>IAM is mainly used to manage:</strong> <code>Create / Delete / Configure broker</code></p>
+<p>You don't have to replace the broker credential for the data plane.</p>
+<p><strong>Encryption:</strong> <strong>In Transit</strong> = TLS</p>
+<p><strong>At Rest</strong> = KMS-backed encryption</p>
+<h3 class="subheading usage-heading">6. When to use?</h3>
+<pre class="flow-diagram"><code class="language-text">Old Java / JMS / ActiveMQ app
+↓
+Amazon MQ</code></pre>
+<pre class="flow-diagram"><code class="language-text">RabbitMQ app needs
+exchange / binding / routing
+↓
+Amazon MQ</code></pre>
+<pre class="flow-diagram"><code class="language-text">Hybrid app uses
+AMQP / MQTT / STOMP
+↓
+Amazon MQ</code></pre>
+<h3 class="subheading">7. Overall flow</h3>
+<pre class="flow-diagram"><code class="language-text">Existing Producer
+↓
+AMQP / MQTT / STOMP / JMS...
+↓
+Amazon MQ Broker
+↓
+Queue / Topic
+↓
+Consumer</code></pre>
+<p class="lead-in">If the broker fails:</p>
+<pre class="flow-diagram"><code class="language-text">Active Broker
+↓ fail
+Standby Broker
+↓
+Client reconnect</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Amazon MQ helps migrate applications using traditional protocols/brokers to AWS; unlike SNS/SQS is an AWS-native messaging service.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="SQS, SNS, Kinesis và Firehose – Chọn dịch vụ|SQS vs SNS vs Kinesis – Chọn dịch vụ|Kinesis Data Streams và Amazon Data Firehose – Chọn dịch vụ" data-track="SQS vs SNS vs Kinesis vs Firehose vs MQ">
+<summary><span class="t-title">SQS vs SNS vs Kinesis vs Firehose vs MQ</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Select messaging based on data reception, replay and application compatibility requirements.</p>
+<h3 class="subheading">1. Key comparison</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service</th><th>Model</th><th>Differences</th></tr></thead><tbody><tr><td>SQS</td><td>Queue, workers pull/divide work</td><td>Buffer job, retry/DLQ; message is deleted after processing</td></tr><tr><td>SNS</td><td>Pub/sub push</td><td>Fan-out event to many subscribers; filter each subscription</td></tr><tr><td>Kinesis Data Streams</td><td>Stream has retention</td><td>Many consumers read/replay; ordering by shard/partition key</td></tr><tr><td>Data Firehose</td><td>Managed delivery</td><td>Buffer/transform sends to destination, does not replay stream arbitrarily</td></tr><tr><td>Amazon MQ</td><td>Managed ActiveMQ/RabbitMQ broker</td><td>Compatible with existing protocols and broker applications</td></tr></tbody></table></div>
+<h3 class="subheading">2. Queue another stream</h3>
+<p>SQS workers often share message processing; delete message when finished.</p>
+<p>Kinesis keeps records in the retention window even after a consumer reads, allowing multiple consumers to read independently or replay.</p>
+<p>SQS Standard has at-least-once/best-effort order; FIFO uses message group/deduplication to support consistent ordering.</p>
+<p>Kinesis orders by shard, not a global order across all shards.</p>
+<h3 class="subheading">3. SNS + SQS</h3>
+<pre class="flow-diagram"><code class="language-text">An event → SNS ┬→ Queue A → order processing
+               └→ Queue B → analytics</code></pre>
+<p>Each system has its own queue, retry and scale.</p>
+<p>SNS push to queue; worker pulls from SQS.</p>
+<p>SNS does not have to replace every queue; archive/replay of SNS FIFO is a separate feature, it does not mean every SNS topic is streamed like KDS.</p>
+<h3 class="subheading">4. Kinesis + Firehose and MQ</h3>
+<pre class="flow-diagram"><code class="language-text">KDS keeps the stream for analytics/replay; Firehose pushes a branch to S3/warehouse.
+As long as managed delivery is needed, you can use Firehose directly without adding KDS.</code></pre>
+<pre class="flow-diagram"><code class="language-text">MQ compatible migration app needs JMS/AMQP/MQTT/STOMP or semantics broker
+engine. engine.
+Broker has finite capacity and needs to choose HA deployment; new app can be used
+SQS/SNS as appropriate.</code></pre>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Background jobs: SQS. One event to many systems: SNS + SQS. Telemetry multiple consumers/replay: KDS. Logs to data lake: Firehose. Legacy broker app needs few code changes: MQ.</p>
+<h3 class="subheading">6. Limit Payload, FIFO Deduplication &amp; SNS → Lambda Resource Policy</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service</th><th>Maximum size</th><th>Anti-infection Mechanism &amp; Authorization</th></tr></thead><tbody>
+<tr><td><strong>DynamoDB Item</strong></td><td><strong>400 KB</strong> (including attribute names and values; large file saved to S3 + holds S3 key in DynamoDB)</td><td>Use Conditional Writes when idempotency is needed</td></tr>
+<tr><td><strong>SQS Message</strong></td><td><strong>1 MiB</strong> (larger payload using S3 Extended Client)</td><td><strong>SQS FIFO</strong> filter accordingly <code>MessageDeduplicationId</code> or hash the content in the window <strong>5 minutes</strong></td></tr>
+<tr><td><strong>SNS Message</strong></td><td><strong>256 KiB</strong> default (supports scaling up to 1 MiB / Extended Client with S3)</td><td><strong>SNS FIFO</strong> filter in <strong>5 minutes</strong> just before fan-out to SQS FIFO subscribers; when SNS calls Lambda is required <strong>Lambda Resource Policy</strong> allow <code>lambda:InvokeFunction</code> with <code>Principal: sns.amazonaws.com</code> attached <code>SourceArn</code></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>SQS = queue; SNS = fan-out; Kinesis Streams = streaming/replay; Firehose = delivery pipeline; MQ = traditional message broker.</p></aside>
+</div>
+</details>

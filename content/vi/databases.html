@@ -1,0 +1,267 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon DocumentDB">
+<summary><span class="t-title">Amazon DocumentDB</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon DocumentDB là <strong>managed document database</strong> tương thích MongoDB API, dùng để lưu dữ liệu dạng <strong>JSON document</strong> với schema linh hoạt.</p>
+<p><strong>DocumentDB</strong> = Document Database = MongoDB-compatible = Managed by AWS</p>
+<h3 class="subheading">1. Document Model</h3>
+<p><strong>Khác relational database:</strong> <strong>RDS / Aurora</strong> = Table = Row / Column = Schema rõ ràng</p>
+<p><strong>DocumentDB:</strong> <strong>Document</strong> = JSON-like object = mỗi document có thể có field khác nhau</p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Product A
+{
+  name: "Phone",
+  color: "Black"
+}
+
+Product B
+{
+  name: "Laptop",
+  ram: "16GB",
+  cpu: "M3"
+}</code></pre>
+<p>→ Không cần mọi record có cùng column.</p>
+<h3 class="subheading">2. MongoDB Compatibility</h3>
+<p class="lead-in">Application có thể dùng:</p>
+<pre class="flow-diagram"><code class="language-text">MongoDB Driver
+↓
+DocumentDB</code></pre>
+<p><strong>Nhưng nhớ:</strong> <strong>DocumentDB</strong> ≠ MongoDB self-hosted</p>
+<p><strong>DocumentDB</strong> = AWS service tương thích MongoDB API</p>
+<p>Nên vẫn cần kiểm tra feature MongoDB nào được hỗ trợ.</p>
+<h3 class="subheading">3. Managed Cluster</h3>
+<p class="compact-line"><strong>AWS quản:</strong> <code>Provisioning · Patching · Backup · Replication · Storage scaling</code></p>
+<p class="compact-line"><strong>Application vẫn phải lo:</strong> <code>Document Design · Indexes · Queries · Security</code></p>
+<h3 class="subheading">4. Availability &amp; Storage</h3>
+<p class="lead-in">DocumentDB có replication qua nhiều AZ:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DocumentDB Cluster
+↓
+Replicas across AZs</code></pre>
+<p><strong>Mục tiêu:</strong> <strong>High Availability</strong> + Failover</p>
+<p>Storage có thể tự mở rộng khi data tăng.</p>
+<h3 class="subheading">5. Index</h3>
+<p>Muốn query nhanh thì vẫn cần index.</p>
+<pre class="flow-diagram"><code class="language-text">Query theo email
+↓
+Index: email
+↓
+Search nhanh hơn</code></pre>
+<p class="lead-in">Nếu không có index phù hợp:</p>
+<pre class="flow-diagram"><code class="language-text">Full Scan
+↓
+Query chậm</code></pre>
+<blockquote class="caution"><p>Managed database không có nghĩa là query tự động tối ưu hết.</p></blockquote>
+<h3 class="subheading">6. DocumentDB vs RDS vs Neptune</h3>
+<ul class="fact-list"><li><strong>RDS / Aurora</strong> = SQL = relational = join nhiều table</li><li><strong>DocumentDB</strong> = JSON document = schema linh hoạt = MongoDB-compatible</li><li><strong>Neptune</strong> = Graph Database = relationship / traversal</li></ul>
+<pre class="flow-diagram"><code class="language-text">Bank Transaction
+→ RDS / Aurora
+
+Product Catalog
+→ DocumentDB
+
+Social Network Relationship
+→ Neptune</code></pre>
+<h3 class="subheading">7. Security</h3>
+<p class="lead-in">DocumentDB thường chạy trong:</p>
+<pre class="flow-diagram"><code class="language-text">VPC
+↓
+Security Group
+↓
+TLS
+↓
+DocumentDB Cluster</code></pre>
+<p>IAM dùng để quản AWS resource, còn quyền đọc/ghi dữ liệu database vẫn cần cơ chế authentication/authorization phù hợp.</p>
+<h3 class="subheading usage-heading">8. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Product Catalog
+↓
+DocumentDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">User Profile
+↓
+DocumentDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">CMS / Content Metadata
+↓
+DocumentDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">MongoDB-compatible Application
+↓
+DocumentDB</code></pre>
+<h3 class="subheading">9. Kích thước Document &amp; DocumentDB Serverless</h3>
+<p>DocumentDB hỗ trợ kích thước một document tối đa <strong>16 MB</strong> và có chế độ <strong>DocumentDB Serverless</strong> tự co giãn năng lực theo từng giây dựa trên DCU.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>DocumentDB = document database tương thích MongoDB API; RDS/Aurora = relational SQL; Neptune = graph. Managed không có nghĩa query tự tối ưu.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Neptune">
+<summary><span class="t-title">Amazon Neptune</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon Neptune là <strong>managed graph database</strong> dùng khi dữ liệu có rất nhiều <strong>mối quan hệ</strong> và cần truy vấn các connection giữa chúng.</p>
+<p><strong>Neptune</strong> = Graph Database = Node + Relationship</p>
+<h3 class="subheading">1. Graph Model</h3>
+<p><strong>Graph gồm:</strong> <strong>Node / Vertex</strong> = thực thể</p>
+<p><strong>Edge</strong> = quan hệ giữa các thực thể</p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">User A
+↓ FRIEND_OF
+User B
+↓ BOUGHT
+Product X</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓ LIKES
+Post
+↓ HAS_COMMENT
+Comment</code></pre>
+<blockquote class="insight"><p>Neptune mạnh khi câu hỏi cần đi qua nhiều relationship.</p></blockquote>
+<h3 class="subheading usage-heading">2. Khi nào dùng Neptune?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">User A
+↓ friend
+User B
+↓ bought
+Product X</code></pre>
+<p><strong>Query:</strong> <code>"Bạn của User A đã mua sản phẩm gì?"</code></p>
+<p>Neptune có thể traverse graph trực tiếp thay vì phải join nhiều bảng.</p>
+<h3 class="subheading usage-heading">3. Use Cases</h3>
+<pre class="flow-diagram"><code class="language-text">Social Network
+↓
+Friend / Like / Share relationships</code></pre>
+<pre class="flow-diagram"><code class="language-text">Fraud Detection
+↓
+Account → Device → Transaction → Address
+↓
+tìm connection đáng ngờ</code></pre>
+<pre class="flow-diagram"><code class="language-text">Recommendation
+↓
+User → Product → Related Product</code></pre>
+<pre class="flow-diagram"><code class="language-text">Knowledge Graph
+↓
+Entity → Relationship → Entity</code></pre>
+<h3 class="subheading">4. Availability</h3>
+<p class="compact-line"><strong>AWS quản:</strong> <code>Cluster · Replication · Backup · Failover</code></p>
+<p>Có thể dùng read replicas để scale workload đọc.</p>
+<h3 class="subheading">5. Neptune Streams</h3>
+<p><strong>Neptune Streams = ghi lại các thay đổi trong graph theo thứ tự.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Graph thay đổi
+↓
+Neptune Streams
+↓
+Consumer / Lambda
+↓
+OpenSearch / S3 / Cache</code></pre>
+<pre class="flow-diagram"><code class="language-text">User A LIKE Product X
+↓
+Neptune Streams
+↓
+Lambda
+↓
+Update Recommendation Index</code></pre>
+<blockquote class="caution"><p>Không cần polling toàn bộ graph để tìm xem cái gì vừa thay đổi.</p></blockquote>
+<h3 class="subheading">6. Neptune vs Database khác</h3>
+<ul class="fact-list"><li><strong>RDS / Aurora</strong> = relational SQL</li><li><strong>DocumentDB</strong> = JSON document</li><li><strong>Neptune</strong> = relationship / graph traversal</li><li><strong>Timestream</strong> = dữ liệu theo thời gian</li></ul>
+<h3 class="subheading">7. Ngôn ngữ truy vấn đồ thị: SPARQL vs Gremlin / openCypher</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Mô hình dữ liệu trên Neptune</th><th>Ngôn ngữ truy vấn</th></tr></thead><tbody>
+<tr><td><strong>RDF (Resource Description Framework)</strong> — bộ ba chủ-vị-tân (triples) &amp; knowledge graph</td><td><strong>SPARQL</strong></td></tr>
+<tr><td><strong>Property Graph</strong> — đỉnh (vertices) và cạnh (edges) mang thuộc tính</td><td><strong>Apache TinkerPop Gremlin</strong> hoặc <strong>openCypher</strong></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Neptune dành cho dữ liệu có nhiều quan hệ cần traversal; khác relational SQL database và document database.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Timestream">
+<summary><span class="t-title">Amazon Timestream</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon Timestream là <strong>serverless time-series database</strong> dùng để lưu và phân tích dữ liệu có <strong>timestamp</strong>.</p>
+<p><strong>Timestream</strong> = Time Series Database = Timestamp + Measurements</p>
+<h3 class="subheading">1. Time Series Data</h3>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">10:00 → CPU = 40%
+10:01 → CPU = 55%
+10:02 → CPU = 80%</code></pre>
+<p class="compact-line"><strong>Hoặc IoT:</strong> <code>Timestamp · DeviceId · Temperature · Humidity · Battery</code></p>
+<blockquote class="insight"><p>Time là phần quan trọng nhất của dữ liệu.</p></blockquote>
+<h3 class="subheading">2. Data Model</h3>
+<p><strong>Một record thường có:</strong> <strong>Timestamp</strong> + Dimensions + Measures</p>
+<p class="compact-line"><code>Timestamp = 10:00 · Dimensions: · deviceId = sensor-01 · region = ap-southeast-1 · Measures: · temperature = 30 · humidity = 70</code></p>
+<h3 class="subheading">3. Multi-measure Record</h3>
+<p class="lead-in">Nếu nhiều measurement có cùng timestamp:</p>
+<p class="compact-line"><code>10:00 · Temperature = 30 · Humidity = 70 · Battery = 90%</code></p>
+<p><strong>có thể lưu chung:</strong> <strong>1 Timestamp</strong> + nhiều Measures</p>
+<p>→ giảm số lượng record/write.</p>
+<h3 class="subheading">4. Storage Tiering</h3>
+<p class="lead-in">Timestream tự chia dữ liệu:</p>
+<pre class="flow-diagram"><code class="language-text">Recent Data
+↓
+Memory Store
+= query nhanh</code></pre>
+<pre class="flow-diagram"><code class="language-text">Old Data
+↓
+Historical Storage
+= rẻ hơn</code></pre>
+<p>Bạn vẫn có thể query cả hai.</p>
+<h3 class="subheading">5. Query</h3>
+<p>Timestream hỗ trợ SQL để phân tích theo thời gian.</p>
+<p class="compact-line"><code>CPU trung bình mỗi 5 phút · Temperature cao nhất hôm nay · Request latency trong 1 giờ qua</code></p>
+<pre class="flow-diagram"><code class="language-text">Time-series Data
+↓
+Timestream
+↓
+SQL / Aggregation
+↓
+Dashboard / Analytics</code></pre>
+<h3 class="subheading">6. Scheduled Query</h3>
+<p class="lead-in">Có thể chạy query định kỳ:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CPU Metrics
+↓
+Scheduled Query
+↓
+Average CPU mỗi 5 phút
+↓
+Summary Table</code></pre>
+<p>Phù hợp để tạo aggregate cho dashboard.</p>
+<h3 class="subheading">7. Flow phổ biến</h3>
+<pre class="flow-diagram"><code class="language-text">IoT / Application
+↓
+Timestream Write API
+↓
+Recent Data
+↓
+Memory Store
+↓
+Historical Storage
+↓
+SQL / Dashboard</code></pre>
+<h3 class="subheading usage-heading">8. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">IoT Sensors
+↓
+Temperature / Battery / Location
+↓
+Timestream</code></pre>
+<pre class="flow-diagram"><code class="language-text">Application Monitoring
+↓
+CPU / Latency / Error Count
+↓
+Timestream</code></pre>
+<pre class="flow-diagram"><code class="language-text">Financial / Clickstream Events
+↓
+Time-window Analytics</code></pre>
+<h3 class="subheading">9. Không nên dùng Timestream cho</h3>
+<p class="compact-line"><code>Customer · Order · Payment Transaction</code></p>
+<p>nếu đây là transactional business data cần CRUD/relationship thông thường.</p>
+<p class="lead-in">Những trường hợp đó thường phù hợp hơn với:</p>
+<p class="compact-line"><code>RDS / Aurora · DynamoDB</code></p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Timestream chuyên dữ liệu time-series theo timestamp; phù hợp IoT metrics, monitoring và dữ liệu thay đổi theo thời gian.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Keyspaces (for Apache Cassandra)">
+<summary><span class="t-title">Amazon Keyspaces (for Apache Cassandra)</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> Chạy cơ sở dữ liệu wide-column tương thích Apache Cassandra ở chế độ hoàn toàn serverless trên AWS.</p>
+<h3 class="subheading">1. Kiến trúc, Chế độ Capacity &amp; Tích hợp</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Khía cạnh</th><th>Đặc điểm trên Amazon Keyspaces</th></tr></thead><tbody>
+<tr><td><strong>Kiến trúc nền tảng</strong></td><td>NoSQL managed, serverless tương thích CQL của Apache Cassandra; tự động nhân bản qua <strong>3 Availability Zones</strong> với độ trễ một chữ số millisecond</td></tr>
+<tr><td><strong>On-Demand Mode</strong></td><td>Trả tiền theo từng request đọc/ghi thực tế, phù hợp tải biến động chưa dự đoán được</td></tr>
+<tr><td><strong>Provisioned Mode (+ Auto Scaling)</strong></td><td>Đặt trước năng lực đọc/ghi cho tải ổn định để tối ưu chi phí</td></tr>
+<tr><td><strong>Bảo vệ dữ liệu &amp; CDC</strong></td><td>Mã hóa mặc định (AWS Owned Key hoặc CMK), <strong>PITR</strong> khôi phục liên tục trong <strong>35 ngày</strong> và <strong>CDC Streams</strong> đẩy thay đổi bản ghi sang Lambda, EventBridge hoặc Kinesis</td></tr>
+</tbody></table></div>
+</div>
+</details>

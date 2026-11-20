@@ -1,0 +1,1114 @@
+<details class="topic" data-progress-aliases="" data-track="AWS Lambda">
+<summary><span class="t-title">AWS Lambda</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  AWS Lambda dùng để <strong>chạy code theo event mà không cần quản server</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Event
+↓
+Lambda
+↓
+Run Code
+↓
+Result / Action</code></pre>
+<p class="compact-line"><strong>AWS tự lo:</strong> <code>Server · Scaling · Runtime infrastructure</code></p>
+<p class="compact-line"><strong>Bạn chủ yếu lo:</strong> <code>Code · Memory · Timeout · Permissions · Concurrency</code></p>
+<blockquote class="insight"><p><strong>Lambda = serverless compute cho workload ngắn hạn, event-driven.</strong></p></blockquote>
+<h3 class="subheading">1. Giới hạn quan trọng</h3>
+<p class="definition"><strong>Memory:</strong> 128 MB → 10 GB</p>
+<p class="compact-line"><strong>Tăng memory cũng tăng:</strong> <code>CPU · Network</code></p>
+<p><strong>Timeout:</strong> <strong>Max execution</strong> = 15 phút</p>
+<p><strong>Temporary storage:</strong> <strong>/tmp:</strong> 512 MB → 10 GB = temporary / ephemeral</p>
+<blockquote class="caution"><p>Không dùng <code dir="ltr">/tmp</code> để lưu data lâu dài.</p></blockquote>
+<p class="compact-line"><strong>Environment variables:</strong> <code>Tổng size · ≈ 4 KB</code></p>
+<h3 class="subheading">2. Lambda Package</h3>
+<p class="compact-line"><strong>Có 2 cách phổ biến:</strong> <code>ZIP · hoặc · Container Image</code></p>
+<h4 class="minor-heading">2.1. ZIP</h4>
+<p>Phù hợp application/dependency nhỏ.</p>
+<pre class="flow-diagram"><code class="language-text">Code + Dependencies
+↓
+ZIP
+↓
+Lambda</code></pre>
+<h4 class="minor-heading">2.2. Container Image</h4>
+<pre class="flow-diagram"><code class="language-text">Container Image
+↓
+Lambda Runtime API compatible
+↓
+Lambda</code></pre>
+<blockquote class="caution"><p>Lambda container không phải nơi chạy Docker tùy ý. Nếu cần container chạy lâu hoặc kiểm soát runtime nhiều hơn → <strong>ECS/Fargate</strong> thường phù hợp hơn.</p></blockquote>
+<h3 class="subheading">3. Event-driven</h3>
+<p class="compact-line"><strong>Lambda thường được trigger bởi:</strong> <code>API Gateway · S3 · SQS · EventBridge · DynamoDB Streams · SNS</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Upload
+↓
+Lambda
+↓
+Create Thumbnail</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">API Gateway
+↓
+Lambda
+↓
+Business Logic
+↓
+Response</code></pre>
+<h3 class="subheading">4. Pricing Model</h3>
+<p><strong>Lambda chủ yếu tính phí theo:</strong> <strong>Number of Requests</strong> + Compute Duration</p>
+<p class="compact-line"><strong>Compute phụ thuộc:</strong> <code>Memory · × · Execution Time</code></p>
+<p class="lead-in">Điểm cần nhớ:</p>
+<pre class="flow-diagram"><code class="language-text">Memory cao hơn
+→ CPU mạnh hơn
+→ function có thể chạy nhanh hơn</code></pre>
+<p>Nên memory thấp nhất <strong>không phải lúc nào cũng rẻ nhất</strong>.</p>
+<h3 class="subheading">5. Concurrency</h3>
+<p><strong>Concurrency = số Lambda invocation đang chạy cùng lúc.</strong></p>
+<pre class="flow-diagram"><code class="language-text">50 requests / second
+
+mỗi request chạy 2 giây
+↓
+≈ 100 concurrent executions</code></pre>
+<p><strong>Không phải:</strong> <strong>Concurrency</strong> ≠ tổng số requests</p>
+<h3 class="subheading">6. Reserved Concurrency</h3>
+<p><strong>Reserved concurrency vừa dùng để:</strong> <strong>Giữ capacity cho function</strong> + Giới hạn max concurrency</p>
+<p class="compact-line"><code>Lambda A · Reserved Concurrency = 100</code></p>
+<p>→ Lambda A tối đa khoảng 100 invocation chạy cùng lúc.</p>
+<p class="lead-in">Điều này giúp bảo vệ downstream:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+RDS</code></pre>
+<p class="lead-in">Nếu Lambda scale quá mạnh:</p>
+<pre class="flow-diagram"><code class="language-text">1000 Lambda
+↓
+1000 DB Connections
+↓
+RDS quá tải</code></pre>
+<p><strong>Có thể giới hạn:</strong> <code>Reserved Concurrency = 100</code></p>
+<h3 class="subheading">7. Throttling</h3>
+<p class="lead-in">Khi hết concurrency:</p>
+<pre class="flow-diagram"><code class="language-text">Request
+↓
+Lambda
+↓
+No available concurrency
+↓
+Throttle</code></pre>
+<p class="lead-in">Với synchronous invocation:</p>
+<pre class="flow-diagram"><code class="language-text">Throttle
+→ lỗi / HTTP 429</code></pre>
+<p class="lead-in">Với async invocation:</p>
+<pre class="flow-diagram"><code class="language-text">Throttle / Failure
+↓
+Retry
+↓
+DLQ / Destination nếu cấu hình</code></pre>
+<p><strong>Metric quan trọng:</strong> <code>Throttles</code></p>
+<h3 class="subheading">8. Cold Start</h3>
+<p><strong>Cold Start = Lambda phải tạo execution environment mới trước khi chạy code.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Request
+↓
+Không có warm environment
+↓
+Load Code
+↓
+Start Runtime
+↓
+Init Code
+↓
+Handler</code></pre>
+<p>→ request đầu có thể chậm hơn.</p>
+<p class="lead-in">Khi environment còn warm:</p>
+<pre class="flow-diagram"><code class="language-text">Request
+↓
+Existing Environment
+↓
+Handler</code></pre>
+<p>→ nhanh hơn.</p>
+<h3 class="subheading">9. Giảm Cold Start</h3>
+<p class="lead-in">Có 2 khái niệm chính:</p>
+<h4 class="minor-heading">9.1. Provisioned Concurrency</h4>
+<p>AWS giữ sẵn Lambda environment đã initialize.</p>
+<pre class="flow-diagram"><code class="language-text">Provisioned Environment
+↓
+Request
+↓
+Run ngay</code></pre>
+<p class="compact-line"><strong>Phù hợp:</strong> <code>API cần latency ổn định · Traffic có thể dự đoán</code></p>
+<h4 class="minor-heading">9.2. SnapStart</h4>
+<p class="lead-in">Ý tưởng:</p>
+<pre class="flow-diagram"><code class="language-text">Initialize Function
+↓
+Snapshot State
+↓
+Request mới
+↓
+Restore Snapshot</code></pre>
+<p>→ giảm thời gian initialization cho runtime được hỗ trợ.</p>
+<p><strong>Nhớ:</strong> <strong>Provisioned Concurrency</strong> = giữ environment warm sẵn</p>
+<p><strong>SnapStart</strong> = restore từ snapshot đã init</p>
+<h3 class="subheading">10. CloudWatch Monitoring</h3>
+<p>Lambda tự tích hợp với CloudWatch.</p>
+<p class="compact-line"><strong>Theo dõi:</strong> <code>Invocations · Duration · Errors · Throttles · Logs</code></p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+CloudWatch Metrics + Logs
+↓
+Dashboard / Alarm</code></pre>
+<pre class="flow-diagram"><code class="language-text">Errors &gt; 5
+↓
+CloudWatch Alarm
+↓
+SNS</code></pre>
+<h3 class="subheading">11. Lambda mặc định và VPC</h3>
+<p>Mặc định Lambda chạy trong network do AWS quản lý.</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Internet / AWS Public APIs</code></pre>
+<p class="lead-in">Nhưng không tự truy cập được private resource trong VPC của bạn:</p>
+<p class="compact-line"><code>Private RDS · Private ElastiCache · Internal Load Balancer</code></p>
+<h3 class="subheading">12. Lambda vào VPC</h3>
+<p class="lead-in">Nếu cần truy cập private RDS:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Attach VPC
+↓
+Subnets + Security Group
+↓
+ENI
+↓
+RDS</code></pre>
+<p><strong>ENI = virtual network interface</strong> mà Lambda dùng để kết nối vào VPC.</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+ENI + Lambda Security Group
+↓
+Private Subnet
+↓
+RDS Security Group
+↓
+RDS</code></pre>
+<p><strong>RDS SG nên allow:</strong> <strong>Source</strong> = Lambda Security Group</p>
+<p>thay vì mở CIDR rộng.</p>
+<h3 class="subheading">13. Lambda trong VPC muốn ra Internet</h3>
+<p class="lead-in">Khi Lambda attach VPC:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Private Subnet</code></pre>
+<p>nó không tự có public IP.</p>
+<p class="lead-in">Nếu cần Internet:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Private Subnet
+↓
+NAT Gateway
+↓
+Internet Gateway
+↓
+Internet</code></pre>
+<p class="lead-in">Nếu chỉ cần AWS service:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+VPC Endpoint
+↓
+AWS Service</code></pre>
+<p>→ giữ traffic private khi service hỗ trợ.</p>
+<h3 class="subheading">14. Lambda + RDS</h3>
+<p class="lead-in">Vấn đề phổ biến:</p>
+<pre class="flow-diagram"><code class="language-text">Traffic tăng
+↓
+Lambda scale mạnh
+↓
+nhiều DB Connections
+↓
+RDS quá tải</code></pre>
+<p class="lead-in">Giải pháp:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+RDS Proxy
+↓
+RDS / Aurora</code></pre>
+<h3 class="subheading">15. RDS Proxy</h3>
+<p><strong>RDS Proxy = connection pool giữa Lambda và RDS/Aurora.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Lambda 1 ─┐
+Lambda 2 ─┼→ RDS Proxy → RDS
+Lambda 3 ─┘</code></pre>
+<p class="lead-in">Thay vì:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda 1 → DB Connection
+Lambda 2 → DB Connection
+Lambda 3 → DB Connection
+...</code></pre>
+<p class="compact-line"><strong>Proxy giúp:</strong> <code>Reuse connections · Giảm connection storm · Hỗ trợ failover · Quản credential tốt hơn</code></p>
+<h3 class="subheading">16. Flow Lambda + Private RDS</h3>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+VPC
+↓
+ENI
+↓
+RDS Proxy
+↓
+RDS / Aurora</code></pre>
+<p class="lead-in">Nếu Lambda còn cần Internet:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Private Subnet
+↓
+NAT Gateway
+↓
+Internet</code></pre>
+<h3 class="subheading">17. Lambda vs ECS/Fargate</h3>
+<p><strong>Lambda</strong> = event-driven = workload ngắn = max 15 phút = tự scale invocation</p>
+<p><strong>ECS / Fargate</strong> = container workload = chạy lâu = kiểm soát runtime nhiều hơn</p>
+<pre class="flow-diagram"><code class="language-text">Resize image
+→ Lambda</code></pre>
+<pre class="flow-diagram"><code class="language-text">Backend container chạy 24/7
+→ ECS / Fargate</code></pre>
+<h3 class="subheading usage-heading">18. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">S3 Upload
+↓
+Lambda
+↓
+Thumbnail / Metadata</code></pre>
+<pre class="flow-diagram"><code class="language-text">API Gateway
+↓
+Lambda
+↓
+Serverless API</code></pre>
+<pre class="flow-diagram"><code class="language-text">SQS
+↓
+Lambda
+↓
+Background Processing</code></pre>
+<pre class="flow-diagram"><code class="language-text">EventBridge
+↓
+Lambda
+↓
+Scheduled / Event Automation</code></pre>
+<pre class="flow-diagram"><code class="language-text">API Gateway
+↓
+Lambda
+↓
+RDS Proxy
+↓
+Aurora</code></pre>
+<h3 class="subheading">19. Lambda Layers, SnapStart, Runtime, Tỷ lệ Memory–CPU &amp; Hyperplane ENI</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tính năng Lambda</th><th>Điểm cốt lõi cần phân biệt</th></tr></thead><tbody>
+<tr><td><strong>Lambda Layers</strong></td><td>Tái sử dụng thư viện/code chung giữa nhiều functions; mỗi Layer version là <strong>bất biến (immutable)</strong> — publish version mới không tự đổi function đang trỏ version cũ (dữ liệu lớn hàng trăm MB–GB đọc/ghi runtime thì dùng <strong>EFS</strong>)</td></tr>
+<tr><td><strong>Lambda SnapStart</strong></td><td>Chụp snapshot môi trường đã khởi tạo để giảm mạnh cold start; chỉ hoạt động trên <strong>published versions</strong> (không áp dụng cho <code>$LATEST</code>)</td></tr>
+<tr><td><strong>Runtime &amp; Container Image</strong></td><td>Hỗ trợ ngôn ngữ bất kỳ qua <strong>Custom Runtime</strong> và <strong>Linux container images</strong> tối đa 10 GB (không hỗ trợ Windows containers)</td></tr>
+<tr><td><strong>Tỷ lệ Memory ↔ CPU</strong></td><td>Tăng RAM sẽ tự động tăng tỷ lệ CPU và băng thông mạng (~<strong>1.769 MB</strong> tương đương 1 vCPU; tối đa <strong>10.240 MB</strong> ≈ 6 vCPU; tách biệt với <code>/tmp</code> và giới hạn 4 KB biến môi trường)</td></tr>
+<tr><td><strong>VPC Configuration (Hyperplane ENI)</strong></td><td>Chỉ bật khi cần gọi <strong>private IP</strong> (RDS, ElastiCache, EC2 nội bộ, Cross-VPC RDS Proxy); không cần bật khi gọi public AWS API như S3/SQS/DynamoDB. Lambda và EC2 cùng VPC không bắt buộc nằm cùng một subnet</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Lambda là event-driven compute, giới hạn thời gian chạy 15 phút; concurrency, timeout, memory, /tmp và IAM Execution Role là các điểm quan trọng.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon DynamoDB">
+<summary><span class="t-title">Amazon DynamoDB</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon DynamoDB là <strong>serverless NoSQL database</strong> có latency thấp, tự scale và không cần quản server.</p>
+<p><strong>DynamoDB</strong> = NoSQL = Serverless = Key-value / Document = Millisecond latency</p>
+<p class="compact-line"><strong>Phù hợp với:</strong> <code>User Profile · Shopping Cart · Session · Game Data · IoT Metadata · Serverless API</code></p>
+<blockquote class="insight"><p><strong>DynamoDB mạnh khi biết trước access pattern và truy cập bằng key.</strong></p></blockquote>
+<h3 class="subheading">1. Table / Item / Attribute</h3>
+<p><strong>Table</strong> = bảng dữ liệu</p>
+<p><strong>Item</strong> = một record</p>
+<p><strong>Attribute</strong> = field của record</p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Users Table
+
+Item:
+{
+  UserId: 123,
+  Name: "Trong",
+  Age: 25
+}</code></pre>
+<p class="lead-in">Ngoài Primary Key, schema khá linh hoạt:</p>
+<pre class="flow-diagram"><code class="language-text">Item A
+→ Name + Age
+
+Item B
+→ Name + Country + Email</code></pre>
+<h3 class="subheading">2. Primary Key</h3>
+<p>Primary Key phải được chọn khi tạo table.</p>
+<h4 class="minor-heading">2.1. Simple Primary Key</h4>
+<p><code>Partition Key</code></p>
+<p><code>UserId = 123</code></p>
+<p>Mỗi Partition Key phải unique.</p>
+<h4 class="minor-heading">2.2. Composite Primary Key</h4>
+<p><strong>Partition Key</strong> + Sort Key</p>
+<p><code>UserId + GameId</code></p>
+<p class="compact-line"><strong>Data:</strong> <code>User1 + Game1 · User1 + Game2 · User1 + Game3</code></p>
+<p>→ cùng một user có nhiều items.</p>
+<p><strong>Nhớ:</strong> <strong>Partition Key</strong> = nhóm dữ liệu</p>
+<p><strong>Sort Key</strong> = phân biệt item trong cùng nhóm</p>
+<h3 class="subheading">3. Item Size</h3>
+<p><strong>Max Item Size</strong> = 400 KB</p>
+<p class="compact-line"><strong>Item có thể chứa:</strong> <code>String · Number · Boolean · Binary · Null · List · Map · String / Number / Binary Set</code></p>
+<h3 class="subheading">4. Capacity Mode</h3>
+<p>Có 2 kiểu chính.</p>
+<h4 class="minor-heading">4.1. Provisioned</h4>
+<p class="compact-line"><code>Bạn chọn trước: · RCU · WCU</code></p>
+<p><strong>RCU</strong> = Read Capacity</p>
+<p><strong>WCU</strong> = Write Capacity</p>
+<p><strong>Phù hợp:</strong> <code>Traffic dự đoán được</code></p>
+<p>Có thể dùng Auto Scaling.</p>
+<h4 class="minor-heading">4.2. On-Demand</h4>
+<pre class="flow-diagram"><code class="language-text">Traffic tăng
+↓
+DynamoDB tự scale
+
+Traffic giảm
+↓
+scale xuống</code></pre>
+<p>Bạn trả theo request sử dụng.</p>
+<p class="compact-line"><code>Traffic khó dự đoán · Sudden spike</code></p>
+<h3 class="subheading">5. DAX</h3>
+<p><strong>DAX = in-memory cache dành riêng cho DynamoDB.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DAX
+↓
+DynamoDB</code></pre>
+<p class="lead-in">Nếu cache hit:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DAX
+↓
+Result rất nhanh</code></pre>
+<p class="lead-in">Nếu cache miss:</p>
+<pre class="flow-diagram"><code class="language-text">DAX
+↓
+DynamoDB
+↓
+lấy data
+↓
+cache lại</code></pre>
+<p>DAX có thể giảm latency đọc xuống mức <strong>microseconds</strong>.</p>
+<h3 class="subheading">6. DAX vs ElastiCache</h3>
+<p><strong>DAX</strong> = cache DynamoDB = tương thích DynamoDB API</p>
+<p><strong>ElastiCache</strong> = cache tổng quát = Redis / Valkey / Memcached</p>
+<pre class="flow-diagram"><code class="language-text">DynamoDB read quá nhiều
+→ DAX
+
+Cache session / aggregate / custom object
+→ ElastiCache</code></pre>
+<h3 class="subheading">7. DynamoDB Streams</h3>
+<p><strong>Streams = ghi lại thay đổi của item.</strong></p>
+<pre class="flow-diagram"><code class="language-text">INSERT
+MODIFY
+DELETE
+↓
+DynamoDB Streams</code></pre>
+<p class="lead-in">Flow phổ biến:</p>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+Action</code></pre>
+<pre class="flow-diagram"><code class="language-text">User Created
+↓
+DynamoDB Streams
+↓
+Lambda
+↓
+Send Welcome Email</code></pre>
+<p class="lead-in">Streams giữ change records trong khoảng:</p>
+<p><code>24 giờ</code></p>
+<blockquote class="caution"><p><strong>Streams = change feed, không phải backup.</strong></p></blockquote>
+<h3 class="subheading">8. DynamoDB + Kinesis Data Streams</h3>
+<p class="lead-in">Nếu cần stream mạnh hơn:</p>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Kinesis Data Streams
+↓
+Firehose / Lambda / Analytics
+↓
+S3 / Redshift / OpenSearch</code></pre>
+<p class="compact-line"><strong>Phù hợp khi cần:</strong> <code>Nhiều consumers · Retention dài hơn · Analytics pipeline</code></p>
+<h3 class="subheading">9. Global Tables</h3>
+<p><strong>Global Tables = DynamoDB multi-Region active-active.</strong></p>
+<p class="compact-line"><code>US Region · ↕ · EU Region · ↕ · Asia Region</code></p>
+<p class="compact-line"><strong>Application có thể:</strong> <code>Read + Write · ở Region gần user</code></p>
+<p>Data được replicate giữa các Region.</p>
+<p class="compact-line"><code>Global Application · Low Latency · Multi-Region DR</code></p>
+<blockquote class="insight"><p class="definition-inline"><strong>Streams = phát change event cho consumer.</strong> <strong>Global Tables = replicate table giữa các Region.</strong></p></blockquote>
+<h3 class="subheading">10. TTL</h3>
+<p><strong>TTL = tự xóa item khi hết hạn.</strong></p>
+<p><strong>Item có attribute:</strong> <code>expiresAt = epoch timestamp</code></p>
+<pre class="flow-diagram"><code class="language-text">Session
+↓
+TTL hết hạn
+↓
+DynamoDB tự xóa</code></pre>
+<p class="compact-line"><code>Session · Token · Temporary Data · Old Events</code></p>
+<blockquote class="caution"><p>TTL chạy background, không đảm bảo xóa chính xác ngay tại giây hết hạn.</p></blockquote>
+<h3 class="subheading">11. Backup</h3>
+<h4 class="minor-heading">11.1. Point-in-Time Recovery (PITR)</h4>
+<pre class="flow-diagram"><code class="language-text">Continuous Backup
+↓
+Restore về thời điểm trước</code></pre>
+<p><strong>Theo slide:</strong> <strong>Recovery Window</strong> = 35 ngày</p>
+<pre class="flow-diagram"><code class="language-text">10:00 data đúng
+11:00 user xóa nhầm
+↓
+Restore về 10:00</code></pre>
+<p><strong>Restore tạo:</strong> <code>New DynamoDB Table</code></p>
+<h4 class="minor-heading">11.2. On-Demand Backup</h4>
+<pre class="flow-diagram"><code class="language-text">Create Backup
+↓
+giữ cho tới khi bạn xóa</code></pre>
+<p class="compact-line"><code>Long-term Backup · Audit · Compliance · DR</code></p>
+<h3 class="subheading">12. Export to S3</h3>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Export
+↓
+S3</code></pre>
+<p class="compact-line"><code>Athena Analytics · Audit · ETL · Archive</code></p>
+<p>Không cần consume read capacity của table.</p>
+<h3 class="subheading">13. Import from S3</h3>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Import
+↓
+New DynamoDB Table</code></pre>
+<p class="compact-line"><strong>Có thể import format như:</strong> <code>CSV · DynamoDB JSON · ION</code></p>
+<p>Import luôn tạo <strong>table mới</strong>.</p>
+<h3 class="subheading">14. DynamoDB vs RDS</h3>
+<p><strong>DynamoDB</strong> = NoSQL = key-based access = scale lớn = schema linh hoạt</p>
+<p><strong>RDS / Aurora</strong> = SQL = relational = joins = transaction/business data phức tạp</p>
+<pre class="flow-diagram"><code class="language-text">Shopping Cart / Session
+→ DynamoDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">Order + Customer + Payment
+cần join/relationship
+→ RDS / Aurora</code></pre>
+<h3 class="subheading">15. Flow phổ biến</h3>
+<pre class="flow-diagram"><code class="language-text">API Gateway
+↓
+Lambda
+↓
+DynamoDB</code></pre>
+<p class="lead-in">Có thể thêm:</p>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+SNS / OpenSearch / S3</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DAX
+↓
+DynamoDB</code></pre>
+<h3 class="subheading usage-heading">16. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Serverless API
+↓
+Lambda
+↓
+DynamoDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">Shopping Cart
+↓
+DynamoDB
+↓
+TTL tự xóa data cũ</code></pre>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+Notification</code></pre>
+<pre class="flow-diagram"><code class="language-text">Global App
+↓
+Global Tables
+↓
+US / EU / Asia</code></pre>
+<h3 class="subheading">17. DynamoDB Deletion Protection vs TTL</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tính năng DynamoDB</th><th>Mục đích &amp; Cơ chế hoạt động</th></tr></thead><tbody>
+<tr><td><strong>Deletion Protection</strong></td><td>Chặn thao tác xóa nhầm toàn bộ bảng DynamoDB ở cấp quản trị</td></tr>
+<tr><td><strong>TTL (Time to Live)</strong></td><td>Tự động dọn bất đồng bộ các item quá hạn dựa trên thuộc tính epoch timestamp (miễn phí WCU tại bảng gốc, có thể tính phí ghi nhân bản ở Global Tables)</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>DynamoDB là serverless NoSQL key-value/document; thiết kế partition/sort key ảnh hưởng query. DAX dùng để cache DynamoDB.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon API Gateway">
+<summary><span class="t-title">Amazon API Gateway</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon API Gateway là dịch vụ managed để <strong>public API cho client</strong> và đứng giữa client với backend.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+Lambda / HTTP Backend / AWS Service</code></pre>
+<p class="compact-line"><strong>API Gateway lo các phần chung như:</strong> <code>Authentication · Authorization · Throttling · Validation · Caching · Routing · Stages / Versions</code></p>
+<blockquote class="insight"><p><strong>API Gateway = cửa vào của API.</strong></p></blockquote>
+<h3 class="subheading">1. API Types</h3>
+<p class="compact-line"><strong>API Gateway hỗ trợ:</strong> <code>REST API · HTTP API · WebSocket API</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Mobile App
+↓
+REST / HTTP API
+↓
+Lambda</code></pre>
+<p class="lead-in">WebSocket dùng khi cần kết nối 2 chiều real-time:</p>
+<p class="compact-line"><code>Client · ↕ · WebSocket API · ↕ · Backend</code></p>
+<h3 class="subheading">2. Stage &amp; Version</h3>
+<p class="compact-line"><strong>Có thể chia môi trường:</strong> <code>dev · test · prod</code></p>
+<p class="compact-line"><code>/dev/orders · /test/orders · /prod/orders</code></p>
+<p class="compact-line"><strong>Version API:</strong> <code>v1 · v2</code></p>
+<p>→ giúp deploy version mới mà không phá client cũ.</p>
+<h3 class="subheading">3. Throttling / API Key</h3>
+<p class="lead-in">API Gateway có thể giới hạn request:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+Rate Limit
+↓
+Backend</code></pre>
+<p><code>100 requests / second</code></p>
+<p><strong>Nếu vượt:</strong> <code>Throttle</code></p>
+<p><strong>Có thể dùng:</strong> <strong>API Key</strong> + Usage Plan</p>
+<p>để giới hạn theo client.</p>
+<h3 class="subheading">4. Validation &amp; Transform</h3>
+<p>API Gateway có thể validate request trước khi gửi backend.</p>
+<pre class="flow-diagram"><code class="language-text">POST /users
+
+body:
+{
+  "email": ...
+}</code></pre>
+<p class="lead-in">Nếu thiếu field:</p>
+<pre class="flow-diagram"><code class="language-text">API Gateway
+↓
+Reject</code></pre>
+<p>không cần gọi Lambda.</p>
+<p class="compact-line"><strong>Ngoài ra có thể transform:</strong> <code>Request · Response</code></p>
+<p>trước/sau backend.</p>
+<h3 class="subheading">5. API Caching</h3>
+<p>API Gateway có thể cache response.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway Cache
+↓
+Response</code></pre>
+<p><strong>Nếu cache hit:</strong> <code>không cần gọi backend</code></p>
+<p class="compact-line"><strong>→ giảm:</strong> <code>Latency · Backend Load · Cost</code></p>
+<p>Phù hợp với GET/read data ít thay đổi.</p>
+<p>Không nên dùng cache để che write hoặc data thay đổi liên tục.</p>
+<h3 class="subheading">6. Integration Types</h3>
+<h4 class="minor-heading">6.1. Lambda Integration</h4>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+Lambda
+↓
+Business Logic</code></pre>
+<p>Đây là pattern serverless phổ biến.</p>
+<h4 class="minor-heading">6.2. HTTP Integration</h4>
+<p class="lead-in">API Gateway có thể gọi backend HTTP có sẵn:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+ALB / HTTP API / On-prem</code></pre>
+<p class="compact-line"><strong>Dùng khi muốn thêm:</strong> <code>Auth · Rate Limit · API Key · Caching</code></p>
+<p>trước backend hiện tại.</p>
+<h4 class="minor-heading">6.3. AWS Service Integration</h4>
+<p>API Gateway có thể gọi trực tiếp AWS service.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+SQS</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+Step Functions</code></pre>
+<p>→ đôi khi không cần Lambda trung gian.</p>
+<h4 class="minor-heading">6.4. VPC Link và Cloud Map</h4>
+<p><strong>VPC Link</strong> là kết nối để API Gateway gọi backend private trong VPC; backend không cần public IP.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓ VPC Link
+Internal ALB / NLB
+↓
+Private backend</code></pre>
+<p>Với <strong>HTTP API</strong>, có thể tích hợp qua <strong>AWS Cloud Map</strong>: API Gateway dùng service discovery để tìm IP và port của backend đã đăng ký, không bắt buộc có Load Balancer.</p>
+<pre class="flow-diagram"><code class="language-text">HTTP API Gateway
+↓ VPC Link + Cloud Map discovery
+IP:port của healthy service instances
+↓
+Private backend / ECS service</code></pre>
+<p><strong>Private integration</strong> mô tả đường API → backend; <strong>Private API endpoint</strong> mô tả đường client → API. API có backend private vẫn có thể được client gọi qua public endpoint. </p>
+<h3 class="subheading">7. Event Ingestion Example</h3>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+API Gateway
+↓
+Kinesis Data Streams
+↓
+Firehose
+↓
+S3</code></pre>
+<p class="compact-line"><strong>Phù hợp cho:</strong> <code>Logs · Telemetry · Clickstream · Events</code></p>
+<h3 class="subheading">8. Endpoint Types</h3>
+<h4 class="minor-heading">8.1. Edge-Optimized</h4>
+<pre class="flow-diagram"><code class="language-text">Global Client
+↓
+CloudFront Edge
+↓
+API Gateway</code></pre>
+<p>Phù hợp client toàn cầu.</p>
+<h4 class="minor-heading">8.2. Regional</h4>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+Regional API Gateway</code></pre>
+<p>Phù hợp khi client/backend tập trung trong một Region.</p>
+<p>Có thể tự thêm CloudFront phía trước nếu muốn.</p>
+<h4 class="minor-heading">8.3. Private</h4>
+<pre class="flow-diagram"><code class="language-text">VPC
+↓
+Interface VPC Endpoint
+↓
+Private API Gateway</code></pre>
+<p>Chỉ truy cập từ private network/VPC được phép.</p>
+<h3 class="subheading">9. Security</h3>
+<ul class="fact-list"><li><strong>Các kiểu auth phổ biến:</strong> <strong>IAM</strong> = internal AWS application</li><li><strong>Cognito User Pool</strong> = mobile / web users</li><li><strong>Custom Authorizer</strong> = custom auth logic</li></ul>
+<p class="lead-in">Flow ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">User Login
+↓
+Cognito
+↓
+JWT Token
+↓
+API Gateway
+↓
+Lambda</code></pre>
+<h4 class="minor-heading">Resource Policy cho REST API</h4>
+<p><strong>Resource Policy</strong> gắn trực tiếp vào REST API để kiểm soát ai được gọi API (<code>execute-api:Invoke</code>), ví dụ theo AWS account/principal, source IP, VPC hoặc VPC endpoint.</p>
+<pre class="flow-diagram"><code class="language-text">AWS Console
+↓
+API Gateway → REST APIs → Chọn API → Resource policy</code></pre>
+<p>Policy phối hợp với cơ chế authorization của method; Explicit Deny vẫn thắng Allow. Sau khi sửa policy, deploy lại REST API để thay đổi có hiệu lực. </p>
+<h3 class="subheading">10. Custom Domain</h3>
+<p class="lead-in">Có thể dùng domain riêng:</p>
+<pre class="flow-diagram"><code class="language-text">api.example.com
+↓
+API Gateway</code></pre>
+<p><strong>Cần:</strong> <strong>ACM Certificate</strong> + Route 53</p>
+<p class="lead-in">Endpoint edge-optimized:</p>
+<pre class="flow-diagram"><code class="language-text">Certificate
+→ us-east-1</code></pre>
+<p class="lead-in">Regional endpoint:</p>
+<pre class="flow-diagram"><code class="language-text">Certificate
+→ cùng Region với API</code></pre>
+<h3 class="subheading">11. OpenAPI / Swagger</h3>
+<p class="lead-in">Có thể import API definition:</p>
+<pre class="flow-diagram"><code class="language-text">OpenAPI / Swagger
+↓
+API Gateway</code></pre>
+<p>→ tạo nhanh routes, methods và models.</p>
+<h3 class="subheading usage-heading">12. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Mobile App
+↓
+Cognito
+↓
+API Gateway
+↓
+Lambda</code></pre>
+<pre class="flow-diagram"><code class="language-text">Public Client
+↓
+API Gateway
+↓
+Internal ALB</code></pre>
+<pre class="flow-diagram"><code class="language-text">Telemetry
+↓
+API Gateway
+↓
+Kinesis
+↓
+Firehose
+↓
+S3</code></pre>
+<h3 class="subheading">13. Usage Plan, Canary Release, ACM Region &amp; Cloud Map</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Cơ chế trên API Gateway</th><th>Quy tắc thiết kế</th></tr></thead><tbody>
+<tr><td><strong>Usage Plan + API Key</strong></td><td>Giới hạn <code>Rate</code>, <code>Burst</code> và <code>Quota</code> theo từng client trên REST API (vượt ngưỡng trả <code>HTTP 429</code>); API Key chỉ định danh gói cước, <strong>không dùng thay xác thực/phân quyền</strong> IAM hay Cognito</td></tr>
+<tr><td><strong>Canary Release (REST API Stage)</strong></td><td>Chia một tỷ lệ nhỏ lưu lượng (ví dụ 10%) sang phiên bản mới để kiểm thử trước khi promote lên 100%</td></tr>
+<tr><td><strong>ACM Certificate theo Endpoint</strong></td><td><code>Regional</code> / <code>HTTP API</code> dùng chứng chỉ ACM <strong>cùng Region</strong>; <code>Edge-Optimized REST API</code> dùng CloudFront do AWS quản lý nên chứng chỉ ACM phải ở <strong><code>us-east-1</code></strong></td></tr>
+<tr><td><strong>Private Integration</strong></td><td><code>VPC Link</code> kết nối backend trong VPC; riêng <strong>HTTP API</strong> hỗ trợ tích hợp trực tiếp với <strong>AWS Cloud Map</strong> để khám phá IP/port dịch vụ mà không bắt buộc đặt Load Balancer</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>API Gateway là front door managed cho APIs; cần phân biệt REST/HTTP/WebSocket API, throttling, authorization và cách tích hợp backend.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Step Functions">
+<summary><span class="t-title">AWS Step Functions</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Điều phối nhiều bước xử lý với trạng thái, retry và error handling rõ ràng.</p>
+<h3 class="subheading">1. State machine</h3>
+<p>Workflow gồm các state như Task, Choice, Parallel, Map, Wait, Succeed và Fail. Task có thể gọi Lambda hoặc các AWS service integration, không chỉ nối Lambda với Lambda.</p>
+<pre class="flow-diagram"><code class="language-text">Nhận đơn → validate → kiểm kho/thanh toán → Choice
+                                        ├─ thành công → giao hàng
+                                        └─ lỗi → xử lý bù / báo thất bại</code></pre>
+<h3 class="subheading">2. Retry, Catch và side effect</h3>
+<p>Retry xử lý lỗi tạm thời của một bước; Catch chuyển sang nhánh xử lý lỗi. Đặt timeout để không chờ vô hạn.</p>
+<pre class="flow-diagram"><code class="language-text">Task được retry có thể thực hiện action lại, nên thiết kế idempotency cho
+thanh toán/gửi lệnh.
+Workflow không tự rollback mọi thay đổi của dịch vụ bên ngoài; dùng bước
+compensation khi cần.</code></pre>
+<h3 class="subheading">3. Standard và Express</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Loại</th><th>Phù hợp</th></tr></thead><tbody><tr><td>Standard</td><td>Workflow dài, cần lịch sử/audit; tối đa một năm, hỗ trợ job/callback theo integration</td></tr><tr><td>Express</td><td>Event rate cao, tác vụ ngắn; tối đa 5 phút, chủ yếu request-response</td></tr></tbody></table></div>
+<p>Standard dùng exactly-once workflow execution theo mô hình dịch vụ, nhưng Retry vẫn có thể gọi task lại.</p>
+<pre class="flow-diagram"><code class="language-text">Asynchronous Express
+= at-least-once; Synchronous Express là at-most-once.</code></pre>
+<p>Không hiểu các bảo đảm execution thành bảo đảm side effect không bao giờ trùng. <a href="https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html" rel="noopener noreferrer" target="_blank">AWS workflow types</a>.</p>
+<h3 class="subheading">4. Human approval</h3>
+<p>Standard workflow có thể chờ callback/task token cho phê duyệt hoặc job bên ngoài.</p>
+<p>Hệ thống gửi kết quả thành công/thất bại bằng token với quyền phù hợp; đặt timeout và nhánh khi không có phản hồi.</p>
+<p>State machine role cần quyền gọi các dịch vụ; network/permission của task vẫn phải đúng.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Order fulfillment nhiều bước, xử lý dữ liệu có parallel/Map, workflow cần người duyệt. Một tác vụ đơn giản chạy ngắn chưa cần thêm Step Functions; chuỗi nhiều trạng thái/retry thì phù hợp.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Step Functions điều phối workflow nhiều bước, xử lý state/retry/error; Lambda thực thi code, không thay thế toàn bộ workflow orchestration.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Cognito">
+<summary><span class="t-title">Amazon Cognito</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon Cognito dùng để <strong>quản lý identity cho user của web/mobile app</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">User Pool
+= đăng nhập user
+= trả JWT token
+
+Identity Pool
+= đổi identity/token
+→ temporary AWS credentials</code></pre>
+<blockquote class="insight"><p class="definition-inline"><strong>User Pool = Authentication</strong> <strong>Identity Pool = AWS Access</strong></p></blockquote>
+<h3 class="subheading">1. Cognito User Pool</h3>
+<p>User Pool là <strong>user directory</strong> cho application.</p>
+<p class="compact-line"><strong>Hỗ trợ:</strong> <code>Sign up / Sign in · Username / Email / Password · Password Reset · Email / Phone Verification · MFA · Social Login · SAML</code></p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+Cognito User Pool
+↓
+Login thành công
+↓
+JWT Token</code></pre>
+<p class="lead-in">Sau đó token có thể dùng để gọi API:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ JWT
+API Gateway
+↓
+Validate Token
+↓
+Lambda / Backend</code></pre>
+<h3 class="subheading">2. User Pool dùng khi nào?</h3>
+<p class="compact-line"><strong>Ví dụ web app cần:</strong> <code>Register · Login · Forgot Password · MFA · Google Login</code></p>
+<p><strong>→ dùng:</strong> <code>Cognito User Pool</code></p>
+<blockquote class="insight"><p><strong>User Pool = "Bạn là ai?"</strong></p></blockquote>
+<h3 class="subheading">3. Cognito Identity Pool</h3>
+<p class="lead-in">Identity Pool dùng để đổi identity đã xác thực thành:</p>
+<p><code>Temporary AWS Credentials</code></p>
+<pre class="flow-diagram"><code class="language-text">User Login
+↓
+User Pool / Google / Facebook / SAML
+↓
+Token
+↓
+Identity Pool
+↓
+Temporary AWS Credentials
+↓
+S3 / DynamoDB / AWS Service</code></pre>
+<p><strong>Credentials được giới hạn bởi:</strong> <strong>IAM Role</strong> + IAM Policy</p>
+<h3 class="subheading">4. Vì sao cần Identity Pool?</h3>
+<p>Ví dụ mobile app cần upload trực tiếp lên private S3.</p>
+<p class="lead-in">Không nên:</p>
+<pre class="flow-diagram"><code class="language-text">Mobile App
+↓
+Hard-code AWS Access Key ❌</code></pre>
+<p class="lead-in">Nên:</p>
+<pre class="flow-diagram"><code class="language-text">User Login
+↓
+Identity Pool
+↓
+Temporary Credentials
+↓
+Private S3</code></pre>
+<blockquote class="caution"><p>Không cần nhúng permanent AWS access key vào app.</p></blockquote>
+<h3 class="subheading">5. Authenticated vs Guest</h3>
+<p class="lead-in">Identity Pool có thể cấp role khác nhau:</p>
+<pre class="flow-diagram"><code class="language-text">Authenticated User
+→ IAM Role A</code></pre>
+<pre class="flow-diagram"><code class="language-text">Guest / Unauthenticated User
+→ IAM Role B</code></pre>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Logged-in User
+→ Read + Write S3
+
+Guest
+→ Read only</code></pre>
+<h3 class="subheading">6. User Pool vs Identity Pool</h3>
+<p><strong>User Pool</strong> = login user = JWT token</p>
+<p><strong>Identity Pool</strong> = temporary AWS credential = direct access AWS services</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+User Pool
+↓
+JWT
+↓
+API Gateway</code></pre>
+<p class="lead-in">Khác với:</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+User Pool
+↓ JWT
+Identity Pool
+↓
+Temporary IAM Credentials
+↓
+S3 / DynamoDB</code></pre>
+<h3 class="subheading">7. DynamoDB Fine-Grained Access</h3>
+<p>Identity Pool có thể kết hợp IAM để mỗi user chỉ đọc data của mình.</p>
+<pre class="flow-diagram"><code class="language-text">User A
+→ chỉ đọc UserA data
+
+User B
+→ chỉ đọc UserB data</code></pre>
+<p><strong>Có thể dùng:</strong> <code>dynamodb:LeadingKeys</code></p>
+<p>với identity ID để giới hạn partition key.</p>
+<pre class="flow-diagram"><code class="language-text">User A
+↓
+Temporary Credentials
+↓
+DynamoDB
+↓
+chỉ item có Partition Key của User A</code></pre>
+<h3 class="subheading">8. Cognito không thay IAM</h3>
+<p><strong>Cognito</strong> = end users của application</p>
+<p><strong>IAM</strong> = AWS users / roles / services / administrators</p>
+<pre class="flow-diagram"><code class="language-text">Customer đăng nhập mobile app
+→ Cognito</code></pre>
+<pre class="flow-diagram"><code class="language-text">Developer quản AWS account
+→ IAM</code></pre>
+<h3 class="subheading usage-heading">9. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Mobile App
+↓
+Cognito User Pool
+↓
+Login + MFA
+↓
+API Gateway
+↓
+Lambda</code></pre>
+<pre class="flow-diagram"><code class="language-text">Mobile App
+↓
+Identity Pool
+↓
+Temporary Credentials
+↓
+S3 Upload</code></pre>
+<pre class="flow-diagram"><code class="language-text">Multi-user App
+↓
+Identity Pool
+↓
+DynamoDB
+↓
+mỗi user chỉ đọc data của mình</code></pre>
+<h3 class="subheading">10. Cognito Adaptive Authentication (Risk-Based)</h3>
+<pre class="flow-diagram"><code class="language-text">User đăng nhập → Cognito Risk-Based Adaptive Authentication chấm điểm rủi ro (IP, vị trí địa lý, thiết bị, lịch sử)
+  ├─ Low Risk  → Cho đăng nhập bình thường
+  └─ High Risk → Tự động bắt buộc xác thực MFA hoặc chặn truy cập</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Cognito User Pool xác thực người dùng; Identity Pool cấp AWS credentials tạm thời để truy cập AWS resources theo role.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="CloudFront Functions &amp; Lambda@Edge">
+<summary><span class="t-title">CloudFront Functions &amp; Lambda@Edge</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Cả hai dùng để <strong>chạy logic ngay gần user tại CloudFront edge location</strong> trước/sau khi request đi tới origin.</p>
+<p><strong>CloudFront Functions</strong> = logic rất nhẹ, rất nhanh</p>
+<p><strong>Lambda@Edge</strong> = logic mạnh hơn, linh hoạt hơn</p>
+<blockquote class="insight"><p class="definition-inline"><strong>CloudFront Functions = lightweight</strong> <strong>Lambda@Edge = powerful edge logic</strong></p></blockquote>
+<h3 class="subheading">1. Flow CloudFront</h3>
+<pre class="flow-diagram"><code class="language-text">Viewer
+↓
+Viewer Request
+↓
+CloudFront Cache
+↓
+Origin Request
+↓
+Origin
+↓
+Origin Response
+↓
+Viewer Response
+↓
+Viewer</code></pre>
+<p class="compact-line"><strong>CloudFront Functions chỉ chạy ở:</strong> <code>Viewer Request · Viewer Response</code></p>
+<p class="compact-line"><strong>Lambda@Edge chạy được ở:</strong> <code>Viewer Request · Origin Request · Origin Response · Viewer Response</code></p>
+<h3 class="subheading">2. CloudFront Functions</h3>
+<p>CloudFront Functions dùng <strong>JavaScript</strong> cho logic cực nhẹ.</p>
+<p class="compact-line"><strong>Phù hợp:</strong> <code>Rewrite URL · Redirect · Modify Headers · Modify Cookies · Normalize Query String · Lightweight Auth Check</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">/old-page
+↓
+CloudFront Function
+↓
+Redirect
+↓
+/new-page</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">?utm_source=abc
+↓
+Normalize
+↓
+Cache Key</code></pre>
+<p>→ giúp tăng cache hit.</p>
+<h3 class="subheading usage-heading">3. Khi nào dùng CloudFront Functions?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<p class="compact-line"><strong>Dùng khi logic:</strong> <code>Rất nhanh · Không cần network call · Không cần filesystem · Không cần request body · Không cần dependency lớn</code></p>
+<blockquote class="insight"><p>Phù hợp với request volume rất lớn và logic đơn giản.</p></blockquote>
+<h3 class="subheading">4. Lambda@Edge</h3>
+<p>Lambda@Edge dùng Lambda code được deploy ra CloudFront edge.</p>
+<pre class="flow-diagram"><code class="language-text">CloudFront
+↓
+Lambda@Edge
+↓
+Complex Edge Logic</code></pre>
+<p class="compact-line"><strong>Có thể dùng:</strong> <code>Node.js · Python</code></p>
+<p class="lead-in">Code được tạo ở:</p>
+<pre class="flow-diagram"><code class="language-text">us-east-1
+↓
+CloudFront replicate
+↓
+Edge Locations</code></pre>
+<h3 class="subheading">5. Lambda@Edge mạnh hơn ở đâu?</h3>
+<p class="lead-in">Có thể làm những thứ CloudFront Functions không làm được:</p>
+<p class="compact-line"><code>Network access · Request body · Filesystem · Dependencies · Logic phức tạp hơn</code></p>
+<pre class="flow-diagram"><code class="language-text">Viewer Request
+↓
+Lambda@Edge
+↓
+Call external service
+↓
+Validate token
+↓
+Continue / Reject</code></pre>
+<pre class="flow-diagram"><code class="language-text">Request
+↓
+Lambda@Edge
+↓
+Choose Origin
+↓
+US Origin / EU Origin</code></pre>
+<h3 class="subheading">6. Viewer vs Origin Events</h3>
+<h4 class="minor-heading">6.1. Viewer Request</h4>
+<pre class="flow-diagram"><code class="language-text">User gửi request
+↓
+CloudFront nhận
+↓
+Viewer Request Function</code></pre>
+<p class="compact-line"><strong>Dùng để:</strong> <code>Rewrite URL · Redirect · Check Header · Normalize Cache Key</code></p>
+<h4 class="minor-heading">6.2. Origin Request</h4>
+<p>Chỉ Lambda@Edge.</p>
+<pre class="flow-diagram"><code class="language-text">Cache Miss
+↓
+CloudFront
+↓
+Origin Request
+↓
+Origin</code></pre>
+<p class="compact-line"><code>Change Origin · Add Auth Header · Complex Request Logic</code></p>
+<h4 class="minor-heading">6.3. Origin Response</h4>
+<pre class="flow-diagram"><code class="language-text">Origin
+↓
+Response
+↓
+Lambda@Edge
+↓
+CloudFront</code></pre>
+<p class="compact-line"><strong>Dùng để chỉnh:</strong> <code>Error Response · Headers · Response Logic</code></p>
+<h4 class="minor-heading">6.4. Viewer Response</h4>
+<pre class="flow-diagram"><code class="language-text">CloudFront
+↓
+Viewer Response
+↓
+User</code></pre>
+<p class="compact-line"><code>Add Security Headers · Modify Cookies · Modify Response Headers</code></p>
+<h3 class="subheading">7. CloudFront Functions vs Lambda@Edge</h3>
+<p><strong>CloudFront Functions</strong> = JavaScript = rất nhanh = logic nhẹ = Viewer Request / Response</p>
+<p><strong>Lambda@Edge</strong> = Node.js / Python = mạnh hơn = có network / body / filesystem = Viewer + Origin events</p>
+<h3 class="subheading">8. Ví dụ chọn service</h3>
+<h4 class="minor-heading">8.1. Redirect URL</h4>
+<pre class="flow-diagram"><code class="language-text">/old
+→ /new</code></pre>
+<p><strong>→ dùng:</strong> <code>CloudFront Functions</code></p>
+<h4 class="minor-heading">8.2. Thêm security header</h4>
+<p class="compact-line"><code>Content-Security-Policy · X-Frame-Options</code></p>
+<p class="lead-in">→ thường dùng:</p>
+<h4 class="minor-heading">8.3. Chọn origin theo request</h4>
+<pre class="flow-diagram"><code class="language-text">US User
+→ US Origin
+
+EU User
+→ EU Origin</code></pre>
+<p><code>Lambda@Edge</code></p>
+<h4 class="minor-heading">8.4. Gọi API bên ngoài để verify</h4>
+<pre class="flow-diagram"><code class="language-text">Request
+↓
+Edge Function
+↓
+External API</code></pre>
+<p><strong>→ cần:</strong> CloudFront Functions không có network access.</p>
+<h3 class="subheading">9. Không thay Backend</h3>
+<p class="compact-line"><strong>Không nên dùng edge function cho:</strong> <code>Database Transaction · Long-running Business Logic · Heavy Processing · Stateful Workflow · Container Workload</code></p>
+<p class="compact-line"><strong>Những việc đó vẫn nên để:</strong> <code>Lambda · ECS · Backend Application</code></p>
+<h3 class="subheading usage-heading">10. Use Cases</h3>
+<pre class="flow-diagram"><code class="language-text">Viewer
+↓
+CloudFront Function
+↓
+Normalize URL
+↓
+CloudFront Cache</code></pre>
+<pre class="flow-diagram"><code class="language-text">Viewer
+↓
+Lambda@Edge
+↓
+Choose Origin
+↓
+Regional Backend</code></pre>
+<pre class="flow-diagram"><code class="language-text">CloudFront Response
+↓
+Function
+↓
+Add Security Headers
+↓
+Viewer</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>CloudFront Functions chạy logic rất nhẹ ở edge; Lambda@Edge linh hoạt hơn nhưng có giới hạn/cách triển khai khác.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS AppSync">
+<summary><span class="t-title">AWS AppSync</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> Xây dựng GraphQL API và kênh cập nhật thời gian thực (Pub/Sub WebSockets) hoàn toàn serverless, kết hợp nhiều nguồn dữ liệu trong một truy vấn.</p>
+<h3 class="subheading">1. Đặc điểm cốt lõi</h3>
+<p class="definition"><strong>AWS AppSync:</strong> dịch vụ managed GraphQL &amp; Pub/Sub API cho phép client chỉ lấy đúng các trường dữ liệu cần thiết từ DynamoDB, Aurora/RDS, OpenSearch, Lambda hoặc HTTP APIs qua một endpoint duy nhất.</p>
+<h3 class="subheading">2. So sánh AWS AppSync vs Amazon API Gateway</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tiêu chí</th><th>AWS AppSync</th><th>Amazon API Gateway</th></tr></thead><tbody>
+<tr><td>Mô hình giao tiếp chính</td><td><strong>GraphQL</strong> &amp; Real-time Pub/Sub Subscriptions (WebSockets quản lý sẵn)</td><td><strong>REST API</strong>, <strong>HTTP API</strong> và WebSocket API tổng quát</td></tr>
+<tr><td>Gộp dữ liệu đa nguồn</td><td>Resolvers gom dữ liệu từ nhiều bảng/dịch vụ ngay trong 1 request, tránh over-fetching</td><td>Thường cần tầng Lambda/backend tổng hợp hoặc client phải gọi nhiều REST endpoints</td></tr>
+<tr><td>Xác thực hỗ trợ</td><td>API Key, IAM, Cognito User Pools, OIDC và Lambda Authorizer</td><td>IAM, Cognito User Pools, Lambda Authorizer, Mutual TLS</td></tr>
+</tbody></table></div>
+</div>
+</details>

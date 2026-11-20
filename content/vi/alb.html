@@ -1,0 +1,229 @@
+<details class="topic" data-progress-aliases="High Availability &amp; Scalability cho EC2|Load Balancing là gì?|Vì sao dùng Elastic Load Balancer (ELB)?|High Availability và Elastic Load Balancing" data-track="High availability &amp; Elastic Load Balancing">
+<summary><span class="t-title">High availability &amp; Elastic Load Balancing</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Chia request tới nhiều máy và giữ ứng dụng hoạt động khi một máy hoặc AZ gặp lỗi.</p>
+<h3 class="subheading">1. Scalability và High Availability</h3>
+<p>Vertical scaling là đổi sang máy mạnh hơn/yếu hơn. Horizontal scaling là thêm/bớt máy. High Availability (HA) là có tài nguyên dự phòng và cơ chế chuyển sang tài nguyên còn khỏe.</p>
+<p>Một máy lớn giúp tăng capacity nhưng vẫn là điểm lỗi duy nhất. Với web app, thường dùng load balancer và ASG qua nhiều AZ.</p>
+<h3 class="subheading">2. Load Balancer làm gì?</h3>
+<p>Load balancer nhận connection từ client rồi chuyển tới target phía sau.</p>
+<p class="definition"><strong>ELB:</strong> dịch vụ managed: AWS vận hành hạ tầng load balancer, bạn cấu hình listener, target và health check.</p>
+<pre class="flow-diagram"><code class="language-text">Client → Route 53 → Load Balancer
+                    ├─ healthy target ở AZ A
+                    └─ healthy target ở AZ B</code></pre>
+<p>Internet-facing load balancer nhận traffic từ Internet; internal load balancer phục vụ kết nối trong mạng private.</p>
+<p>Client thường dùng DNS name, không cố định IP của ALB.</p>
+<h3 class="subheading">3. Health check và capacity còn lại</h3>
+<p>Health check giúp tránh gửi traffic tới target lỗi trong hoạt động bình thường.</p>
+<p>Khi một AZ mất, AZ còn lại phải đủ capacity; ELB không tự tạo thêm EC2 nếu không có ASG/cơ chế scale.</p>
+<p>Database, file và session cũng cần thiết kế chịu lỗi. Đưa session ra external store giúp user tiếp tục làm việc khi request chuyển sang máy khác.</p>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web/API có nhiều EC2/ECS tasks: ELB chia tải, ASG quản số máy. Microservice private: internal ALB/NLB. Dùng Route 53 Alias để trỏ tên miền tới ELB, ACM cho TLS và CloudWatch để theo dõi.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Vertical scaling tăng sức mạnh từng máy; horizontal scaling thêm máy; HA cần phân tán miền lỗi và chuyển traffic tới target khỏe.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Các loại Load Balancer trên AWS|Application Load Balancer (ALB) – v2|Network Load Balancer (NLB) - v2|Gateway Load Balancer (GWLB)|ALB, NLB và GWLB" data-track="ALB vs NLB vs GWLB">
+<summary><span class="t-title">ALB vs NLB vs GWLB</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Chọn load balancer theo giao thức và cách cần xử lý traffic.</p>
+<h3 class="subheading">1. Hiểu đơn giản 4 loại Load Balancer</h3><div class="table-wrap"><table class="study-table"><tbody><tr><th><p>Loại</p></th><th><p>Hiểu đơn giản</p></th><th><p>Khi nào chọn?</p></th></tr><tr><td><p>ALB</p></td><td><p>Phân phối theo nội dung HTTP request</p></td><td><p>Website, API, Microservices</p></td></tr><tr><td><p>NLB</p></td><td><p>Phân phối theo kết nối mạng, hỗ trợ IP tĩnh</p></td><td><p>TCP/UDP, game, IP allowlist</p></td></tr><tr><td><p>GWLB</p></td><td><p>Chuyển traffic qua hệ thống kiểm tra bảo mật</p></td><td><p>Firewall, IDS/IPS</p></td></tr><tr><td><p>CLB</p></td><td><p>Load Balancer đời cũ</p></td><td><p>Legacy applications</p></td></tr></tbody></table></div><h3 class="subheading">2. ALB — Application Load Balancer (Layer 7)</h3><p>ALB hiểu nội dung HTTP request nên có thể định tuyến theo URL, hostname, header...</p><p class="lead-in">Ví dụ:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Client
+   ↓
+ALB (HTTPS)
+   │
+   ├── /users  → EC2 User Service
+   │
+   ├── /orders → EC2 Order Service
+   │
+   └── /images → Lambda</code></pre></div><p>Một ALB có thể phục vụ nhiều microservices thông qua các Target Groups. </p><h3 class="subheading">3. NLB — Network Load Balancer (Layer 4)</h3><p>NLB phân phối kết nối mạng, không phân tích URL như ALB.</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Game Clients
+      ↓
+ NLB (UDP/TCP)
+      │
+      ├── Game Server A
+      ├── Game Server B
+      └── Game Server C</code></pre></div><p class="lead-in">Đặc biệt:</p><ul><li><p>Hỗ trợ IP tĩnh theo AZ.</p></li><li><p>Có thể gán Elastic IP cho Internet-facing NLB.</p></li><li><p>Phù hợp giao thức TCP, UDP, TLS và workload yêu cầu latency thấp.</p></li><li><p>Có thể đặt NLB → ALB khi cần cả IP tĩnh và HTTP routing. </p></li></ul><h3 class="subheading">4. GWLB — Gateway Load Balancer (Layer 3)</h3><p>GWLB không chủ yếu phân phối HTTP request đến ứng dụng, mà đưa traffic đi qua security appliances.</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Internet
+    ↓
+Gateway Load Balancer
+    ↓
+Firewall / IDS / IPS
+    │
+    ├── Appliance A
+    └── Appliance B
+    ↓
+Application</code></pre></div><p>Ví dụ: Công ty muốn toàn bộ traffic được kiểm tra bởi firewall của bên thứ ba trước khi đến EC2.</p><p>GWLB dùng GENEVE, UDP port 6081 để chuyển traffic đến các appliance</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>ALB = Layer 7 / HTTP routing; NLB = Layer 4 / TCP-UDP và IP tĩnh; GWLB = đưa traffic qua security appliances; CLB = legacy.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Health Checks|Load Balancer Security Groups|Target Groups|Sticky Sessions (Session Affinity)|Sticky Sessions – Cookie Names|Cross-Zone Load Balancing|ELB – SSL/TLS Certificates|SNI – Server Name Indication|Connection Draining / Deregistration Delay|ELB – Targets, health checks và traffic behavior|ELB – TLS certificates và SNI" data-track="ELB targets, health, sessions &amp; TLS">
+<summary><span class="t-title">ELB targets, health, sessions &amp; TLS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Hiểu load balancer chọn target, bảo vệ kết nối và xử lý request khi deploy hoặc scale-in.</p>
+<p class="lead-in">Luồng request:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ TLS / Listener
+Load Balancer
+↓ Rule → Target Group
+Healthy Target</code></pre>
+<h3 class="subheading">1. Listener, rule và target group</h3>
+<p>Listener nhận traffic ở protocol/port, ví dụ HTTPS 443. Rule chọn target group; target group chứa các backend và cấu hình health check.</p>
+<p>Health check kiểm tra port/path như /health, theo interval và số lần thành công/thất bại đã đặt. Matcher có thể cấu hình mã HTTP thành công, không phải luôn chỉ 200. Endpoint nên phản ánh khả năng phục vụ của ứng dụng.</p>
+<h3 class="subheading">2. Security Group và IP client</h3>
+<p>Cho client vào ALB SG trên port cần thiết; app SG chỉ cho nguồn ALB SG trên port backend/health check. Không cần mở toàn bộ backend ra Internet.</p>
+<p>Với ALB, ứng dụng lấy IP client từ X-Forwarded-For thay vì chỉ nhìn IP connection của ALB.</p>
+<p>NLB có cơ chế client IP preservation phụ thuộc target/protocol; vẫn phải cấu hình network security đúng.</p>
+<h3 class="subheading">3. Sticky session</h3>
+<p>ALB stickiness dùng cookie để giữ một client về một target: cookie do LB tạo như AWSALB hoặc application-based cookie.</p>
+<p>NLB stickiness dùng source IP khi được hỗ trợ, không dùng HTTP cookie.</p>
+<p>Stickiness có thể làm tải lệch và không bảo vệ session khi target chết.</p>
+<p>Lưu session trong ElastiCache/DynamoDB giúp các máy dùng chung state. <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-target-group-attributes.html" rel="noopener noreferrer" target="_blank">ALB sticky sessions</a>.</p>
+<h3 class="subheading">4. Cross-zone load balancing</h3>
+<pre class="flow-diagram"><code class="language-text">Bật cross-zone: node LB có thể đưa traffic tới target ở các AZ khác.
+Tắt: node chỉ đưa tới target trong AZ của mình; số máy chênh nhau có thể làm
+tải mỗi máy không đều.</code></pre>
+<pre class="flow-diagram"><code class="language-text">ALB bật ở mức load balancer, có thể chỉnh ở target group.
+NLB/GWLB mặc định tắt; hành vi phí transfer khác nhau theo loại LB, nên kiểm
+tra khi triển khai.</code></pre>
+<h3 class="subheading">5. TLS và SNI</h3>
+<p>ACM cung cấp/quản lý certificate cho HTTPS/TLS listener.</p>
+<p>SNI cho client gửi hostname trong TLS handshake để ALB/NLB chọn đúng certificate; CLB không hỗ trợ nhiều certificate theo SNI như vậy.</p>
+<p>TLS client → LB và TLS LB → backend là hai chặng riêng. Muốn mã hóa xuyên các chặng, cấu hình cả listener và backend protocol phù hợp.</p>
+<h3 class="subheading usage-heading">6. Deregistration delay và Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Khi target bị deregister, LB ngừng đưa request mới tới đó và cho request đang chạy thời gian hoàn tất. Đây là deregistration delay; thời gian mặc định thường 300 giây, cần chỉnh theo độ dài request.</p>
+<pre class="flow-diagram"><code class="language-text">Dùng cho deploy hoặc ASG scale-in để tránh cắt request.
+Kết hợp graceful shutdown của app; không coi delay là cách cứu mọi request
+trên target đã hỏng.</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Health check xác định target khỏe; sticky session và TLS termination giải quyết nhu cầu khác nhau. Phân biệt kết nối client–LB với LB–target.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Auto Scaling Group (ASG) – Tổng quan|ASG – Launch Template &amp; Attributes|Amazon EC2 Auto Scaling" data-track="Auto Scaling Groups &amp; Launch Templates">
+<summary><span class="t-title">Auto Scaling Groups &amp; Launch Templates</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Tự duy trì số EC2 cần thiết và tạo lại máy bằng cấu hình nhất quán.</p>
+<h3 class="subheading">1. Minimum, desired và maximum</h3>
+<pre class="flow-diagram"><code class="language-text">Minimum là số máy tối thiểu; desired là số máy ASG đang cố duy trì; maximum là
+giới hạn cao nhất.
+Nếu một máy bị terminate hoặc được xác định unhealthy, ASG tạo máy thay thế để
+về desired.</code></pre>
+<p>Chọn subnet ở nhiều AZ để phân bố máy. ASG không bảo vệ dữ liệu chỉ nằm trên máy bị xóa, nên ứng dụng nên stateless hoặc dùng external storage.</p>
+<h3 class="subheading">2. Launch Template</h3>
+<p>Launch Template lưu AMI, instance type, SG, IAM instance profile, User Data, key pair và disk. ASG chọn subnet/AZ và gắn target group theo cấu hình của group.</p>
+<p>Template có version.</p>
+<p>Đổi template không tự làm mọi máy cũ biến thành máy mới; dùng Instance Refresh để thay fleet theo cấu hình mới với kiểm soát capacity.</p>
+<h3 class="subheading">3. ASG và ELB</h3>
+<pre class="flow-diagram"><code class="language-text">Launch Template → ASG tạo EC2 → đăng ký target group → ELB gửi request
+                       ↑
+          health check / scaling policy</code></pre>
+<p>ASG dùng EC2 health check và có thể bật ELB health check để thay máy mà app không phục vụ được. Cần health check grace period để không xóa máy đang bootstrap.</p>
+<h3 class="subheading">4. Launch và terminate có kiểm soát</h3>
+<p>Lifecycle hook tạm dừng ở một bước launch/terminate để cài đặt, hoàn tất công việc hoặc drain kết nối.</p>
+<p>Mixed Instances Policy kết hợp nhiều instance type cùng On-Demand/Spot, giúp lấy capacity linh hoạt và giảm phí.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web fleet nhiều AZ sau ALB; worker xử lý SQS có thể tạo/xóa theo backlog; rollout bản vá bằng AMI mới và Instance Refresh.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>ASG duy trì số EC2 cần thiết qua nhiều AZ; Launch Template định nghĩa máy được launch, còn scaling policy quyết định khi nào thêm/bớt máy.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="ASG – Scaling với CloudWatch Alarms|ASG – Scaling Policies (tổng quan)|ASG – Dynamic Scaling (Target Tracking / Simple / Step)|ASG – Scheduled Scaling|ASG – Predictive Scaling|ASG – Metrics tốt để Scale (Good metrics)|ASG – Scaling Cooldowns" data-track="ASG scaling policies, metrics &amp; cooldowns">
+<summary><span class="t-title">ASG scaling policies, metrics &amp; cooldowns</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Tăng máy khi thiếu capacity và giảm máy khi dư, dựa trên tín hiệu phản ánh tải ứng dụng.</p>
+<p class="lead-in">Luồng scale theo tải:</p>
+<pre class="flow-diagram"><code class="language-text">Metric / Alarm
+↓ Scaling Policy
+Auto Scaling Group
+↓ tăng hoặc giảm desired capacity
+EC2 instances</code></pre>
+<h3 class="subheading">1. Các kiểu scaling</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Policy</th><th>Cách hoạt động</th><th>Ví dụ</th></tr></thead><tbody><tr><td>Target tracking</td><td>Giữ metric gần mục tiêu</td><td>CPU trung bình khoảng 50%</td></tr><tr><td>Step scaling</td><td>Vượt ngưỡng càng nhiều thì tăng càng mạnh</td><td>CPU 70–85% thêm 1; trên 85% thêm 3</td></tr><tr><td>Simple scaling</td><td>Một alarm kích hoạt một thay đổi, rồi chờ cooldown</td><td>CPU cao → thêm 2 máy</td></tr><tr><td>Scheduled</td><td>Đổi capacity theo lịch đã biết</td><td>Thêm máy trước giờ cao điểm</td></tr><tr><td>Predictive</td><td>Dự báo từ pattern lịch sử để chuẩn bị trước</td><td>Tải tăng lặp lại mỗi sáng</td></tr></tbody></table></div>
+<h3 class="subheading">2. Chọn metric</h3>
+<p>CPU hợp khi ứng dụng bị giới hạn bởi CPU. ALBRequestCountPerTarget hợp web khi request tương đối tương đồng. Network metric hợp workload bị nghẽn băng thông.</p>
+<p>Worker SQS nên dùng backlog per instance, không chỉ tổng message: 1.000 message với 2 worker khác với 1.000 message với 100 worker.</p>
+<p>Metric target tracking phải phản ánh mức sử dụng trên mỗi đơn vị capacity.</p>
+<h3 class="subheading">3. Warmup, grace period và cooldown</h3>
+<p>Warmup là thời gian instance mới ổn định trước khi được tính phù hợp vào quyết định scaling. Health check grace period tránh đánh unhealthy quá sớm sau launch.</p>
+<p>Cooldown chủ yếu dùng cho simple scaling, tránh phản ứng liên tục trước khi tác dụng lần trước hiện rõ.</p>
+<p>Target tracking/step scaling dùng warmup; không có quy tắc chung rằng mọi scaling đều bị khóa 300 giây.</p>
+<h3 class="subheading">4. Tăng nhanh, giảm thận trọng</h3>
+<pre class="flow-diagram"><code class="language-text">Tạo AMI có sẵn phần mềm giúp máy phục vụ sớm.
+Cho request/job đang chạy hoàn tất trước scale-in; dùng deregistration
+delay/lifecycle hook khi cần.
+Luôn đặt maximum đủ cho tải cần thiết và theo dõi quota/capacity.</code></pre>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web biến động: target tracking. Chiến dịch biết giờ bắt đầu: scheduled. SQS backlog tăng rất nhanh: step scaling hoặc target tracking trên backlog per worker.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Target tracking giữ metric gần target; step scaling theo ngưỡng; scheduled scaling chủ động theo giờ. Chọn theo pattern tải và thời gian khởi động.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Elastic Beanstalk – Overview|Elastic Beanstalk – Web Server Tier vs Worker Tier" data-track="AWS Elastic Beanstalk">
+<summary><span class="t-title">AWS Elastic Beanstalk</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Elastic Beanstalk giúp <strong>deploy web application lên AWS nhanh</strong> mà không cần tự dựng từng phần như EC2, Auto Scaling, Load Balancer và monitoring.</p>
+<pre class="flow-diagram"><code class="language-text">Code
+↓
+Elastic Beanstalk
+↓
+EC2 + ASG + Load Balancer</code></pre>
+<blockquote class="caution"><p><strong>Elastic Beanstalk = PaaS, không phải serverless.</strong></p></blockquote>
+<h3 class="subheading">1. Cách hoạt động</h3>
+<p><strong>Developer chủ yếu lo:</strong> <code>Application Code</code></p>
+<p class="compact-line"><strong>Beanstalk hỗ trợ:</strong> <code>Provision infrastructure · Deploy application · Auto Scaling · Load Balancing · Health Monitoring</code></p>
+<p class="compact-line"><strong>Hỗ trợ:</strong> <code>Java · .NET · Node.js · Python · Go · PHP · Docker</code></p>
+<p>Bạn vẫn có thể truy cập và cấu hình resource bên dưới.</p>
+<h3 class="subheading">2. Web Server Tier</h3>
+<p>Dùng cho web/API nhận HTTP request.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+Load Balancer
+↓
+EC2 trong Auto Scaling Group</code></pre>
+<p class="compact-line"><strong>Phù hợp:</strong> <code>Website · REST API · Synchronous Request</code></p>
+<h3 class="subheading">3. Worker Tier</h3>
+<p>Dùng cho background job.</p>
+<pre class="flow-diagram"><code class="language-text">Web App
+↓
+SQS
+↓
+Worker Environment
+↓
+Process Job</code></pre>
+<p class="lead-in">Ví dụ:</p>
+<p class="compact-line"><code>Send Email · Resize Image · Generate Report</code></p>
+<blockquote class="insight"><p class="definition-inline"><strong>Web Tier = HTTP</strong> <strong>Worker Tier = SQS + async job</strong></p></blockquote>
+<h3 class="subheading">4. Deployment</h3>
+<ul class="fact-list"><li><strong>Các kiểu deploy quan trọng:</strong> <strong>Rolling</strong> = update từng nhóm instance</li><li><strong>Immutable</strong> = tạo instance mới rồi thay instance cũ</li><li><strong>Traffic Splitting</strong> = chia traffic giữa version cũ và mới</li></ul>
+<h3 class="subheading">5. Database</h3>
+<p class="lead-in">Production database nên tách khỏi lifecycle của Beanstalk:</p>
+<pre class="flow-diagram"><code class="language-text">Elastic Beanstalk
+↓
+Application
+↓
+RDS riêng</code></pre>
+<p>→ terminate environment không làm mất database production.</p>
+<h3 class="subheading">6. Cost</h3>
+<p>Elastic Beanstalk bản thân không có phí riêng.</p>
+<p class="compact-line"><strong>Bạn trả tiền cho resource bên dưới:</strong> <code>EC2 · Load Balancer · RDS · S3 · ...</code></p>
+<h3 class="subheading">7. AWS App Runner</h3>
+<p><strong>AWS App Runner</strong> chạy web applications hoặc APIs từ source code hoặc container image mà không cần tự quản lý EC2, ECS hay Kubernetes. Dịch vụ lo hạ tầng, triển khai, load balancing, HTTPS endpoint và automatic scaling.</p>
+<pre class="flow-diagram"><code class="language-text">Java Spring Boot REST API
+↓
+Source code / Container image
+↓
+AWS App Runner
+↓ tự triển khai và tự scale
+HTTPS Endpoint
+↓
+Users gọi GET /products</code></pre>
+<p>Ví dụ: đóng gói Spring Boot backend thành container image trên ECR, deploy bằng App Runner để người dùng gọi <code>GET /products</code>. App Runner phù hợp ứng dụng nhận <strong>HTTP requests</strong>; batch jobs theo lịch nên dùng dịch vụ điều phối như AWS Batch kết hợp EventBridge Scheduler.</p>
+<p>So với Beanstalk, App Runner giảm việc quản lý hạ tầng web/container; Beanstalk cho phép truy cập và tùy chỉnh tài nguyên EC2/ASG/Load Balancer bên dưới. </p>
+<p><strong>Cập nhật từ 30/04/2026:</strong> App Runner không nhận khách hàng mới; khách hàng hiện hữu tiếp tục sử dụng. AWS khuyến nghị ECS Express Mode cho nhu cầu mới; vẫn giữ khái niệm App Runner để học tài liệu SAA-C03. </p>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>Team muốn deploy web app nhanh nhưng vẫn dùng EC2/ASG.</li><li>Web tier ghi job vào SQS và Worker tier xử lý.</li><li>Ứng dụng truyền thống cần platform managed hơn là tự dựng hạ tầng.</li></ul>
+<h3 class="subheading">9. So sánh App Runner vs Elastic Beanstalk vs ECS Express Mode &amp; Kiểu Deployment</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Dịch vụ</th><th>Đầu vào</th><th>Mức quản trị hạ tầng</th></tr></thead><tbody>
+<tr><td><strong>AWS App Runner</strong></td><td>Source code hoặc Container image</td><td>Quản lý hoàn toàn (HTTPS, scaling, LB tự động); ít phải cấu hình nhất</td></tr>
+<tr><td><strong>AWS Elastic Beanstalk</strong></td><td>Application code / package</td><td>AWS dựng EC2 + ALB + ASG nhưng bạn vẫn giữ quyền SSH/tùy biến EC2 bên dưới</td></tr>
+<tr><td><strong>ECS Express Mode</strong></td><td>Container image + IAM Roles</td><td>Tự tạo nhanh ECS Service trên Fargate + ALB + Auto Scaling + HTTPS trong tài khoản của bạn</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Rolling Deployment    → Thay thế dần từng đợt instances/tasks trên môi trường hiện có
+Blue/Green Deployment → Tạo môi trường mới song song rồi chuyển lưu lượng (rollback tức thì)</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Beanstalk tự dựng hạ tầng web/worker nhưng vẫn chạy trên resource AWS; Web Tier nhận HTTP, Worker Tier xử lý async qua SQS.</p></aside>
+</div>
+</details>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{{pageTitle}}</title>
+<link href="/assets/site.css" rel="stylesheet"/>
+<link href="{{CANONICAL}}" rel="canonical"/><link href="https://aws.trongle.tech/" hreflang="vi" rel="alternate"/><link href="https://aws.trongle.tech/en/" hreflang="en" rel="alternate"/></head>
+<body>
+<header class="top">
+<div class="topbar">
+<button aria-label="{{goHome}}" class="brand-btn" id="homeBtn" type="button">
+<span>AWS SAA-C03</span>
+</button>
+<nav aria-label="{{pages}}" class="page-tabs">
+<a aria-current="page" href="{{HOME_URL}}">{{home}}</a>
+</nav>
+<nav aria-label="{{language}}" class="language-switch"><a data-language="vi" href="/" lang="vi">Tiếng Việt</a><a data-language="en" href="/en/" lang="en">English</a></nav><div class="topbar-spacer"></div>
+<button aria-controls="tocPanel" aria-expanded="false" hidden="" id="tocBtn" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"></line><line x1="8" x2="21" y1="12" y2="12"></line><line x1="8" x2="21" y1="18" y2="18"></line><line x1="3" x2="3.01" y1="6" y2="6"></line><line x1="3" x2="3.01" y1="12" y2="12"></line><line x1="3" x2="3.01" y1="18" y2="18"></line></svg>
+<span>{{toc}}</span>
+</button>
+<button aria-label="{{search}}" id="searchBtn" title="{{searchTitle}}" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+<span>{{searchKnowledge}}</span>
+<kbd>Ctrl F</kbd>
+</button>
+</div>
+</header>
+<button aria-label="{{backTopicLabel}}" hidden="" id="toggleJump" type="button">{{backTopicButton}}</button>
+<aside aria-label="{{tocPage}}" hidden="" id="tocPanel">
+<div class="toc-head"><strong>{{tocSection}}</strong><button aria-label="{{closeToc}}" data-action="close-toc" type="button">✕</button></div>
+<p id="tocPage"></p>
+<nav aria-label="{{tocEntries}}" id="tocEntries"></nav>
+</aside>
+<aside aria-label="{{search}}" hidden="" id="searchPanel">
+<div class="search-toolbar">
+<div class="search-head"><strong>{{searchAll}}</strong><button aria-label="{{closeSearch}}" data-action="close-search" type="button">✕</button></div>
+<div class="search-input-wrap">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
+<input aria-controls="searchResults" aria-label="{{queryLabel}}" autocomplete="off" id="searchInput" placeholder="{{queryPlaceholder}}" type="search"/>
+<button aria-label="{{clearSearch}}" data-action="clear-search" hidden="" id="searchClear" type="button">×</button>
+</div>
+<div class="search-controls-row">
+<div class="search-filters">
+<label for="searchPage">{{scope}}</label>
+<select id="searchPage"><option value="">{{allPages}}</option><option value="current">{{currentPage}}</option></select>
+</div>
+<div class="search-summary">
+<p aria-live="polite" id="searchCount" role="status"></p>
+</div>
+</div>
+</div>
+<div aria-label="{{searchResults}}" id="searchResults"></div>
+</aside>
+<div class="wrap">
+<div class="active" id="home">
+<div class="home-head">
+<h1>{{homeTitle}}</h1>
+</div>
+<div aria-label="{{filterDomains}}" class="domain-bar" id="domainFilters" role="toolbar"></div>
+<div class="cards" id="cards"></div>
+</div>
+{{SECTIONS}}
+
+</div>
+<script src="/assets/app.mjs" type="module"></script>
+<script id="catalog" type="application/json">{{CATALOG}}</script></body>
+</html>

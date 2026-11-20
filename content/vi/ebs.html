@@ -1,0 +1,158 @@
+<details class="topic" data-progress-aliases="EBS Volume – Tổng quan|EBS – Delete on Termination attribute|EBS Volume Types|EBS Multi-Attach – io1/io2 family|Amazon EBS – Volumes, types và attachment" data-track="Amazon EBS: persistent block storage">
+<summary><span class="t-title">Amazon EBS: persistent block storage</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Cung cấp disk bền vững cho EC2, dùng cho hệ điều hành, filesystem và database.</p>
+<p class="lead-in">Luồng sử dụng:</p>
+<pre class="flow-diagram"><code class="language-text">EC2
+↓ attach block volume trong cùng AZ
+EBS
+↓
+Filesystem / Database</code></pre>
+<h3 class="subheading">1. Volume thuộc một AZ</h3>
+<p class="definition"><strong>EBS:</strong> block storage qua mạng.</p>
+<p>Volume và EC2 phải cùng AZ; thường một volume gắn một instance, một instance có thể có nhiều volume.</p>
+<p>Volume vẫn còn khi stop máy.</p>
+<p>Khi terminate, DeleteOnTermination quyết định có xóa volume không; root thường bật, data volume thường tắt.</p>
+<p>Kiểm tra thuộc tính thay vì mặc định rằng dữ liệu luôn còn.</p>
+<h3 class="subheading">2. Chọn loại volume</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Loại</th><th>Phù hợp</th></tr></thead><tbody><tr><td>gp3</td><td>SSD phổ thông; cấu hình dung lượng, IOPS, throughput riêng</td></tr><tr><td>gp2</td><td>SSD phổ thông; baseline IOPS phụ thuộc dung lượng, volume nhỏ có burst</td></tr><tr><td>io1/io2</td><td>Provisioned IOPS cho I/O ổn định; io2 cho database cần latency thấp và durability cao</td></tr><tr><td>st1</td><td>HDD cho dữ liệu lớn, đọc/ghi tuần tự thường xuyên</td></tr><tr><td>sc1</td><td>HDD cho dữ liệu ít truy cập, ưu tiên chi phí</td></tr></tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">SSD có thể làm boot volume; st1/sc1 không dùng làm boot volume.
+IOPS là số thao tác mỗi giây; throughput là lượng dữ liệu mỗi giây.
+Database random I/O khác với xử lý file lớn tuần tự.</code></pre>
+<h3 class="subheading">3. Thông số kỹ thuật EBS</h3>
+<p>Giới hạn theo tài liệu AWS kiểm tra ngày <strong>13/10/2026</strong>; tốc độ thực tế còn phụ thuộc EC2 instance, kích thước I/O và cấu hình volume.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Loại</th><th>Dung lượng</th><th>Max IOPS</th><th>Max throughput</th></tr></thead><tbody>
+<tr><td>gp2</td><td>1 GiB–16 TiB</td><td>16.000</td><td>250 MiB/s</td></tr>
+<tr><td>gp3</td><td>1 GiB–64 TiB</td><td>80.000</td><td>2.000 MiB/s</td></tr>
+<tr><td>io1</td><td>4 GiB–16 TiB</td><td>64.000</td><td>1.000 MiB/s</td></tr>
+<tr><td>io2 Block Express</td><td>4 GiB–64 TiB</td><td>256.000</td><td>4.000 MiB/s</td></tr>
+<tr><td>st1</td><td>125 GiB–16 TiB</td><td>500</td><td>500 MiB/s</td></tr>
+<tr><td>sc1</td><td>125 GiB–16 TiB</td><td>250</td><td>250 MiB/s</td></tr>
+</tbody></table></div>
+<p>Mức cao cần EC2/Nitro hỗ trợ và đủ EBS bandwidth; gp2 throughput phụ thuộc dung lượng. gp3 trên Outposts có giới hạn thấp hơn: 16 TiB, 16.000 IOPS, 1.000 MiB/s. </p>
+<h3 class="subheading">4. gp3 và mở rộng volume</h3>
+<p class="definition"><strong>Baseline gp3:</strong> 3.000 IOPS và 125 MiB/s.</p>
+<p>Có thể mua thêm performance mà không phải tăng disk chỉ để lấy IOPS.</p>
+<p>Giới hạn gp3 hiện tại đã tăng so với slide cũ; xem <a href="https://docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html" rel="noopener noreferrer" target="_blank">AWS EBS gp3</a> khi cấu hình thực tế.</p>
+<p>Elastic Volumes cho phép tăng dung lượng hoặc đổi performance/type khi máy đang chạy; có thể cần mở rộng partition/filesystem trong OS.</p>
+<p>EBS tính phí theo capacity đã cấp, không chỉ số byte đang dùng.</p>
+<h3 class="subheading">5. Multi-Attach</h3>
+<p>io1/io2 hỗ trợ gắn cùng volume vào tối đa 16 Nitro instances trong cùng AZ khi cấu hình được hỗ trợ.</p>
+<p>Các máy có thể đọc/ghi, nhưng ứng dụng phải có locking và filesystem cluster-aware để tránh hỏng dữ liệu.</p>
+<p>Multi-Attach không biến EBS thành shared file system đa AZ. Nhiều Linux server dùng chung file thường hợp EFS hơn.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Boot disk/dev server: gp3. Database trên EC2 cần I/O nhất quán: io2. Log hoặc dữ liệu lớn tuần tự: st1. Muốn chuyển AZ: snapshot rồi tạo volume mới ở AZ đích.</p>
+<h3 class="subheading">7. Tỷ lệ Max IOPS/GiB &amp; EBS RAID (RAID 0 vs RAID 1)</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Loại EBS</th><th>Max IOPS / GiB</th><th>Max IOPS / Volume</th><th>Max Throughput</th></tr></thead><tbody>
+<tr><td><code>gp3</code></td><td>500 IOPS/GiB (trên mức baseline 3.000 IOPS)</td><td>80.000</td><td>2.000 MiB/s</td></tr>
+<tr><td><code>io1</code></td><td>50 IOPS/GiB</td><td>64.000</td><td>1.000 MiB/s</td></tr>
+<tr><td><code>io2 Block Express</code></td><td>1.000 IOPS/GiB</td><td>256.000</td><td>4.000 MiB/s</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tiêu chí</th><th>RAID 0 (Striping)</th><th>RAID 1 (Mirroring)</th></tr></thead><tbody>
+<tr><td>Cơ chế &amp; Mục đích</td><td>Chia dải dữ liệu qua nhiều EBS để cộng gộp IOPS và throughput</td><td>Ghi nhân bản giống hệt lên 2 ổ để tăng dự phòng ổ đĩa</td></tr>
+<tr><td>Rủi ro &amp; Khuyến nghị AWS</td><td>Một volume lỗi làm mất dữ liệu cả mảng RAID 0; dùng khi một volume đơn chưa đủ băng thông/IOPS</td><td>Ít cần thiết trên EBS vì mỗi EBS volume đã tự nhân bản trên nhiều thiết bị trong cùng AZ (tránh RAID 5/6 do tốn I/O parity)</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>gp3 cho nhu cầu SSD phổ thông; io1/io2 cho IOPS ổn định; st1/sc1 cho throughput tuần tự hoặc dữ liệu ít truy cập. EBS vẫn tính phí khi EC2 Stop.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="EBS Snapshots|AMI (Amazon Machine Image)|Encryption – Mã hoá một EBS volume chưa mã hoá|EBS – Snapshots, encryption và AMI" data-track="EBS snapshots, AMI &amp; encryption">
+<summary><span class="t-title">EBS snapshots, AMI &amp; encryption</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Backup disk, tạo máy nhất quán và bảo vệ dữ liệu EBS bằng mã hóa.</p>
+<h3 class="subheading">1. Snapshot</h3>
+<pre class="flow-diagram"><code class="language-text">Snapshot là bản sao tại một thời điểm.
+Snapshot đầu sao chép block có dữ liệu; các lần sau lưu block thay đổi.
+Xóa snapshot cũ không làm mất khả năng khôi phục từ snapshot còn lại.</code></pre>
+<p>Không bắt buộc tháo volume để snapshot. Muốn backup nhất quán với database, cần flush/quiesce ứng dụng hoặc quy trình backup phù hợp. Snapshot không chứa RAM.</p>
+<p>Có thể tạo volume ở AZ khác từ snapshot.</p>
+<p>Copy snapshot sang Region/account khác cần quyền chia sẻ và quyền KMS phù hợp; snapshot dùng AWS managed key không chia sẻ cross-account như customer managed key.</p>
+<h3 class="subheading">2. Các tính năng backup</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tính năng</th><th>Giải quyết vấn đề</th></tr></thead><tbody><tr><td>Snapshot Archive</td><td>Lưu backup hiếm dùng với chi phí thấp hơn; restore thường mất 24–72 giờ</td></tr><tr><td>Recycle Bin</td><td>Khôi phục snapshot/AMI xóa nhầm nếu có retention rule</td></tr><tr><td>Fast Snapshot Restore</td><td>Volume tạo từ snapshot có performance đầy đủ ngay, tránh first-read latency; có thêm phí theo AZ</td></tr></tbody></table></div>
+<h4 class="minor-heading">EBS Snapshot Archive</h4>
+<p><strong>EBS Snapshot Archive</strong> là lớp lưu trữ có đơn giá thấp hơn dành cho snapshots ít khi cần phục hồi, như backup dài hạn.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Tiêu chí</th><th>Snapshot Standard</th><th>Snapshot Archive</th></tr></thead><tbody>
+<tr><td>Mục đích</td><td>Backup thường xuyên, cần phục hồi sớm</td><td>Backup dài hạn, hiếm khi phục hồi</td></tr>
+<tr><td>Đơn giá lưu trữ</td><td>Cao hơn</td><td>Thấp hơn; có thêm phí restore</td></tr>
+<tr><td>Cách lưu</td><td>Incremental: lưu các block thay đổi sau snapshot đầu</td><td>Full snapshot: toàn bộ block có dữ liệu tại thời điểm snapshot</td></tr>
+<tr><td>Tạo volume</td><td>Có thể dùng trực tiếp để tạo volume</td><td>Phải restore về Standard trước, có thể mất tới 72 giờ</td></tr>
+<tr><td>Minimum duration</td><td>Không có thời hạn lưu tối thiểu</td><td>Tính phí tối thiểu 90 ngày</td></tr>
+</tbody></table></div>
+<p>Xóa hoặc restore vĩnh viễn về Standard trước 90 ngày vẫn phải trả phí Archive cho thời gian còn lại. Vì Archive lưu full snapshot, dung lượng tính phí có thể lớn hơn bản incremental; cần xét cả dung lượng và phí restore. </p>
+<h3 class="subheading">3. AMI</h3>
+<p class="definition"><strong>AMI:</strong> mẫu tạo EC2: OS, phần mềm, cấu hình và thông tin disk.</p>
+<p>Với EBS-backed AMI, dữ liệu disk nằm trong EBS snapshots.</p>
+<pre class="flow-diagram"><code class="language-text">Cài và cấu hình EC2 → tạo AMI → Launch Template → ASG tạo máy giống nhau</code></pre>
+<p>AMI có phạm vi Region; copy sang Region khác trước khi dùng ở đó. Cập nhật AMI và bản vá định kỳ, không để secret trong image.</p>
+<h3 class="subheading">4. Amazon Data Lifecycle Manager (DLM)</h3>
+<p><strong>Amazon DLM</strong> tự động tạo, giữ lại và xóa <strong>EBS snapshots / EBS-backed AMIs</strong> theo policy; không cần tự viết Lambda hoặc cron cho lịch backup đơn giản.</p>
+<pre class="flow-diagram"><code class="language-text">EC2 + EBS volume
+↓ DLM policy: backup mỗi ngày
+EBS snapshot
+↓ giữ 7 ngày
+Tự xóa snapshot hết hạn</code></pre>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Chức năng</th><th>Ý nghĩa</th></tr></thead><tbody>
+<tr><td>Schedule</td><td>Tạo snapshot hoặc EBS-backed AMI theo lịch; chọn tài nguyên theo policy/tags</td></tr>
+<tr><td>Retention</td><td>Giữ theo số lượng bản hoặc thời gian, tùy policy</td></tr>
+<tr><td>Delete</td><td>Xóa snapshot hết hạn; deregister AMI và xử lý snapshots liên quan theo policy</td></tr>
+<tr><td>Copy</td><td>Copy snapshot sang Region khác theo policy hỗ trợ</td></tr>
+</tbody></table></div>
+<p>DLM quản lý các bản do chính DLM tạo; không tự quản lý snapshots/AMIs tạo bằng cách khác và không dùng cho Instance Store-backed AMI. Chọn AWS Backup khi cần chính sách tập trung cho nhiều dịch vụ. </p>
+<h3 class="subheading">5. Mã hóa EBS</h3>
+<pre class="flow-diagram"><code class="language-text">KMS bảo vệ volume, snapshot và dữ liệu truyền giữa EC2/EBS.
+Snapshot từ volume đã mã hóa cũng được mã hóa; volume tạo từ encrypted
+snapshot giữ encryption.</code></pre>
+<p>Không bật encryption trực tiếp trên volume cũ chưa mã hóa: snapshot → copy snapshot có mã hóa → tạo encrypted volume mới → thay volume.</p>
+<p>Role cần quyền KMS để sử dụng key.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Golden AMI cho ASG; snapshot/copy cross-Region cho DR; Recycle Bin chống xóa nhầm; chuyển disk legacy sang encrypted volume bằng snapshot.</p>
+<h3 class="subheading">7. EBS Encryption by Default, Snapshot Archive &amp; Snapshot Lock</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Cơ chế trên EBS</th><th>Chức năng &amp; Quy tắc cần nhớ</th></tr></thead><tbody>
+<tr><td><strong>EBS Encryption by Default</strong></td><td>Thiết lập ở cấp <strong>Account theo từng Region</strong> để mọi EBS volume và snapshot tạo mới trong Region đó tự động được mã hóa (dùng <code>alias/aws/ebs</code> hoặc CMK)</td></tr>
+<tr><td><strong>EBS Snapshot Archive</strong></td><td>Tầng lưu trữ full snapshot giá rẻ (tối thiểu <strong>90 ngày</strong>); muốn tạo volume phải khôi phục về Standard trước (mất tới <strong>72 giờ</strong>). Snapshot lưu trên S3 do AWS quản lý nên không hiển thị trong S3 Console của bạn</td></tr>
+<tr><td><strong>EBS Snapshot Lock</strong></td><td>Khóa chống xóa snapshot theo thời hạn ở chế độ <strong>Governance</strong> (chỉ người có quyền IAM đặc biệt mới gỡ được) hoặc <strong>Compliance</strong> (bất biến tuyệt đối tới hết hạn, kể cả root)</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Snapshot là backup disk; AMI là mẫu launch EC2. DLM tự quản lifecycle snapshot/AMI do chính DLM tạo; encryption và cross-account copy cần quyền KMS phù hợp.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="EC2 Instance Store|Amazon EFS – Elastic File System|EBS vs EFS (vs Instance Store)|EC2 storage – EBS, EFS và Instance Store" data-track="EBS vs EFS vs Instance Store">
+<summary><span class="t-title">EBS vs EFS vs Instance Store</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Phân biệt disk riêng, file dùng chung và disk tạm để không chọn sai nơi lưu dữ liệu.</p>
+<p class="lead-in">Ba cách lưu dữ liệu:</p>
+<pre class="flow-diagram"><code class="language-text">EBS = block volume cho EC2
+EFS = shared file system
+Instance Store = disk tạm trên host</code></pre>
+<h3 class="subheading">1. So sánh chính</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tiêu chí</th><th>EBS</th><th>EFS</th><th>Instance Store</th></tr></thead><tbody><tr><td>Kiểu</td><td>Block disk qua mạng</td><td>Shared file system NFS/POSIX</td><td>Local block disk trên host</td></tr><tr><td>Chia sẻ</td><td>Thường một EC2; Multi-Attach có điều kiện</td><td>Nhiều Linux client cùng mount</td><td>Gắn với instance/host</td></tr><tr><td>Phạm vi</td><td>Một AZ</td><td>Regional đa AZ hoặc One Zone</td><td>Một host</td></tr><tr><td>Sau stop/host lỗi</td><td>EBS giữ dữ liệu, trừ xóa theo cấu hình</td><td>Độc lập với EC2</td><td>Có thể mất toàn bộ dữ liệu</td></tr><tr><td>Dùng cho</td><td>Boot disk, database</td><td>Shared content, home directory, containers</td><td>Cache, buffer, scratch</td></tr></tbody></table></div>
+<h3 class="subheading">2. EFS hoạt động thế nào?</h3>
+<p>Tạo mount target trong AZ, cho phép NFS 2049 qua SG rồi mount từ Linux client. EFS tự tăng/giảm dung lượng theo file, không cần cấp size volume trước.</p>
+<p>Regional EFS lưu qua nhiều AZ để chịu lỗi tốt hơn.</p>
+<p>One Zone rẻ hơn nhưng không chịu mất cả AZ.</p>
+<p>Mã hóa at rest dùng KMS; có thể bật mã hóa in transit và dùng access point để giới hạn đường dẫn/quyền.</p>
+<h3 class="subheading">3. Performance và chi phí EFS</h3>
+<p>General Purpose hợp phần lớn ứng dụng nhạy latency. Max I/O là lựa chọn cho một số workload song song rất lớn, có latency cao hơn.</p>
+<p>Elastic throughput tự điều chỉnh theo tải; Provisioned đặt mức throughput riêng; Bursting gắn khả năng throughput với dữ liệu lưu và burst credits.</p>
+<p>Lifecycle có thể chuyển file sang IA/Archive để giảm phí lưu, đổi lại có phí truy cập và điều kiện theo lớp.</p>
+<h3 class="subheading">4. Instance Store</h3>
+<pre class="flow-diagram"><code class="language-text">Rất nhanh vì disk ở gần compute.
+Dữ liệu có thể còn sau reboot nhưng mất khi stop, hibernate, terminate hoặc
+hardware lỗi.
+Không lưu bản duy nhất của dữ liệu quan trọng; dùng backup/replication hoặc
+nguồn dữ liệu khác.</code></pre>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  WordPress hoặc nhiều ECS tasks cần cùng thấy file: EFS. Database riêng trên một EC2: EBS. Xử lý dữ liệu trung gian có thể tạo lại: Instance Store. Windows SMB share: xem FSx for Windows File Server.</p>
+<h3 class="subheading">6. EFS Storage Classes, Throughput Modes &amp; Performance Modes</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>EFS Storage Class</th><th>Đặc tính truy cập</th><th>Phạm vi AZ</th></tr></thead><tbody>
+<tr><td><code>EFS Standard</code></td><td>Truy cập thường xuyên, độ trễ thấp</td><td>Multi-AZ</td></tr>
+<tr><td><code>EFS Standard-IA</code></td><td>Ít truy cập, giảm phí lưu trữ (có phí truy xuất)</td><td>Multi-AZ</td></tr>
+<tr><td><code>EFS Archive</code></td><td>Dữ liệu hiếm truy cập, lưu dài hạn chi phí thấp nhất trên Multi-AZ</td><td>Multi-AZ</td></tr>
+<tr><td><code>EFS One Zone</code> / <code>One Zone-IA</code></td><td>Tiết kiệm chi phí cho dev/build hoặc dữ liệu tái tạo được</td><td>Single-AZ</td></tr>
+</tbody></table></div>
+<p><strong>EFS Intelligent-Tiering</strong> dùng Lifecycle Management tự chuyển file sang IA/Archive theo thời gian không truy cập rồi đưa về Standard khi đọc lại.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Nhóm cấu hình EFS</th><th>Các chế độ cần phân biệt</th></tr></thead><tbody>
+<tr><td><strong>Throughput Mode</strong></td><td><strong>Elastic</strong> (tự co giãn cho tải biến động, cần General Purpose) · <strong>Provisioned</strong> (đặt trước MiB/s độc lập dung lượng) · <strong>Bursting</strong> (tỷ lệ theo dung lượng lưu trữ + burst credits)</td></tr>
+<tr><td><strong>Performance Mode</strong></td><td><strong>General Purpose</strong> (độ trễ mỗi thao tác thấp nhất, khuyến nghị mặc định) · <strong>Max I/O</strong> (độ song song rất cao nhưng độ trễ cao hơn; không hỗ trợ Elastic và One Zone)</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Nhiều Linux clients cùng chia sẻ file → EFS; boot/database disk → EBS; cache/scratch có thể tái tạo → Instance Store.</p></aside>
+</div>
+</details>

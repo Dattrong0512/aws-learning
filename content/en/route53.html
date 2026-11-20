@@ -1,0 +1,135 @@
+<details class="topic" data-progress-aliases="DNS – Domain Name System là gì?|DNS – Quy trình phân giải tên miền (How DNS Works)|Amazon Route 53 – Tổng quan|Route 53 – Records (thành phần của một bản ghi)|Route 53 – Record Types (A / AAAA / CNAME / NS)|Route 53 – Hosted Zones (Public vs Private)|Route 53 – 3rd Party Registrar (Registrar ≠ DNS Service)|Route 53 – DNS fundamentals, records và Hosted Zones" data-track="DNS &amp; Amazon Route 53 fundamentals">
+<summary><span class="t-title">DNS &amp; Amazon Route 53 fundamentals</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Use easy-to-remember domain names instead of IPs and manage how DNS returns application endpoints.</p>
+<h3 class="subheading">1. How does DNS work?</h3>
+<p>DNS translates a name like api.example.com to an IP or destination name.</p>
+<p>Resolver asks name servers when there is no cache; The authoritative name server is where the official answer for the zone is located.</p>
+<pre class="flow-diagram"><code class="language-text">Client → DNS resolver → Root → TLD (.com) → authoritative server
+       ← IP is cached according to TTL
+Client → connects directly to the application</code></pre>
+<p class="definition"><strong>Route 53:</strong> managed authoritative DNS, supporting domain registration and health-aware routing.</p>
+<p>It returns a DNS answer, not a proxy web request.</p>
+<h3 class="subheading">2. Records need to be distinguished</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Record</th><th>Meaning</th></tr></thead><tbody><tr><td>A</td><td>Name → IPv4</td></tr><tr><td>AAAA</td><td>Name → IPv6</td></tr><tr><td>CNAME</td><td>Name → other name; Do not use at zone apex</td></tr><tr><td>NS</td><td>Name server is responsible for zone/delegation</td></tr><tr><td>Alias of Route 53</td><td>Point to a supporting AWS resource or appropriate record in the zone; Can be used at apex</td></tr></tbody></table></div>
+<p>For example example.com → ALB uses Alias; www.example.com can use CNAME.</p>
+<p>Alias does not arbitrarily point to every hostname outside of AWS like CNAME and is not a direct way to point to EC2's IP using Alias.</p>
+<h3 class="subheading">3. TTL</h3>
+<p class="definition"><strong>TTL:</strong> the time the resolver/client can cache the answer.</p>
+<p>High TTL reduces DNS queries but is slow to reflect changes; Low TTL supports faster endpoint changes but increases queries.</p>
+<p>Record includes name, type, value/target, TTL when applicable and routing policy. Changing DNS does not close open connections and does not force all caches to update immediately.</p>
+<h3 class="subheading">4. Public and Private Hosted Zones</h3>
+<p>Public zones serve public domain names on the Internet.</p>
+<p>Private zone serving VPC is associated and hybrid network through appropriate Resolver; private names do not automatically open network access to the application.</p>
+<p>To get private DNS working in VPC, enable the necessary DNS properties and check the association. A hosted zone only contains records, not where the website is stored.</p>
+<h3 class="subheading">5. Registrar is different from DNS service</h3>
+<p>You can buy a domain from another registrar and then use Route 53: create a public hosted zone, update the name servers in the registrar according to the zone's NS.</p>
+<p>It is not required to transfer domain ownership to AWS.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Root domain pointing to ALB: Alias. Internal name for database/service: Private Hosted Zone. Public domain purchased outside of AWS: delegate DNS to Route 53.</p>
+<h3 class="subheading">7. Route 53 A Alias Record Support Destination</h3>
+<p><strong>Route 53 Alias Record</strong> Can be used right away <strong>zone apex</strong> (<code>example.com</code> — where not created <code>CNAME</code>) and freely point the query to two target groups: (1) <strong>AWS Resources is supported</strong> (ALB/NLB, CloudFront, API Gateway, S3 Website Endpoint, Global Accelerator, Elastic Beanstalk, VPC Interface Endpoint) and (2) <strong>another DNS Record of the same type in the same Hosted Zone</strong>.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>DNS translates domain names into records; Route 53 manages hosted zones, DNS records, and routing policy. Public and private hosted zones address different needs.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Route 53 – Routing Policies|Route 53 – Routing Policies (Simple / Weighted / Latency)|Routing Policy – Simple|Routing Policy – Weighted|Routing Policy – Latency-based|Routing Policy – Geolocation|Routing Policy – Geoproximity|Routing Policy – IP-based|Routing Policy – Multi-Value Answer|Route 53 – Routing policies và health checks" data-track="Route 53 routing policies">
+<summary><span class="t-title">Route 53 routing policies</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Select endpoints returned in DNS by rollout rate, latency, location or health.</p>
+<p class="lead-in">DNS Flow:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ DNS query
+Route 53 routing policy
+↓ returns the appropriate endpoint
+Client connects to endpoint</code></pre>
+<h3 class="subheading">1. Simple</h3>
+<p>A record has one or more values; The client chooses when receiving multiple values.</p>
+<p>Simple does not attach health checks directly to records; Alias ​​has Evaluate Target Health according to supported target types.</p>
+<p>Suitable for a simple endpoint, no need for complex selection policies.</p>
+<h3 class="subheading">2. Weighted</h3>
+<pre class="flow-diagram"><code class="language-text">Assign weight to records with the same name/type.
+Weight 1 and 9 give a DNS answer rate of about 10%/90%; There is no need for the total weight to be equal
+100.
+DNS cache makes the actual request rate not absolutely accurate.</code></pre>
+<p>Weight 0 is usually not selected when there is a healthy positive weight record.</p>
+<p>If all positive record weights are unhealthy, record weight 0 can be considered; If all weights are 0, divide equally.</p>
+<p>Do not use weight 0 as an access ban mechanism.</p>
+<h3 class="subheading">3. Latency-based</h3>
+<p>Choose the Region with the best measured latency for the query side, not necessarily the closest by geographical distance.</p>
+<p>Suitable for apps running multiple regions that need quick response, can combine health to eliminate error endpoints.</p>
+<h3 class="subheading">4. Failover</h3>
+<p>Active-passive: if primary is healthy, return primary; If primary fails, switch to secondary according to configured health. Suitable for DR site or backup notification site.</p>
+<h3 class="subheading">5. Geolocation</h3>
+<p>Select by queryer's location: continent, country or US state. More specific regions are preferred; create default record for unmatched location.</p>
+<p>Content/language matching by country.</p>
+<p>DNS routing is not a mechanism to prevent unauthorized access; want to enforce permissions/areas that need to be controlled in the application/edge.</p>
+<h3 class="subheading">6. Geoproximity</h3>
+<p>Choose according to the distance between user and resource, with bias to expand/retract service area. Positive bias increases resource traffic, negative bias decreases. Other geolocation is divided by national borders and latency is selected by latency.</p>
+<h3 class="subheading">7. IP-based</h3>
+<p>Use CIDR collection to map the query source/client address provided by DNS to the location/endpoint.</p>
+<p>Suitable when you know the company's/ISP's IP range and want your own route; The DNS resolver and EDNS client subnet can affect the addresses Route 53 sees.</p>
+<h3 class="subheading">8. Multi-Value Answer</h3>
+<p>Return up to 8 healthy records per query when configuring health check. The client connects itself to a value; There is no connection management proxy like ELB.</p>
+<h3 class="subheading usage-heading">9. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Canary about 10%: Weighted. Global app prioritizes latency: Latency-based. By language/country: Geolocation. Change service area by bias: Geoproximity. Primary/backup: Failover.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Simple/Weighted/Latency/Failover/Geolocation/Geoproximity/Multivalue are chosen according to traffic navigation goals, not the same type of load balancing.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Route 53 – Health Checks|Routing Policy – Failover (Active-Passive)" data-track="Route 53 health checks &amp; failover">
+<summary><span class="t-title">Route 53 health checks &amp; failover</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Use health checks to select healthy endpoints and switch to a backup location when a failure occurs.</p>
+<h3 class="subheading">1. Three ways to determine health</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Way</th><th>When used</th></tr></thead><tbody><tr><td>Endpoint health check</td><td>Public HTTP/HTTPS/TCP endpoint</td></tr><tr><td>Calculated health check</td><td>Combine the results of multiple health check children</td></tr><tr><td>CloudWatch alarm health check</td><td>Metric/alarm signal, useful for private resources</td></tr></tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Route 53 health checker on the Internet does not go directly to the internal private IP
+VPC.
+With private apps, you can use monitoring inside VPC → metric/alarm → health
+check.</code></pre>
+<h3 class="subheading">2. Evaluate Target Health</h3>
+<p>Alias to supported resources such as ELBs can obtain the target's health using Evaluate Target Health, without creating a separate Route 53 endpoint check.</p>
+<p>Not all alias targets support this; CloudFront does not support Evaluate Target Health = Yes.</p>
+<p>Check the health of a specific endpoint, avoid checking the domain itself that is failing over because the results will depend on its DNS routing. <a href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover-simple-configs.html" rel="noopener noreferrer" target="_blank">AWS health-check configuration</a>.</p>
+<h3 class="subheading">3. Active-passive failover</h3>
+<pre class="flow-diagram"><code class="language-text">Primary healthy → DNS returns primary
+Primary unhealthy → DNS returns secondary according to configured health</code></pre>
+<p>Primary needs appropriate health signal: health check or Evaluate Target Health with Alias support. Secondary must be truly ready to serve and have data/capacity that meets DR.</p>
+<h3 class="subheading">4. DNS has cache</h3>
+<pre class="flow-diagram"><code class="language-text">Failover DNS only changes the answer for the next query; Do not transfer current connection
+open.
+TTL, error detection time, and client retry all affect interruption time
+paragraph.</code></pre>
+<p>If all endpoints are unhealthy, Route 53 has fail-open behavior depending on the policy; Do not consider health check as a firewall that always blocks all faulty endpoints.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Active-passive between two Regions; primary ALB and static recovery page; Calculated checks reflect multiple dependencies. Try actual DR, checking both DNS and database and application status.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Route 53 health check supports DNS failover; DNS caching/TTL affects redirection speed and DNS does not automatically regenerate failed infrastructure.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Route 53 – Hybrid DNS &amp; Route 53 Resolver|Route 53 – Resolver Endpoints (Inbound &amp; Outbound)|Route 53 Resolver và Hybrid DNS" data-track="Hybrid DNS &amp; Route 53 Resolver">
+<summary><span class="t-title">Hybrid DNS &amp; Route 53 Resolver</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> For AWS and on-premises to resolve each other's private domain names.</p>
+<h3 class="subheading">1. Resolver in VPC</h3>
+<p>Route 53 Resolver handles AWS-provided names, public DNS and associated Private Hosted Zone. VPN/Direct Connect connection creates a network connection but does not automatically make all private DNS on both sides understand each other.</p>
+<h3 class="subheading">2. Inbound endpoint</h3>
+<p class="definition"><strong>Inbound:</strong> query direction going into AWS: DNS on-prem forward domain AWS/private zone to the IP of the inbound endpoint.</p>
+<pre class="flow-diagram"><code class="language-text">On-prem machine → DNS on-prem → VPN/DX → Inbound endpoint → Private Hosted Zone</code></pre>
+<p>There is no need to turn private records into public for internal users to look up.</p>
+<h3 class="subheading">3. Outbound endpoint</h3>
+<p class="definition"><strong>Outbound:</strong> Query direction going out of AWS: Resolver forwarding rule selects suffix like corp.example.com and then sends query through outbound endpoint to DNS on-prem.</p>
+<pre class="flow-diagram"><code class="language-text">EC2 → VPC Resolver → rule for corp.example.com → Outbound → DNS on-prem</code></pre>
+<p>The rule must be associated with the VPC in use; can share cross-account rules via AWS RAM.</p>
+<h3 class="subheading">4. Availability and network</h3>
+<p>Use IP endpoints in at least two AZs, SGs for DNS TCP/UDP 53 and VPN/DX lines to the DNS server. Check route/firewall both ways.</p>
+<p>Do not forward the same domain around to both sides and then back to yourself. Resolvable DNS still needs route/SG to connect to the return IP.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  On-prem look up the private database name in AWS: Inbound. EC2 looks up Active Directory domain on-prem: Outbound + forwarding rule. Multiple accounts share the same hybrid DNS: share rules.</p>
+<h3 class="subheading">6. Three types of Resolver Rule: Forward Rule, System Rule &amp; Delegation Rule</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Ingredients / Rules</th><th>Distinguishing function</th></tr></thead><tbody>
+<tr><td><strong>Inbound Endpoint</strong></td><td>Receive DNS queries from On-premises going into VPC Resolver (Private Hosted Zone resolution)</td></tr>
+<tr><td><strong>Outbound Endpoint + Forward Rule</strong></td><td>Pass the DNS query of the specified domain (eg <code>corp.example.com</code>) from VPC to DNS Server On-premises IP</td></tr>
+<tr><td><strong>System Rule</strong></td><td>Keep a specific subdomain (eg <code>aws.corp.example.com</code>) back to AWS VPC Resolver to process, causing an exception to override the parent Forward Rule</td></tr>
+<tr><td><strong>Delegation Rule</strong></td><td>Authorize subdomain resolution based on records <code>NS</code> to the authoritative DNS server via Outbound Endpoint</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Inbound Resolver Endpoint: query from on-prem to AWS; Outbound Endpoint + forwarding rule: query from VPC to DNS on-prem.</p></aside>
+</div>
+</details>

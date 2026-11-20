@@ -1,0 +1,1422 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon Athena">
+<summary><span class="t-title">Amazon Athena</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon Athena là dịch vụ <strong>serverless SQL query</strong> để phân tích dữ liệu chủ yếu nằm trong <strong>Amazon S3</strong> mà không cần dựng database/data warehouse server.</p>
+<p><strong>Athena</strong> = SQL + S3 + Serverless</p>
+<pre class="flow-diagram"><code class="language-text">File nằm trong S3
+↓
+Athena
+↓
+SELECT ... FROM ...
+↓
+Kết quả</code></pre>
+<blockquote class="insight"><p><strong>Athena = chạy SQL trực tiếp trên dữ liệu trong S3.</strong></p></blockquote>
+<h3 class="subheading">1. Flow cơ bản</h3>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+S3
+↓
+Glue Data Catalog
+↓
+Athena
+↓
+SQL Query
+↓
+Query Result
+↓
+S3
+↓
+QuickSight / Application</code></pre>
+<p><strong>Trong đó:</strong> <strong>S3</strong> = chứa data thật</p>
+<p><strong>Glue Data Catalog</strong> = mô tả table / schema / partition</p>
+<p><strong>Athena</strong> = chạy SQL</p>
+<h3 class="subheading">2. Athena đọc được gì?</h3>
+<p class="compact-line"><strong>Athena có thể query các file như:</strong> <code>CSV · JSON · Parquet · ORC · Avro</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">s3://logs/orders/
+↓
+Athena
+↓
+SELECT *
+FROM orders
+WHERE year = 2026;</code></pre>
+<p>Không cần import data vào Athena trước.</p>
+<h3 class="subheading">3. Serverless</h3>
+<p class="compact-line"><strong>Athena không cần:</strong> <code>Provision server · Choose instance · Manage cluster · Patch server</code></p>
+<p class="lead-in">Bạn chỉ:</p>
+<pre class="flow-diagram"><code class="language-text">Có data trong S3
+↓
+Định nghĩa table/schema
+↓
+Run SQL</code></pre>
+<blockquote class="caution"><p>Không query thì gần như không có compute Athena phải chạy cho query đó.</p></blockquote>
+<h3 class="subheading">4. Pricing: Data Scanned</h3>
+<p><strong>Athena chủ yếu tính phí theo:</strong> <code>Số lượng data được query quét qua</code></p>
+<p><strong>Theo slide:</strong> <code>≈ $5 / TB scanned</code></p>
+<p class="lead-in">Vì vậy:</p>
+<pre class="flow-diagram"><code class="language-text">Scan càng ít
+↓
+Query càng rẻ
++
+thường càng nhanh</code></pre>
+<blockquote class="insight"><p>Con số giá có thể thay đổi theo Region/thời điểm.</p></blockquote>
+<h3 class="subheading">5. Ví dụ Data Scanned</h3>
+<p><strong>Giả sử S3 có:</strong> <code>1 TB CSV data</code></p>
+<p class="compact-line"><strong>Query:</strong> <code>SELECT name · FROM users;</code></p>
+<p>Với CSV, Athena có thể phải đọc rất nhiều dữ liệu của file.</p>
+<p class="lead-in">Nếu cùng data được lưu bằng Parquet:</p>
+<p><code>Athena chỉ cần đọc column "name"</code></p>
+<p>→ scan ít hơn.</p>
+<h3 class="subheading">6. Parquet / ORC</h3>
+<p><strong>Parquet và ORC là columnar format.</strong></p>
+<p class="compact-line"><strong>Ví dụ table có:</strong> <code>Name · Age · Country · Salary · Email</code></p>
+<p class="compact-line"><code>SELECT Name, Salary · FROM employees;</code></p>
+<p><strong>CSV:</strong> <code>thường phải đọc toàn bộ row/file</code></p>
+<p class="compact-line"><strong>Parquet:</strong> <code>chỉ đọc: · Name · Salary</code></p>
+<p>→ giảm data scanned.</p>
+<p><strong>Parquet / ORC</strong> = ít scan = nhanh hơn = rẻ hơn</p>
+<h3 class="subheading">7. Compression</h3>
+<p class="compact-line"><strong>Có thể nén file:</strong> <code>gzip · Snappy · zstd · ...</code></p>
+<pre class="flow-diagram"><code class="language-text">Data
+↓
+Compression
+↓
+File nhỏ hơn
+↓
+Athena đọc ít bytes hơn</code></pre>
+<p>→ có thể giảm cost và thời gian đọc.</p>
+<h3 class="subheading">8. Partition</h3>
+<p><strong>Partition = chia data trong S3 thành các nhóm theo folder/prefix.</strong></p>
+<p class="compact-line"><code>s3://logs/ · year=2026/ · month=09/ · day=29/</code></p>
+<p class="compact-line"><strong>Athena hiểu:</strong> <code>year · month · day</code></p>
+<p>như các partition columns.</p>
+<p class="compact-line"><code>SELECT * · FROM logs · WHERE year = 2026 · AND month = 9;</code></p>
+<p><strong>Athena chỉ cần đọc:</strong> <code>year=2026/month=09/</code></p>
+<p>thay vì toàn bộ bucket.</p>
+<h3 class="subheading">9. Partition là Virtual Column</h3>
+<p class="lead-in">Ví dụ file Parquet bên trong không nhất thiết chứa:</p>
+<p><strong>Nhưng S3 path:</strong> <code>/year=2026/month=09/day=29/</code></p>
+<p class="compact-line"><strong>cho Athena biết:</strong> <code>year = 2026 · month = 09 · day = 29</code></p>
+<blockquote class="caution"><p><strong>Partition value có thể đến từ S3 path, không nhất thiết nằm trong file.</strong></p></blockquote>
+<h3 class="subheading">10. Nếu không filter Partition</h3>
+<p class="compact-line"><strong>Giả sử:</strong> <code>2024/ · 2025/ · 2026/</code></p>
+<p class="compact-line"><code>SELECT * · FROM logs;</code></p>
+<p>→ Athena có thể scan tất cả.</p>
+<p><strong>Nếu:</strong> <code>WHERE year = 2026</code></p>
+<p>→ chỉ scan partition 2026.</p>
+<h3 class="subheading">11. Glue + Athena</h3>
+<p class="lead-in">Raw data:</p>
+<pre class="flow-diagram"><code class="language-text">CSV / JSON
+↓
+AWS Glue
+↓
+Convert
+↓
+Parquet + Partition
+↓
+S3
+↓
+Athena</code></pre>
+<p><strong>Đây là pattern rất phổ biến:</strong> <strong>Glue</strong> = chuẩn bị data</p>
+<p><strong>Athena</strong> = query data</p>
+<h3 class="subheading">12. Glue Data Catalog</h3>
+<p class="compact-line"><strong>Athena cần biết:</strong> <code>Table tên gì? · Columns gì? · Data type gì? · S3 location ở đâu? · Partition gì?</code></p>
+<p>Glue Data Catalog lưu metadata đó.</p>
+<p><strong>S3</strong> = Data</p>
+<p><strong>Glue Data Catalog</strong> = Metadata</p>
+<p><strong>Athena</strong> = SQL Engine</p>
+<h3 class="subheading">13. Athena + QuickSight</h3>
+<p class="lead-in">Có thể tạo BI flow:</p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Athena
+↓
+QuickSight
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sales Data trên S3
+↓
+Athena SQL
+↓
+QuickSight
+↓
+Sales Dashboard</code></pre>
+<h3 class="subheading">14. Log Analytics</h3>
+<p class="lead-in">Athena rất phù hợp query logs lưu trong S3:</p>
+<p class="compact-line"><code>CloudTrail Logs · VPC Flow Logs · ALB / ELB Logs · Application Logs</code></p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail
+↓
+S3
+↓
+Athena
+↓
+"Tìm tất cả DeleteBucket API calls"</code></pre>
+<p>Không cần dựng log database riêng.</p>
+<h3 class="subheading">15. Athena vs Redshift</h3>
+<p><strong>Athena</strong> = query trực tiếp S3 = serverless = ad-hoc analytics = trả tiền theo data scanned</p>
+<p><strong>Redshift</strong> = Data Warehouse = dữ liệu được tối ưu cho analytics = query/join/aggregate thường xuyên</p>
+<pre class="flow-diagram"><code class="language-text">Thỉnh thoảng query logs trong S3
+→ Athena</code></pre>
+<pre class="flow-diagram"><code class="language-text">BI dashboard chạy liên tục
++ nhiều join / aggregate
+→ Redshift</code></pre>
+<h3 class="subheading">16. Federated Query</h3>
+<p>Athena không chỉ query S3.</p>
+<p>Có thể query các source khác thông qua <strong>Data Source Connector</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Athena
+↓
+Lambda Connector
+↓
+DynamoDB / RDS / DocumentDB / ...</code></pre>
+<pre class="flow-diagram"><code class="language-text">Athena SQL
+↓
+Lambda Connector
+↓
+DynamoDB
+↓
+Result</code></pre>
+<p class="compact-line"><strong>Nguồn có thể gồm:</strong> <code>DynamoDB · Aurora / RDS · DocumentDB · Redshift · ElastiCache · On-prem Database · ...</code></p>
+<h3 class="subheading">17. Federated Query Flow</h3>
+<pre class="flow-diagram"><code class="language-text">Analyst
+↓
+Athena SQL
+↓
+Lambda Data Source Connector
+↓
+External Database
+↓
+Return Data
+↓
+Athena
+↓
+Result lưu S3</code></pre>
+<p class="compact-line"><strong>Phù hợp khi cần:</strong> <code>Ad-hoc query · Join data tạm thời · Query nhiều nguồn</code></p>
+<p>Không có nghĩa là Athena biến những database đó thành data warehouse.</p>
+<h3 class="subheading">18. File Size</h3>
+<p><strong>Nên tránh:</strong> <code>10 triệu file rất nhỏ</code></p>
+<p>vì Athena phải mở và xử lý quá nhiều object.</p>
+<p><strong>Thường tốt hơn:</strong> <strong>Ít file hơn</strong> + file lớn hợp lý</p>
+<p><strong>Slide gợi ý khoảng:</strong> <code>&gt; 128 MB / file</code></p>
+<p>nhưng đây là guideline, không phải rule bắt buộc.</p>
+<h3 class="subheading">19. Tối ưu Athena</h3>
+<p class="compact-line"><strong>Nhớ 4 thứ chính:</strong> <code>1. Parquet / ORC · 2. Compression · 3. Partition · 4. Tránh quá nhiều small files</code></p>
+<p class="lead-in">Flow lý tưởng:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV / JSON
+↓
+Glue
+↓
+Parquet
++ Compression
++ Partition
+↓
+S3
+↓
+Athena</code></pre>
+<h3 class="subheading usage-heading">20. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail Logs
+↓
+S3
+↓
+Athena
+↓
+Security Investigation</code></pre>
+<pre class="flow-diagram"><code class="language-text">Raw Data
+↓
+Glue
+↓
+Parquet + Partition
+↓
+S3
+↓
+Athena
+↓
+QuickSight</code></pre>
+<pre class="flow-diagram"><code class="language-text">S3 + DynamoDB / RDS
+↓
+Athena Federated Query
+↓
+Ad-hoc Analytics</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Athena = SQL trực tiếp trên dữ liệu S3; Glue Data Catalog định nghĩa schema/partition; Parquet và partitioning giúp tối ưu lượng dữ liệu quét.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Redshift">
+<summary><span class="t-title">Amazon Redshift</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon Redshift là <strong>data warehouse dùng SQL cho analytics/BI</strong>, phù hợp với query lớn, join, aggregate và reporting trên lượng dữ liệu lớn.</p>
+<p><strong>Redshift</strong> = Data Warehouse = SQL = OLAP</p>
+<p>Không phù hợp làm database chính cho transaction của application.</p>
+<pre class="flow-diagram"><code class="language-text">Order / Payment / Account Update
+→ RDS / Aurora / DynamoDB
+
+Analytics / Reporting / BI
+→ Redshift</code></pre>
+<h3 class="subheading">1. OLAP vs OLTP</h3>
+<h4 class="minor-heading">1.1. OLTP</h4>
+<p class="compact-line"><strong>Dùng cho application transaction:</strong> <code>Create Order · Update User · Payment · Insert / Update nhỏ và thường xuyên</code></p>
+<p class="compact-line"><strong>Phù hợp:</strong> <code>RDS · Aurora · DynamoDB</code></p>
+<h4 class="minor-heading">1.2. OLAP</h4>
+<p class="compact-line"><strong>Dùng để phân tích nhiều dữ liệu:</strong> <code>SUM · COUNT · GROUP BY · JOIN · Reporting · Analytics</code></p>
+<p><code>Redshift</code></p>
+<blockquote class="caution"><p><strong>Redshift = OLAP, không phải OLTP database.</strong></p></blockquote>
+<h3 class="subheading">2. Flow phổ biến</h3>
+<pre class="flow-diagram"><code class="language-text">RDS / Aurora / DynamoDB / S3
+↓
+ETL / ELT
+↓
+Redshift
+↓
+SQL Analytics
+↓
+QuickSight / Tableau</code></pre>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Sales Data
+Product Data
+Customer Data
+↓
+Redshift
+↓
+JOIN + GROUP BY
+↓
+Sales Dashboard</code></pre>
+<h3 class="subheading">3. Vì sao Redshift nhanh cho Analytics?</h3>
+<p class="compact-line"><strong>Redshift được tối ưu bằng:</strong> <code>Columnar Storage · MPP · Sort Key · Distribution</code></p>
+<h3 class="subheading">4. Columnar Storage</h3>
+<p>Data được lưu theo column thay vì row.</p>
+<p class="compact-line"><strong>Ví dụ table:</strong> <code>Name · Age · Country · Salary</code></p>
+<p class="compact-line"><strong>Query:</strong> <code>SELECT Country, AVG(Salary) · FROM employees · GROUP BY Country;</code></p>
+<p class="compact-line"><strong>Redshift chủ yếu cần đọc:</strong> <code>Country · Salary</code></p>
+<p>thay vì toàn bộ row.</p>
+<p><strong>Columnar</strong> = scan ít column hơn = phù hợp analytics</p>
+<h3 class="subheading">5. MPP</h3>
+<p><strong>MPP = Massively Parallel Processing</strong></p>
+<p>Redshift chia query ra nhiều compute node xử lý song song.</p>
+<pre class="flow-diagram"><code class="language-text">SQL Query
+↓
+chia thành nhiều phần
+↓
+Compute Node 1
+Compute Node 2
+Compute Node 3
+↓
+xử lý song song
+↓
+Result</code></pre>
+<blockquote class="insight"><p><strong>MPP = nhiều máy cùng xử lý một query lớn.</strong></p></blockquote>
+<h3 class="subheading">6. Sort Key</h3>
+<p>Sort Key giúp dữ liệu được sắp xếp theo column thường dùng để filter.</p>
+<p><code>Sort Key = OrderDate</code></p>
+<p><code>WHERE OrderDate &gt;= '2026-09-01'</code></p>
+<p>→ Redshift có thể bỏ qua nhiều block dữ liệu không liên quan.</p>
+<p><strong>Sort Key</strong> = giảm data cần scan</p>
+<h3 class="subheading">7. Distribution</h3>
+<p>Distribution quyết định data được chia lên compute nodes như thế nào.</p>
+<pre class="flow-diagram"><code class="language-text">Data
+↓
+Compute Node 1
+Compute Node 2
+Compute Node 3</code></pre>
+<p><strong>Mục tiêu:</strong> <strong>phân bố workload đều</strong> + giảm data phải di chuyển khi JOIN</p>
+<blockquote class="insight"><p class="definition-inline"><strong>Sort Key = data sắp xếp thế nào.</strong> <strong>Distribution = data nằm ở node nào.</strong></p></blockquote>
+<h3 class="subheading">8. Cluster Architecture</h3>
+<p class="lead-in">Trong provisioned Redshift:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+Leader Node
+↓
+Compute Nodes</code></pre>
+<h4 class="minor-heading">8.1. Leader Node</h4>
+<p><strong>Leader Node</strong> = nhận SQL = tạo query plan = chia việc cho compute nodes = tổng hợp kết quả</p>
+<h4 class="minor-heading">8.2. Compute Nodes</h4>
+<p><strong>Compute Nodes</strong> = scan data = join = aggregate = xử lý song song</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight / Client
+↓
+Leader Node
+↓
+chia query
+↓
+Compute Nodes
+↓
+xử lý song song
+↓
+Leader tổng hợp
+↓
+Result</code></pre>
+<h3 class="subheading">9. Provisioned vs Serverless</h3>
+<h4 class="minor-heading">9.1. Provisioned</h4>
+<p class="compact-line"><strong>Bạn chọn:</strong> <code>Node Type · Number of Nodes · Capacity</code></p>
+<p><strong>Redshift Cluster</strong> = luôn được provision sẵn</p>
+<p class="compact-line"><code>Workload ổn định · Traffic dễ dự đoán · Muốn kiểm soát capacity</code></p>
+<p class="compact-line"><strong>Nhưng cần:</strong> <code>Capacity Planning · Resize · Monitor Cluster</code></p>
+<h4 class="minor-heading">9.2. Redshift Serverless</h4>
+<pre class="flow-diagram"><code class="language-text">Không quản cluster/node trực tiếp
+↓
+AWS tự cấp compute
+↓
+chạy query</code></pre>
+<p class="compact-line"><code>Traffic biến động · Không muốn quản cluster · Ad-hoc / intermittent workload</code></p>
+<p><strong>Nhớ:</strong> <strong>Provisioned</strong> = bạn quản capacity</p>
+<p><strong>Serverless</strong> = AWS quản compute capacity</p>
+<h3 class="subheading">10. Redshift vs Athena</h3>
+<p>Cả hai đều dùng SQL cho analytics nhưng khác cách hoạt động.</p>
+<h4 class="minor-heading">10.1. Athena</h4>
+<pre class="flow-diagram"><code class="language-text">S3 Files
+↓
+Athena
+↓
+SQL</code></pre>
+<p><strong>= query trực tiếp S3</strong> = serverless = ad-hoc = trả tiền theo data scanned</p>
+<h4 class="minor-heading">10.2. Redshift</h4>
+<pre class="flow-diagram"><code class="language-text">Data
+↓
+Load / Model vào Warehouse
+↓
+Redshift
+↓
+SQL</code></pre>
+<p><strong>= data warehouse</strong> = tối ưu cho query lặp lại = mạnh với JOIN / Aggregate lớn</p>
+<pre class="flow-diagram"><code class="language-text">Thỉnh thoảng query CloudTrail logs
+→ Athena</code></pre>
+<pre class="flow-diagram"><code class="language-text">Dashboard sales chạy liên tục
++ nhiều JOIN / GROUP BY
+→ Redshift</code></pre>
+<h3 class="subheading">11. Snapshot</h3>
+<p><strong>Snapshot = backup của Redshift cluster tại một thời điểm.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Redshift Cluster
+↓
+Snapshot
+↓
+Backup</code></pre>
+<p><strong>Snapshot là incremental:</strong> <strong>Snapshot đầu</strong> = full data</p>
+<p><strong>Snapshot sau</strong> = chỉ lưu phần thay đổi</p>
+<h3 class="subheading">12. Restore Snapshot</h3>
+<p>Restore không ghi đè cluster cũ.</p>
+<pre class="flow-diagram"><code class="language-text">Snapshot
+↓
+Restore
+↓
+New Redshift Cluster</code></pre>
+<blockquote class="insight"><p><strong>Restore Snapshot = tạo cluster mới.</strong></p></blockquote>
+<h3 class="subheading">13. Automated Snapshot</h3>
+<p>Redshift tự tạo backup định kỳ.</p>
+<pre class="flow-diagram"><code class="language-text">Cluster
+↓
+Automated Snapshot
+↓
+Retention Window</code></pre>
+<p class="compact-line"><strong>Dùng cho:</strong> <code>Regular Recovery · Accidental Change · Operational Backup</code></p>
+<h3 class="subheading">14. Manual Snapshot</h3>
+<p class="lead-in">Bạn tự tạo:</p>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+Manual Snapshot</code></pre>
+<p>Giữ cho tới khi bạn xóa.</p>
+<p class="compact-line"><code>Trước migration · Trước major change · Long-term backup</code></p>
+<h3 class="subheading">15. Cross-Region Snapshot</h3>
+<p class="lead-in">Có thể copy snapshot sang Region khác:</p>
+<pre class="flow-diagram"><code class="language-text">Region A
+Redshift
+↓
+Snapshot
+↓
+Copy
+↓
+Region B</code></pre>
+<p><code>Disaster Recovery</code></p>
+<p class="lead-in">Nếu Region A gặp sự cố:</p>
+<pre class="flow-diagram"><code class="language-text">Snapshot ở Region B
+↓
+Restore
+↓
+New Cluster</code></pre>
+<h3 class="subheading">16. Multi-AZ</h3>
+<p>Redshift hỗ trợ Multi-AZ cho các cấu hình phù hợp.</p>
+<pre class="flow-diagram"><code class="language-text">AZ A
++
+AZ B
+↓
+Redshift</code></pre>
+<p><code>High Availability</code></p>
+<p><strong>Multi-AZ</strong> ≠ Cross-Region DR</p>
+<p>Cross-Region vẫn dùng snapshot copy/DR strategy riêng.</p>
+<h3 class="subheading">17. QuickSight / Tableau</h3>
+<p class="lead-in">Redshift thường làm backend cho BI:</p>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+QuickSight / Tableau
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sales
+Orders
+Products
+Customers
+↓
+Redshift
+↓
+JOIN / Aggregate
+↓
+QuickSight
+↓
+Business Dashboard</code></pre>
+<h3 class="subheading usage-heading">18. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">RDS / S3
+↓
+ETL
+↓
+Redshift
+↓
+QuickSight</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sales + Product + Customer
+↓
+Redshift
+↓
+Large JOIN / Aggregate
+↓
+BI Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+Automated Snapshot
+↓
+Recovery</code></pre>
+<pre class="flow-diagram"><code class="language-text">Snapshot
+↓
+Cross-Region Copy
+↓
+Disaster Recovery</code></pre>
+<h3 class="subheading">19. Redshift Spectrum &amp; So sánh Provisioned vs Serverless cho Data Services</h3>
+<p class="definition"><strong>Redshift Spectrum:</strong> dùng năng lực tính toán của Redshift để truy vấn SQL trực tiếp dữ liệu trên S3 (join được ngay với bảng nội bộ Redshift) mà không cần nạp trước toàn bộ file vào cluster; nếu chỉ truy vấn ad-hoc đơn thuần trên S3 không có sẵn Redshift thì ưu tiên <strong>Athena</strong>.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Dịch vụ dữ liệu</th><th>Chế độ Provisioned</th><th>Chế độ Serverless</th></tr></thead><tbody>
+<tr><td><strong>Amazon Redshift</strong></td><td>Quản lý loại/số lượng nodes trong cluster</td><td>Tự co giãn năng lực kho dữ liệu theo <strong>RPU</strong></td></tr>
+<tr><td><strong>Amazon OpenSearch</strong></td><td>Tự chọn domain instances và EBS</td><td>Tự co giãn tìm kiếm/vector theo <strong>OCU</strong></td></tr>
+<tr><td><strong>Amazon MSK (Kafka)</strong></td><td>Chọn số lượng brokers và dung lượng đĩa</td><td>Tự co giãn throughput streaming, không quản lý brokers</td></tr>
+<tr><td><strong>AWS DMS</strong></td><td>Tự chọn kích cỡ replication instance</td><td>Tự co giãn giữa min/max <strong>DCU</strong> cho Full Load &amp; CDC</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Redshift = data warehouse phân tích OLAP quy mô lớn, không phải lựa chọn mặc định cho transaction OLTP.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon OpenSearch Service">
+<summary><span class="t-title">Amazon OpenSearch Service</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon OpenSearch Service là dịch vụ <strong>managed search + analytics</strong>, dùng để tạo <strong>search index</strong> giúp tìm kiếm nhanh và linh hoạt trên nhiều field.</p>
+<p><strong>OpenSearch</strong> = Search Engine + Log Analytics + Dashboard</p>
+<blockquote class="insight"><p><strong>Database giữ data gốc, OpenSearch giữ index để search nhanh.</strong></p></blockquote>
+<h3 class="subheading">1. OpenSearch dùng để làm gì?</h3>
+<p class="compact-line"><strong>Ví dụ product có:</strong> <code>Name · Description · Category · Tags · Brand</code></p>
+<p><strong>User search:</strong> <code>"iphone pro"</code></p>
+<p class="compact-line"><strong>OpenSearch có thể:</strong> <code>Full-text Search · Partial Match · Filter · Sort · Ranking</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">"iph pro"
+↓
+OpenSearch
+↓
+iPhone 15 Pro
+iPhone 16 Pro</code></pre>
+<h3 class="subheading">2. Database vs OpenSearch</h3>
+<p><strong>Ví dụ DynamoDB:</strong> <strong>DynamoDB</strong> = source of truth = lưu data thật</p>
+<p><strong>OpenSearch:</strong> <strong>OpenSearch</strong> = search index = phục vụ tìm kiếm</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+OpenSearch</code></pre>
+<p class="lead-in">Khi user:</p>
+<pre class="flow-diagram"><code class="language-text">Get item theo ID
+→ DynamoDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">Search theo Name / Description / Tag
+→ OpenSearch</code></pre>
+<h3 class="subheading">3. Vì sao không chỉ dùng DynamoDB?</h3>
+<p class="compact-line"><strong>DynamoDB mạnh khi query bằng:</strong> <code>Partition Key · Sort Key · Secondary Index</code></p>
+<p class="compact-line"><strong>Nhưng nếu cần:</strong> <code>Search theo text · Partial Match · Autocomplete · Search nhiều field</code></p>
+<p>thì OpenSearch phù hợp hơn.</p>
+<pre class="flow-diagram"><code class="language-text">ProductId = 123
+→ DynamoDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">"wireless noise cancelling headphone"
+→ OpenSearch</code></pre>
+<h3 class="subheading">4. Eventual Consistency</h3>
+<p class="lead-in">Do OpenSearch thường là bản index copy từ database:</p>
+<pre class="flow-diagram"><code class="language-text">DynamoDB Update
+↓
+Streams
+↓
+Lambda
+↓
+OpenSearch Update</code></pre>
+<p>nên có thể có khoảng trễ nhỏ.</p>
+<p><strong>Database</strong> = data mới nhất</p>
+<p><strong>OpenSearch</strong> = có thể update chậm hơn một chút</p>
+<blockquote class="insight"><p>Đây là <strong>eventual consistency của search index</strong>.</p></blockquote>
+<h3 class="subheading">5. Log Analytics</h3>
+<p>OpenSearch cũng rất phổ biến để search logs.</p>
+<pre class="flow-diagram"><code class="language-text">Application Logs
+↓
+CloudWatch Logs
+↓
+OpenSearch
+↓
+Search / Filter / Dashboard</code></pre>
+<p class="lead-in">Có 2 flow phổ biến:</p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Subscription Filter
+↓
+Lambda
+↓
+OpenSearch</code></pre>
+<p class="lead-in">hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Subscription Filter
+↓
+Firehose
+↓
+OpenSearch</code></pre>
+<h3 class="subheading">6. Lambda vs Firehose Ingest</h3>
+<ul class="fact-list"><li><strong>Lambda</strong> = transform log linh hoạt = custom logic nhiều hơn</li><li><strong>Firehose</strong> = managed delivery = buffering = ít phải tự quản</li><li><strong>Nhớ:</strong> <strong>Lambda path</strong> = event-driven / custom transform</li><li><strong>Firehose path</strong> = managed near real-time delivery</li></ul>
+<h3 class="subheading">7. OpenSearch Dashboards</h3>
+<p class="lead-in">OpenSearch có giao diện visualization:</p>
+<pre class="flow-diagram"><code class="language-text">Indexed Data
+↓
+OpenSearch Dashboards
+↓
+Chart / Graph / Search</code></pre>
+<pre class="flow-diagram"><code class="language-text">Error Logs
+↓
+OpenSearch
+↓
+Dashboard:
+Error Count
+Top IP
+Latency
+Status Code</code></pre>
+<h3 class="subheading">8. Managed vs Serverless</h3>
+<ul class="fact-list"><li><strong>Có 2 kiểu triển khai:</strong> <strong>Provisioned OpenSearch</strong> = bạn chọn cluster capacity</li><li><strong>OpenSearch Serverless</strong> = AWS quản scaling/capacity nhiều hơn</li><li><strong>Provisioned</strong> = kiểm soát cluster nhiều hơn</li><li><strong>Serverless</strong> = ít quản infrastructure hơn</li></ul>
+<h3 class="subheading">9. Security</h3>
+<p class="compact-line"><strong>OpenSearch có thể dùng:</strong> <code>IAM · VPC / Network Policy · TLS · KMS Encryption · Cognito cho Dashboard login</code></p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+Cognito
+↓
+OpenSearch Dashboards</code></pre>
+<p><strong>Trong khi:</strong> <strong>IAM</strong> = kiểm soát API access</p>
+<h3 class="subheading">10. OpenSearch không phải transactional database</h3>
+<p class="lead-in">Không nên dùng OpenSearch làm source of truth cho:</p>
+<p class="compact-line"><code>Payment · Order Transaction · Account Balance</code></p>
+<p><strong>Nên:</strong> <strong>RDS / DynamoDB</strong> = lưu dữ liệu chuẩn</p>
+<p><strong>và:</strong> <strong>OpenSearch</strong> = search / analytics</p>
+<h3 class="subheading usage-heading">11. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Product Catalog
+↓
+OpenSearch
+↓
+Full-text Search</code></pre>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+OpenSearch
+↓
+Search Index</code></pre>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+OpenSearch
+↓
+Error Investigation
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">IoT / Firehose
+↓
+OpenSearch
+↓
+Filter / Aggregate / Visualize</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>OpenSearch dùng cho search, log analytics và indexing; không phải nguồn dữ liệu quan hệ chính thay RDS.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon EMR">
+<summary><span class="t-title">Amazon EMR</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon EMR là dịch vụ managed để chạy <strong>big-data processing cluster</strong> trên nhiều EC2 instance.</p>
+<p><strong>EMR</strong> = Spark / Hadoop / HBase / Presto / Flink = xử lý dữ liệu lớn theo kiểu distributed</p>
+<p>AWS lo provisioning/configuration cơ bản; bạn vẫn chọn framework, node và cách tối ưu workload.</p>
+<h3 class="subheading">1. Node trong EMR</h3>
+<ul class="fact-list"><li><strong>Primary</strong> = điều phối cluster = quản lý health / schedule job</li><li><strong>Core</strong> = chạy task = lưu data trong cluster</li><li><strong>Task</strong> = chỉ chạy task = không giữ data</li></ul>
+<pre class="flow-diagram"><code class="language-text">Primary
+↓ chia job thành nhiều task
+Core + Task Nodes
+↓
+xử lý song song
+↓
+Output</code></pre>
+<blockquote class="insight"><p><strong>Primary điều phối, Core = compute + data, Task = compute only.</strong></p></blockquote>
+<h3 class="subheading">2. Spot / On-Demand</h3>
+<p><strong>On-Demand</strong> = ổn định = không bị reclaim như Spot</p>
+<p><strong>Spot</strong> = rẻ hơn = có thể bị terminate</p>
+<p><strong>Spot thường phù hợp nhất với:</strong> <code>Task Nodes</code></p>
+<p>vì Task node không giữ data và task có thể retry.</p>
+<p>Primary/Core thường cần ổn định hơn.</p>
+<h3 class="subheading">3. Auto Scaling</h3>
+<p class="lead-in">EMR có thể tự thay đổi số node theo workload:</p>
+<pre class="flow-diagram"><code class="language-text">Job tăng
+↓
+thêm node
+
+Job giảm
+↓
+bớt node</code></pre>
+<p>→ giảm chi phí khi workload thay đổi.</p>
+<h3 class="subheading">4. Long-running vs Transient Cluster</h3>
+<h4 class="minor-heading">4.1. Long-running</h4>
+<p><code>Cluster luôn chạy</code></p>
+<p class="compact-line"><strong>Phù hợp:</strong> <code>Notebook · Interactive workload · HBase · Service cần hoạt động liên tục</code></p>
+<h4 class="minor-heading">4.2. Transient</h4>
+<pre class="flow-diagram"><code class="language-text">Create Cluster
+↓
+Run Job
+↓
+Ghi kết quả vào S3
+↓
+Terminate Cluster</code></pre>
+<p class="compact-line"><strong>Phù hợp với:</strong> <code>Batch · ETL định kỳ · Spark processing</code></p>
+<p>→ tránh trả tiền khi cluster idle.</p>
+<h3 class="subheading">5. Flow phổ biến</h3>
+<pre class="flow-diagram"><code class="language-text">S3 / HDFS
+↓
+EMR
+↓
+Spark / Hadoop Job
+↓
+Core + Task xử lý song song
+↓
+S3 / Data Store</code></pre>
+<p>Data quan trọng nên lưu ở storage bền vững như <strong>S3</strong>, đặc biệt khi dùng Spot hoặc transient cluster.</p>
+<h3 class="subheading">6. EMR vs Athena vs Glue</h3>
+<ul class="fact-list"><li><strong>EMR</strong> = Spark / Hadoop / Flink = custom big-data code = kiểm soát cluster nhiều hơn</li><li><strong>Athena</strong> = SQL ad-hoc trực tiếp trên S3 = không quản cluster</li><li><strong>Glue</strong> = serverless ETL = ít quản infrastructure hơn</li></ul>
+<h3 class="subheading usage-heading">7. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Big Data trên S3
+↓
+Spark on EMR
+↓
+Transform / Feature Engineering</code></pre>
+<pre class="flow-diagram"><code class="language-text">Hadoop / HBase workload
+↓
+EMR</code></pre>
+<pre class="flow-diagram"><code class="language-text">Large-scale ML preprocessing / Web indexing
+↓
+EMR Cluster</code></pre>
+<h3 class="subheading">8. Instance Groups vs Instance Fleets, Managed Scaling &amp; Spark Catalog</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Khái niệm trên EMR</th><th>Điểm phân biệt</th></tr></thead><tbody>
+<tr><td><strong>EMR Instance Group</strong> vs <strong>EMR Instance Fleet</strong></td><td>Instance Group cố định một loại EC2 cho mỗi nhóm node; <strong>Instance Fleet</strong> cho phép trộn nhiều loại EC2 + On-Demand/Spot và tự chọn AZ còn dung lượng</td></tr>
+<tr><td><strong>EMR Managed Scaling</strong></td><td>Tự động tăng/giảm số lượng Core và Task nodes liên tục theo tải thực tế của job để tối ưu chi phí</td></tr>
+<tr><td><strong>Apache Spark</strong> vs <strong>Spark Catalog</strong></td><td>Spark là engine xử lý phân tán; <code>spark_catalog</code> (thường tích hợp <strong>Glue Data Catalog</strong>) chỉ quản lý metadata bảng/schema chứ không lưu dữ liệu gốc</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>EMR là nền tảng xử lý big data bằng hệ sinh thái Spark/Hadoop và các framework được hỗ trợ.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon QuickSight">
+<summary><span class="t-title">Amazon QuickSight</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon QuickSight là dịch vụ <strong>serverless Business Intelligence (BI)</strong> để tạo:</p>
+<p class="compact-line"><code>Charts · Reports · Interactive Analysis · Dashboards</code></p>
+<p>QuickSight dùng để <strong>visualize data và tạo insight</strong>, không phải database, data warehouse hay ETL engine.</p>
+<p><strong>QuickSight</strong> = BI = Visualization = Dashboard</p>
+<h3 class="subheading">1. QuickSight lấy dữ liệu từ đâu?</h3>
+<p class="compact-line"><strong>Có thể kết nối với:</strong> <code>RDS · Aurora · Athena · Redshift · S3 · OpenSearch · Timestream</code></p>
+<p class="compact-line"><strong>Ngoài ra còn có:</strong> <code>CSV / XLSX / JSON / TSV · Salesforce / Jira · On-prem database qua JDBC</code></p>
+<pre class="flow-diagram"><code class="language-text">Data Source
+↓
+QuickSight
+↓
+Charts / Dashboard</code></pre>
+<h3 class="subheading">2. Analysis vs Dashboard</h3>
+<h4 class="minor-heading">2.1. Analysis</h4>
+<p><strong>Analysis = nơi author tạo và chỉnh dashboard.</strong></p>
+<p class="compact-line"><strong>Có thể thêm:</strong> <code>Charts · Filters · Parameters · Controls · Sort</code><a class="gtx-a" href="https://translate.google.com/?source=gtx_m#ca/vi/Charts%20%C2%B7%20Filters%20%C2%B7%20Parameters%20%C2%B7%20Controls%20%C2%B7%20Sort" id="more" style="color: rgb(162, 162, 162); padding-top: 16px; display: inline !important;" target="_blank">MORE »</a></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Sales Analysis
+├── Revenue chart
+├── Region filter
+├── Date filter
+└── Product chart</code></pre>
+<h4 class="minor-heading">2.2. Dashboard</h4>
+<p class="lead-in">Sau khi analysis hoàn tất:</p>
+<pre class="flow-diagram"><code class="language-text">Analysis
+↓
+Publish
+↓
+Dashboard</code></pre>
+<p>Dashboard chủ yếu dành cho người xem.</p>
+<p><strong>Analysis</strong> = nơi build/edit</p>
+<p><strong>Dashboard</strong> = bản đã publish để share/view</p>
+<p class="compact-line"><strong>Người xem vẫn có thể tương tác với:</strong> <code>Filter · Drill-down · Controls</code></p>
+<p>trong phạm vi được publish.</p>
+<h3 class="subheading">3. Direct Query</h3>
+<p>QuickSight có thể query trực tiếp data source.</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight
+↓
+Redshift / Athena / RDS</code></pre>
+<p class="lead-in">Mỗi lần dashboard cần data:</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight
+↓
+query source
+↓
+nhận kết quả</code></pre>
+<p><strong>Ưu điểm:</strong> <code>Data mới hơn</code></p>
+<p class="compact-line"><strong>Nhược điểm:</strong> <code>Phụ thuộc tốc độ source · Tăng load source</code></p>
+<h3 class="subheading">4. SPICE</h3>
+<p><strong>SPICE = in-memory engine của QuickSight.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Data Source
+↓
+Import
+↓
+SPICE
+↓
+Dashboard</code></pre>
+<p>QuickSight query bản data đã import trong memory thay vì liên tục query source.</p>
+<p class="compact-line"><strong>Lợi ích:</strong> <code>Dashboard nhanh hơn · Giảm tải database</code></p>
+<p class="lead-in">Đổi lại:</p>
+<pre class="flow-diagram"><code class="language-text">Data không tự động luôn mới
+↓
+cần refresh</code></pre>
+<h3 class="subheading">5. Direct Query vs SPICE</h3>
+<p><strong>Direct Query</strong> = query source trực tiếp = data fresh hơn = phụ thuộc source</p>
+<p><strong>SPICE</strong> = import bản copy vào QuickSight = nhanh hơn = cần refresh</p>
+<blockquote class="insight"><p class="definition-inline"><strong>Direct Query = ưu tiên freshness.</strong> <strong>SPICE = ưu tiên performance.</strong></p></blockquote>
+<h3 class="subheading">6. Sharing</h3>
+<p class="compact-line"><strong>Dashboard có thể:</strong> <code>Share với QuickSight User · Share với QuickSight Group · Embed vào application</code></p>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+QuickSight
+↓
+Sales Dashboard
+↓
+Embed vào company portal</code></pre>
+<p>QuickSight users/groups là identity bên trong QuickSight.</p>
+<p><strong>QuickSight Group</strong> ≠ IAM Group</p>
+<h3 class="subheading">7. Column-Level Security</h3>
+<p>Enterprise edition hỗ trợ <strong>Column-Level Security (CLS)</strong>.</p>
+<p class="compact-line"><strong>Ví dụ table:</strong> <code>Name · Department · Salary · Email</code></p>
+<p class="compact-line"><strong>HR:</strong> Sales user: <code>Name · Department · Email</code></p>
+<p><strong>không thấy:</strong> <code>Salary</code></p>
+<blockquote class="insight"><p><strong>CLS = kiểm soát user được xem column nào.</strong></p></blockquote>
+<h3 class="subheading">8. Row-Level Security</h3>
+<p>Ngoài column, có thể giới hạn theo row.</p>
+<pre class="flow-diagram"><code class="language-text">User Singapore
+→ chỉ thấy Region = Singapore
+
+User Vietnam
+→ chỉ thấy Region = Vietnam</code></pre>
+<p><strong>RLS</strong> = kiểm soát row nào user được xem</p>
+<p><strong>Nhớ:</strong> <strong>CLS</strong> = Column</p>
+<p><strong>RLS</strong> = Row</p>
+<h3 class="subheading">9. Security Layers</h3>
+<p class="lead-in">Có hai loại quyền khác nhau:</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight → Data Source</code></pre>
+<p>QuickSight cần permission/credential để đọc database.</p>
+<p class="lead-in">Và:</p>
+<pre class="flow-diagram"><code class="language-text">User → QuickSight Dashboard</code></pre>
+<p>QuickSight user/group quyết định ai được xem dashboard.</p>
+<blockquote class="caution"><p>Có quyền xem dashboard không có nghĩa là user trực tiếp có quyền vào database nguồn.</p></blockquote>
+<h3 class="subheading">10. QuickSight không làm gì?</h3>
+<p class="compact-line"><strong>QuickSight không phải:</strong> <code>Data Warehouse · ETL Engine · Transactional Database</code></p>
+<p><strong>Glue</strong> = transform data</p>
+<p><strong>Redshift</strong> = warehouse</p>
+<p><strong>Athena</strong> = query data</p>
+<p><strong>QuickSight</strong> = visualize kết quả</p>
+<h3 class="subheading usage-heading">11. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Athena
+↓
+QuickSight
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+QuickSight
+↓
+Sales / Finance Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Timestream / OpenSearch
+↓
+QuickSight
+↓
+Operational Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Dashboard
+↓
+Embed
+↓
+Web Application</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>QuickSight phục vụ BI dashboard/visualization; không phải kho dữ liệu; thường đọc từ Athena, Redshift hoặc nguồn khác.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Glue &amp; Lake Formation">
+<summary><span class="t-title">AWS Glue &amp; Lake Formation</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> AWS Glue cung cấp serverless ETL và metadata catalog để chuẩn bị dữ liệu cho analytics; AWS Lake Formation xây lớp quản trị data lake trên Glue để ingest, catalog và kiểm soát truy cập tập trung trên dữ liệu thường lưu trong S3.</p>
+<p><strong>AWS Glue</strong> = ETL + Data Catalog</p>
+<p><strong>Lake Formation</strong> = Governance + Permission cho Data Lake</p>
+<p><strong>S3</strong> = chứa data</p>
+<p><strong>Glue</strong> = tìm hiểu data + transform data</p>
+<p><strong>Lake Formation</strong> = kiểm soát ai được xem data</p>
+<h3 class="subheading">1. AWS Glue</h3>
+<p>Glue là dịch vụ <strong>serverless ETL</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Extract
+↓
+Transform
+↓
+Load</code></pre>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV / JSON trên S3
+↓
+Glue
+↓
+Clean + Convert Parquet + Partition
+↓
+Curated Data trên S3
+↓
+Athena / Redshift / QuickSight</code></pre>
+<h3 class="subheading">2. Glue Crawler</h3>
+<p><strong>Crawler = khám phá dữ liệu và schema.</strong></p>
+<p class="compact-line"><strong>Nó đọc:</strong> <code>S3 · RDS · DynamoDB · JDBC Source</code></p>
+<p class="compact-line"><strong>rồi phát hiện:</strong> <code>Column · Data Type · Partition · Location</code></p>
+<p><strong>sau đó lưu metadata vào:</strong> <code>Glue Data Catalog</code></p>
+<blockquote class="caution"><p><strong>Crawler chỉ discover schema, không transform data.</strong></p></blockquote>
+<h3 class="subheading">3. Glue Data Catalog</h3>
+<p>Data Catalog giống như <strong>mục lục của data lake</strong>.</p>
+<p><strong>Glue Data Catalog</strong> = Table + Schema + Partition + S3 Location</p>
+<p class="compact-line"><code>Table: orders · Columns: id, price, date · Location: s3://data/orders/</code></p>
+<p><strong>Data thật vẫn nằm ở:</strong> <code>S3</code></p>
+<p><strong>Catalog chỉ giữ:</strong> <code>Metadata</code></p>
+<p class="compact-line"><strong>Các service dùng Catalog:</strong> <code>Athena · Redshift Spectrum · EMR · Glue</code></p>
+<h3 class="subheading">4. Crawler vs Glue Job</h3>
+<p><strong>Crawler</strong> = Data này có cấu trúc gì?</p>
+<p><strong>Glue Job</strong> = Biến đổi data như thế nào?</p>
+<pre class="flow-diagram"><code class="language-text">S3 Raw CSV
+↓
+Crawler
+↓
+Catalog biết schema</code></pre>
+<p class="lead-in">Sau đó:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV
+↓
+Glue Job
+↓
+Clean / Join / Filter
+↓
+Parquet</code></pre>
+<h3 class="subheading">5. Job Bookmark</h3>
+<p>Job Bookmark nhớ dữ liệu nào đã được xử lý.</p>
+<pre class="flow-diagram"><code class="language-text">Run 1
+→ xử lý file A, B
+
+Run 2
+→ chỉ xử lý file C</code></pre>
+<p class="lead-in">Thay vì:</p>
+<pre class="flow-diagram"><code class="language-text">A + B + C
+→ xử lý lại tất cả</code></pre>
+<blockquote class="insight"><p><strong>Bookmark = tránh reprocess dữ liệu cũ.</strong></p></blockquote>
+<p>Không nên hiểu nó là exactly-once guarantee cho mọi pipeline.</p>
+<h3 class="subheading">6. Glue Studio &amp; DataBrew</h3>
+<p><strong>Glue Studio</strong> = GUI tạo / chạy / monitor Glue Jobs</p>
+<p><strong>DataBrew</strong> = low-code/no-code data cleaning</p>
+<p class="compact-line"><strong>DataBrew phù hợp với:</strong> <code>Remove duplicate · Normalize · Clean values · Standardize data</code></p>
+<h3 class="subheading">7. Glue Streaming ETL</h3>
+<p>Ngoài batch ETL, Glue có thể xử lý stream.</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis / Kafka / MSK
+↓
+Glue Streaming ETL
+↓
+Transform
+↓
+S3 / Analytics Target</code></pre>
+<p><strong>Nó sử dụng:</strong> <code>Apache Spark Structured Streaming</code></p>
+<h3 class="subheading">8. AWS Lake Formation</h3>
+<p><strong>Lake Formation dùng để quản lý và bảo vệ Data Lake.</strong></p>
+<p><strong>Lake Formation</strong> = Data Lake Governance</p>
+<p><strong>Thường data vẫn nằm trong:</strong> <code>Amazon S3</code></p>
+<p>Lake Formation không phải storage mới.</p>
+<h3 class="subheading">9. Glue vs Lake Formation</h3>
+<p><strong>Glue</strong> = data có schema gì? = transform data thế nào?</p>
+<p><strong>Lake Formation</strong> = ai được xem data nào?</p>
+<pre class="flow-diagram"><code class="language-text">S3 Data Lake
+↓
+Glue Catalog
+↓
+Lake Formation Permissions
+↓
+Athena
+↓
+User</code></pre>
+<h3 class="subheading">10. Fine-Grained Access</h3>
+<p class="lead-in">Lake Formation có thể giới hạn quyền ở mức:</p>
+<p class="compact-line"><code>Database · Table · Column · Row</code></p>
+<p class="lead-in">Ví dụ table:</p>
+<pre class="flow-diagram"><code class="language-text">Employee
+├── Name
+├── Department
+└── Salary</code></pre>
+<p class="compact-line"><strong>HR:</strong> <code>Name ✅ · Department ✅ · Salary ✅</code></p>
+<p class="compact-line"><strong>Analyst:</strong> <code>Name ✅ · Department ✅ · Salary ❌</code></p>
+<p><code>Column-Level Access</code></p>
+<p class="lead-in">Có thể giới hạn row:</p>
+<pre class="flow-diagram"><code class="language-text">Vietnam Team
+→ chỉ xem Region = Vietnam</code></pre>
+<h3 class="subheading">11. Lake Formation không thay IAM/S3/KMS</h3>
+<p>Lake Formation là thêm một lớp governance.</p>
+<p class="compact-line"><strong>Vẫn có thể cần:</strong> <code>IAM · S3 permissions · KMS permissions · Network access</code></p>
+<p class="lead-in">Ví dụ file dùng SSE-KMS:</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+Lake Formation cho phép table
+↓
+nhưng không có KMS permission
+↓
+vẫn không đọc được data</code></pre>
+<h3 class="subheading">12. Flow Data Lake đầy đủ</h3>
+<pre class="flow-diagram"><code class="language-text">S3 / RDS / DynamoDB
+↓
+Glue Crawler
+↓
+Glue Data Catalog
+↓
+Glue ETL
+↓
+Curated S3 Data Lake
+↓
+Lake Formation
+↓
+Fine-Grained Permission
+↓
+Athena / Redshift / EMR
+↓
+QuickSight</code></pre>
+<h3 class="subheading usage-heading">13. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV
+↓
+Glue
+↓
+Parquet + Partition
+↓
+S3
+↓
+Athena</code></pre>
+<pre class="flow-diagram"><code class="language-text">Company Data Lake
+↓
+Lake Formation
+↓
+Finance chỉ xem Finance data
+HR chỉ xem HR data</code></pre>
+<pre class="flow-diagram"><code class="language-text">Kinesis / MSK
+↓
+Glue Streaming ETL
+↓
+Clean data
+↓
+S3 / Redshift</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Glue = ETL, crawler/catalog; Lake Formation quản data lake permissions tập trung. Phân biệt biến đổi dữ liệu với quản quyền.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Streaming platforms: Amazon MSK &amp; Managed Service for Apache Flink">
+<summary><span class="t-title">Streaming platforms: Amazon MSK &amp; Managed Service for Apache Flink</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> Amazon MSK là managed Apache Kafka để truyền event stream theo topic/partition; Amazon Managed Service for Apache Flink (tên cũ Kinesis Data Analytics for Apache Flink) chạy ứng dụng Flink managed để xử lý stream real-time từ Kinesis Data Streams hoặc MSK.</p>
+<p><strong>Amazon MSK</strong> = Managed Apache Kafka = nhận và truyền event stream</p>
+<p><strong>Managed Service for Apache Flink</strong> = xử lý stream real-time</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+MSK / Kafka
+↓
+Flink
+↓
+Transform / Aggregate / Detect
+↓
+Sink</code></pre>
+<h3 class="subheading">1. Amazon MSK</h3>
+<p>Amazon MSK là <strong>Apache Kafka được AWS quản lý</strong>.</p>
+<p class="compact-line"><strong>Thay vì tự:</strong> <code>Cài Kafka · Quản broker · Patch · Recovery · Scaling</code></p>
+<p>AWS quản phần infrastructure cho bạn.</p>
+<p><strong>MSK</strong> = Kafka API + Kafka ecosystem + Managed infrastructure</p>
+<p>Cluster thường chạy trong VPC và có thể trải nhiều AZ để tăng HA.</p>
+<h3 class="subheading">2. Kafka Model</h3>
+<ul class="fact-list"><li><strong>Kafka có 3 thành phần quan trọng:</strong> <strong>Producer</strong> = gửi event</li><li><strong>Topic</strong> = luồng / loại event</li><li><strong>Consumer</strong> = đọc event</li></ul>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Order Service
+↓ Producer
+Topic: orders
+↓
+Fraud Consumer
+Analytics Consumer
+Notification Consumer</code></pre>
+<p>Một event stream có thể được nhiều consumer xử lý độc lập.</p>
+<h3 class="subheading">3. Topic &amp; Partition</h3>
+<p><strong>Topic được chia thành:</strong> <code>Partitions</code></p>
+<pre class="flow-diagram"><code class="language-text">orders topic
+├── Partition 0
+├── Partition 1
+└── Partition 2</code></pre>
+<p class="compact-line"><strong>Partition giúp:</strong> <code>Parallel Processing · Scale throughput</code></p>
+<p class="lead-in">Consumer Group có thể chia partitions cho nhiều consumers:</p>
+<pre class="flow-diagram"><code class="language-text">Partition 0 → Consumer A
+Partition 1 → Consumer B
+Partition 2 → Consumer C</code></pre>
+<blockquote class="insight"><p><strong>Topic = stream logic, Partition = đơn vị parallelism.</strong></p></blockquote>
+<p>Kafka có thể <strong>thêm partition</strong>, nhưng không giảm partition count trực tiếp.</p>
+<h3 class="subheading">4. Producer &amp; Consumer vẫn là code của bạn</h3>
+<p>MSK quản Kafka infrastructure, nhưng business logic vẫn do application xử lý.</p>
+<pre class="flow-diagram"><code class="language-text">Producer Code
+↓
+MSK
+↓
+Consumer Code
+↓
+Business Logic</code></pre>
+<p class="compact-line"><strong>MSK không tự hiểu:</strong> <code>Order · Payment · Fraud · Customer</code></p>
+<p>nó chỉ vận chuyển/lưu event.</p>
+<h3 class="subheading">5. Storage &amp; Replication</h3>
+<p class="lead-in">Kafka record được lưu theo retention:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+Broker
+↓
+EBS Storage</code></pre>
+<p class="lead-in">Broker có thể replicate data:</p>
+<pre class="flow-diagram"><code class="language-text">Broker A
+↓ replicate
+Broker B
+↓
+Broker C</code></pre>
+<p>→ tăng durability và availability.</p>
+<h3 class="subheading">6. MSK Serverless</h3>
+<p><strong>Hai cách chính:</strong> <strong>Provisioned MSK</strong> = chọn/quản broker capacity</p>
+<p><strong>MSK Serverless</strong> = AWS tự provision + scale capacity</p>
+<p class="compact-line"><strong>Phù hợp Serverless khi:</strong> <code>Traffic thay đổi nhiều · Không muốn capacity planning</code></p>
+<p>Provisioned phù hợp khi cần kiểm soát cluster/capacity nhiều hơn.</p>
+<h3 class="subheading">7. Managed Service for Apache Flink</h3>
+<p>Flink dùng để <strong>xử lý dữ liệu khi stream đang chạy</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis / MSK
+↓
+Flink
+↓
+Transform
+Filter
+Aggregate
+Join
+Window
+↓
+Output</code></pre>
+<p class="compact-line"><strong>Có thể viết bằng:</strong> <code>Java · Scala · SQL</code></p>
+<h3 class="subheading">8. Ví dụ Flink</h3>
+<p class="lead-in">Event:</p>
+<pre class="flow-diagram"><code class="language-text">User A → $100
+User A → $500
+User A → $3000</code></pre>
+<p class="lead-in">Flink có thể:</p>
+<pre class="flow-diagram"><code class="language-text">Group theo User
+↓
+tính tổng trong 5 phút
+↓
+phát hiện bất thường
+↓
+Fraud Alert</code></pre>
+<p>Đây là <strong>stateful stream processing</strong>.</p>
+<h3 class="subheading">9. Flink State &amp; Checkpoint</h3>
+<p>Flink có thể nhớ state giữa các event.</p>
+<p><code>User A total = $600</code></p>
+<p><strong>Event mới:</strong> <code>+$3000</code></p>
+<p><strong>Flink tiếp tục từ state cũ:</strong> <code>Total = $3600</code></p>
+<p class="lead-in">Để recovery:</p>
+<pre class="flow-diagram"><code class="language-text">State
+↓
+Checkpoint / Snapshot
+↓
+Failure
+↓
+Restore State</code></pre>
+<blockquote class="insight"><p><strong>Checkpoint = lưu trạng thái để Flink có thể tiếp tục sau sự cố.</strong></p></blockquote>
+<h3 class="subheading">10. Auto Scaling &amp; Parallelism</h3>
+<p class="lead-in">Flink có thể xử lý song song:</p>
+<pre class="flow-diagram"><code class="language-text">Stream
+↓
+Worker 1
+Worker 2
+Worker 3</code></pre>
+<p class="lead-in">Khi throughput tăng:</p>
+<pre class="flow-diagram"><code class="language-text">Auto Scaling
+↓
+More Compute</code></pre>
+<p class="compact-line"><strong>Nhưng correctness vẫn phụ thuộc:</strong> <code>Checkpoint · Offsets · Duplicate handling · Late events · Sink idempotency</code></p>
+<h3 class="subheading">11. Flink đọc từ đâu?</h3>
+<p class="compact-line"><strong>Theo nội dung slide:</strong> <code>Kinesis Data Streams ✅ · Amazon MSK ✅ · Data Firehose ❌</code></p>
+<p><strong>Nhớ:</strong> <strong>KDS / MSK</strong> = stream source</p>
+<p><strong>Flink</strong> = stream processor</p>
+<h3 class="subheading">12. Kinesis Data Streams vs MSK</h3>
+<p><strong>Kinesis Data Streams</strong> = AWS-native streaming = dùng Shards</p>
+<p><strong>MSK</strong> = Apache Kafka = dùng Topics + Partitions</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis
+→ muốn AWS-native, ít quan tâm Kafka ecosystem</code></pre>
+<pre class="flow-diagram"><code class="language-text">MSK
+→ app đã dùng Kafka
+→ cần Kafka APIs / ecosystem</code></pre>
+<h3 class="subheading">13. Shard vs Partition</h3>
+<p><strong>Kinesis</strong> = Shard</p>
+<p><strong>Kafka / MSK</strong> = Partition</p>
+<p><strong>Cả hai đều dùng để:</strong> <strong>chia workload</strong> + xử lý song song</p>
+<p class="lead-in">Và đều cần chọn partition key hợp lý để tránh:</p>
+<p><code>Hot Partition / Hot Shard</code></p>
+<h3 class="subheading">14. Consumer của MSK</h3>
+<p class="compact-line"><strong>MSK có thể được consume bởi:</strong> <code>Managed Flink · Glue Streaming ETL · Lambda · EC2 / ECS / EKS Application</code></p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+MSK
+├── Flink → Real-time Analytics
+├── Lambda → Business Logic
+└── Glue → S3 Data Lake</code></pre>
+<h3 class="subheading usage-heading">15. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Microservices
+↓
+MSK
+↓
+nhiều consumer độc lập</code></pre>
+<pre class="flow-diagram"><code class="language-text">Kinesis / MSK
+↓
+Flink
+↓
+Fraud Detection</code></pre>
+<pre class="flow-diagram"><code class="language-text">Clickstream
+↓
+Flink
+↓
+5-minute aggregation
+↓
+Analytics</code></pre>
+<pre class="flow-diagram"><code class="language-text">Variable Kafka Traffic
+↓
+MSK Serverless</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>MSK quản Kafka; Managed Service for Apache Flink xử lý streaming theo state/event time. Chọn theo mục đích ingest hay real-time compute.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Serverless big-data ingestion pipeline">
+<summary><span class="t-title">Serverless big-data ingestion pipeline</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Đây là pattern để <strong>nhận event real-time → lưu vào S3 → query bằng Athena → tạo dashboard/report</strong> mà không phải tự quản ingestion cluster.</p>
+<pre class="flow-diagram"><code class="language-text">IoT Devices
+↓
+IoT Core
+↓
+Kinesis Data Streams
+↓
+Data Firehose
+↓
+S3
+↓
+Athena
+↓
+QuickSight / Redshift</code></pre>
+<h3 class="subheading">1. Vai trò từng service</h3>
+<ul class="fact-list"><li><strong>IoT Core</strong> = nhận event từ IoT devices</li><li><strong>Kinesis Data Streams</strong> = streaming ingestion real-time</li><li><strong>Data Firehose:</strong> buffer + delivery managed → thường ghi vào S3</li><li><strong>S3</strong> = lưu raw / processed data</li><li><strong>Athena</strong> = SQL query trên S3</li><li><strong>QuickSight</strong> = dashboard / visualization</li><li><strong>Redshift</strong> = warehouse analytics nếu cần query/join lớn thường xuyên</li></ul>
+<h3 class="subheading">2. Flow đầy đủ</h3>
+<pre class="flow-diagram"><code class="language-text">IoT Devices
+↓
+IoT Core
+↓
+Kinesis Data Streams
+↓
+Data Firehose
+↓
+Lambda Transform (optional)
+↓
+S3 Ingestion Bucket
+↓
+SQS (optional)
+↓
+Lambda
+↓
+Athena Query
+↓
+S3 Reporting Bucket
+↓
+QuickSight / Redshift</code></pre>
+<h3 class="subheading">3. Kinesis Data Streams</h3>
+<p>KDS nhận dữ liệu <strong>real-time</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Devices / Applications
+↓
+Kinesis Data Streams
+↓
+continuous records</code></pre>
+<p class="lead-in">Ví dụ:</p>
+<p class="compact-line"><code>Temperature event · Click event · Application log · Telemetry</code></p>
+<p><strong>Cần chọn:</strong> <code>Partition Key</code></p>
+<p>hợp lý để tránh hot shard.</p>
+<h3 class="subheading">4. Data Firehose</h3>
+<p>Firehose lấy stream rồi <strong>buffer và delivery tới destination</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis Data Streams
+↓
+Firehose
+↓
+S3</code></pre>
+<p class="compact-line"><strong>Firehose có thể:</strong> <code>Buffer records · Batch records · Retry delivery · Transform bằng Lambda</code></p>
+<p><strong>Vì có buffering:</strong> <strong>Firehose</strong> = Near Real-Time</p>
+<p>không phải mỗi event vừa tới là lập tức xuất hiện trong S3.</p>
+<h3 class="subheading">5. Lambda Transform trong Firehose</h3>
+<p class="lead-in">Có thể thêm:</p>
+<pre class="flow-diagram"><code class="language-text">Firehose
+↓
+Lambda
+↓
+Transform Record
+↓
+S3</code></pre>
+<pre class="flow-diagram"><code class="language-text">Raw JSON
+↓
+Clean / Add field / Change format
+↓
+S3</code></pre>
+<p>Lambda ở đây là <strong>optional</strong>.</p>
+<h3 class="subheading">6. S3 + SQS + Lambda</h3>
+<p class="lead-in">Khi Firehose ghi file vào S3:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Event
+↓
+SQS
+↓
+Lambda</code></pre>
+<p class="compact-line"><strong>SQS dùng để:</strong> <code>Buffer · Retry · Decouple · Handle traffic spike</code></p>
+<p class="lead-in">Nếu pipeline đơn giản:</p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Lambda</code></pre>
+<p>cũng được.</p>
+<h3 class="subheading">7. Vì sao thêm SQS?</h3>
+<p class="lead-in">Không có SQS:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Event
+↓
+Lambda</code></pre>
+<p class="lead-in">Có SQS:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Event
+↓
+SQS Queue
+↓
+Lambda</code></pre>
+<p class="lead-in">Nếu Lambda xử lý chậm:</p>
+<pre class="flow-diagram"><code class="language-text">Message
+→ chờ trong SQS</code></pre>
+<p>thay vì tạo áp lực trực tiếp lên Lambda.</p>
+<blockquote class="insight"><p><strong>SQS = buffer + decouple + retry.</strong></p></blockquote>
+<h3 class="subheading">8. SQS không đảm bảo exactly-once</h3>
+<p>Message/event có thể được xử lý lại.</p>
+<pre class="flow-diagram"><code class="language-text">Same Event
+↓
+Lambda
+↓
+có thể chạy nhiều lần</code></pre>
+<p><strong>Vì vậy consumer nên:</strong> <code>Idempotent</code></p>
+<p class="compact-line"><strong>Ví dụ cùng một file được xử lý lại:</strong> <code>không tạo duplicate report · không insert duplicate data</code></p>
+<h3 class="subheading">9. Athena Query</h3>
+<p class="lead-in">Lambda có thể trigger Athena:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Start Athena Query
+↓
+Athena đọc data từ S3
+↓
+SQL</code></pre>
+<p class="compact-line"><code>SELECT device_id, AVG(temperature) · FROM telemetry · GROUP BY device_id;</code></p>
+<p><strong>Athena lưu result vào:</strong> <code>S3 Reporting Bucket</code></p>
+<h3 class="subheading">10. Query Result nằm trong S3</h3>
+<pre class="flow-diagram"><code class="language-text">Athena
+↓
+Query Result
+↓
+S3</code></pre>
+<p class="lead-in">Sau đó:</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight
+↓
+Dashboard</code></pre>
+<p class="lead-in">hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">Reporting Data
+↓
+Redshift
+↓
+Warehouse Analytics</code></pre>
+<h3 class="subheading">11. Real-Time vs Near Real-Time</h3>
+<p><strong>Kinesis Data Streams</strong> = Real-Time Streaming</p>
+<p><strong>Firehose</strong> = Buffer + Delivery = Near Real-Time</p>
+<pre class="flow-diagram"><code class="language-text">Event xảy ra
+↓
+KDS nhận ngay
+↓
+Firehose buffer
+↓
+sau đó mới ghi batch vào S3</code></pre>
+<p>Do đó toàn pipeline đến dashboard thường không phải strict real-time.</p>
+<h3 class="subheading">12. QuickSight vs Redshift cuối pipeline</h3>
+<pre class="flow-diagram"><code class="language-text">Athena / S3
+↓
+QuickSight</code></pre>
+<p class="compact-line"><strong>Dùng khi:</strong> <code>Dashboard · Reporting · Visualization</code></p>
+<p class="compact-line"><strong>Nếu cần:</strong> <code>nhiều JOIN · aggregate lớn · query lặp lại liên tục</code></p>
+<p class="lead-in">thì:</p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Redshift
+↓
+QuickSight</code></pre>
+<p>có thể phù hợp hơn.</p>
+<h3 class="subheading usage-heading">13. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">IoT Devices
+↓
+Kinesis
+↓
+S3
+↓
+Athena
+↓
+QuickSight</code></pre>
+<p>→ IoT telemetry dashboard.</p>
+<pre class="flow-diagram"><code class="language-text">Application Logs
+↓
+Kinesis
+↓
+Firehose
+↓
+S3
+↓
+Athena</code></pre>
+<p>→ log analytics.</p>
+<pre class="flow-diagram"><code class="language-text">Clickstream
+↓
+S3
+↓
+Athena
+↓
+Redshift
+↓
+BI</code></pre>
+<p>→ analytics/reporting lớn.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Luồng ingest serverless thường tách thu thập, lưu trữ, ETL và query; chọn Kinesis/Firehose, S3, Glue, Athena theo vai trò.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Data Pipeline, Amazon MWAA &amp; AWS Data Exchange">
+<summary><span class="t-title">AWS Data Pipeline, Amazon MWAA &amp; AWS Data Exchange</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> Điều phối luồng công việc xử lý dữ liệu phức tạp theo lịch/phụ thuộc và tích hợp các bộ dữ liệu bên thứ ba lên AWS.</p>
+<h3 class="subheading">1. Amazon MWAA vs AWS Data Pipeline</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Dịch vụ</th><th>Vai trò &amp; Điểm phân biệt</th></tr></thead><tbody>
+<tr><td><strong>Amazon MWAA</strong> (Managed Workflows for Apache Airflow)</td><td>Chạy môi trường <strong>Apache Airflow</strong> managed để điều phối data pipelines đa bước bằng mã Python (<strong>DAGs</strong>), xử lý phụ thuộc, retry và cảnh báo; bản thân MWAA <strong>chỉ điều phối</strong>, còn việc tính toán/lưu trữ do S3, Glue, EMR, Redshift đảm nhận</td></tr>
+<tr><td><strong>AWS Data Pipeline</strong></td><td>Dịch vụ điều phối di chuyển và biến đổi dữ liệu định kỳ giữa các kho dữ liệu AWS/on-premises theo điều kiện phụ thuộc</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Amazon MWAA (DAG theo lịch) → kích hoạt AWS Glue ETL đọc S3 → nạp bảng Amazon Redshift → gửi thông báo SNS</code></pre>
+<h3 class="subheading">2. AWS Data Exchange</h3>
+<p class="definition"><strong>AWS Data Exchange:</strong> chợ dữ liệu (data marketplace) giúp đăng ký (subscribe) các bộ dữ liệu thương mại/công khai từ nhà cung cấp bên thứ ba và nhận trực tiếp vào S3, Redshift, Lake Formation hoặc qua API mà không phải tự viết pipeline thu thập.</p>
+</div>
+</details>

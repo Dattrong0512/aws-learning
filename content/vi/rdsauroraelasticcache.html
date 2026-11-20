@@ -1,0 +1,226 @@
+<details class="topic" data-progress-aliases="Amazon RDS – Tổng quan|RDS vs DB tự cài trên EC2 (ưu điểm)|RDS Storage Auto Scaling|RDS Custom|Danh sách Ports cần biết (Important vs Database)|Amazon RDS – Fundamentals và vận hành" data-track="Amazon RDS fundamentals &amp; operations">
+<summary><span class="t-title">Amazon RDS fundamentals &amp; operations</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Chạy database quan hệ mà không phải tự quản toàn bộ máy chủ, bản vá và backup.</p>
+<p class="lead-in">Luồng database:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓ Database endpoint
+RDS
+↓
+Managed database / storage / backup</code></pre>
+<h3 class="subheading">1. RDS quản gì, bạn quản gì?</h3>
+<p>RDS hỗ trợ các engine như MySQL, PostgreSQL, MariaDB, Oracle, SQL Server và Db2; Aurora là lựa chọn tương thích MySQL/PostgreSQL với kiến trúc riêng.</p>
+<p>AWS lo provisioning, OS patching và các tính năng managed đã cấu hình.</p>
+<p>Bạn vẫn thiết kế schema, query, index, database users, capacity, backup retention và network security.</p>
+<h3 class="subheading">2. Cấu hình database</h3>
+<p>Chọn engine/version, instance class, storage, subnet group, SG, parameter/option group và maintenance window.</p>
+<p>Đặt DB ở private subnets; chỉ cho app SG vào port database.</p>
+<p>Đổi instance class tăng CPU/RAM; thêm replica mở rộng đọc.</p>
+<p>Storage Auto Scaling tăng disk trong maximum storage đã đặt, không tự tăng CPU và không tự giảm disk.</p>
+<h3 class="subheading">3. Storage Auto Scaling</h3>
+<p>RDS tăng storage khi dung lượng trống thấp kéo dài và đã đủ thời gian từ lần thay đổi trước.</p>
+<p>Các điều kiện điển hình: còn dưới 10%, kéo dài ít nhất 5 phút, đã ít nhất 6 giờ từ lần thay đổi hoặc đã hoàn tất storage optimization, lấy mốc muộn hơn.</p>
+<p>Đặt maximum đủ lớn và alarm theo dõi storage. Auto Scaling không thay việc dọn dữ liệu hoặc lập kế hoạch capacity.</p>
+<h3 class="subheading">4. RDS so với EC2 và RDS Custom</h3>
+<p>RDS thường không cho SSH vào OS. DB trên EC2 cho kiểm soát nhiều hơn nhưng bạn tự lo patching, backup và HA.</p>
+<p>RDS Custom cho Oracle/SQL Server cần tùy biến sâu hơn ở OS/database. Thay đổi vẫn phải nằm trong phạm vi hỗ trợ và phối hợp với automation của dịch vụ.</p>
+<h3 class="subheading">5. CloudWatch và Enhanced Monitoring</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Chế độ giám sát RDS</th><th>Chu kỳ &amp; Cơ chế thu thập</th></tr></thead><tbody>
+<tr><td><strong>RDS CloudWatch Metrics (Mặc định)</strong></td><td>Gửi metrics ở tầng hypervisor/database mỗi <strong>1 phút</strong> (không cần bật EC2 Detailed Monitoring)</td></tr>
+<tr><td><strong>Enhanced Monitoring</strong></td><td>Agent ngay trên DB instance thu thập sâu OS/process metrics với chu kỳ xuống tới <strong>1 giây</strong> và gửi về <strong>CloudWatch Logs</strong> (cần monitoring IAM role)</td></tr>
+</tbody></table></div>
+<p>Console refresh nhanh nhất mỗi 5 giây dù collection interval là 1 giây; lấy bản cập nhật 1 giây qua CloudWatch Logs.  · </p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web cần managed PostgreSQL/MySQL: RDS. Phần mềm doanh nghiệp cần chỉnh OS: cân nhắc RDS Custom. Cần HA: thêm Multi-AZ; cần giảm tải đọc: Read Replica; cần giảm query lặp: cache.</p>
+<h3 class="subheading">7. RDS Storage Types, Parameter Groups, Private Endpoint &amp; RDS Custom</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>RDS Storage</th><th>Đặc điểm hiệu năng</th></tr></thead><tbody>
+<tr><td><code>gp2</code></td><td>General Purpose SSD đời trước; IOPS gắn với dung lượng + burst credits</td></tr>
+<tr><td><code>gp3</code></td><td>General Purpose SSD; cấu hình riêng IOPS và throughput độc lập dung lượng</td></tr>
+<tr><td><code>io1</code> / <code>io2 Block Express</code></td><td>Provisioned IOPS SSD đặt trước IOPS ổn định, độ trễ thấp cho workload DB nặng</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Thành phần RDS</th><th>Chức năng &amp; Điểm phân biệt</th></tr></thead><tbody>
+<tr><td><strong>RDS Parameter Groups</strong></td><td>Nơi cấu hình tham số engine và bảo mật DB (ví dụ giới hạn kết nối, ép kết nối SSL/TLS như <code>rds.force_ssl</code>)</td></tr>
+<tr><td><strong>RDS Private Endpoint</strong></td><td>DNS hostname của DB phân giải ra Private IP trong subnet khi tắt Public Access (không phải Interface VPC Endpoint)</td></tr>
+<tr><td><strong>RDS Custom for Oracle / SQL Server</strong></td><td>Dịch vụ managed nhưng cho phép quyền <strong>privileged OS &amp; DB access</strong> để cài phần mềm/plugin bên thứ ba hoặc dùng BYOL đặc thù</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>RDS là managed relational database: AWS lo nhiều công việc vận hành, còn thiết kế schema/query và tối ưu ứng dụng vẫn thuộc trách nhiệm của bạn.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="RDS Read Replicas – Đọc mở rộng (read scalability)|RDS Read Replicas – Use Cases|RDS Read Replicas – Network Cost|RDS Multi-AZ (Disaster Recovery)|RDS – Từ Single-AZ sang Multi-AZ|RDS – Multi-AZ, Read Replicas và scaling" data-track="RDS Multi-AZ &amp; Read Replicas">
+<summary><span class="t-title">RDS Multi-AZ &amp; Read Replicas</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Phân biệt giải pháp chịu lỗi với giải pháp tăng tải đọc.</p>
+<p class="lead-in">Phân biệt hai nhu cầu:</p>
+<pre class="flow-diagram"><code class="language-text">Multi-AZ = chịu lỗi / failover
+Read Replica = tăng tải đọc</code></pre>
+<h3 class="subheading">1. So sánh chính</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tiêu chí</th><th>Multi-AZ DB instance</th><th>Read Replica</th></tr></thead><tbody><tr><td>Mục tiêu</td><td>Availability và automatic failover</td><td>Read scaling, reporting, có thể hỗ trợ DR</td></tr><tr><td>Replication</td><td>Synchronous sang standby ở AZ khác</td><td>Asynchronous, có replica lag</td></tr><tr><td>Standby phục vụ đọc?</td><td>Không</td><td>Có endpoint để app gửi read query</td></tr><tr><td>Khi primary lỗi</td><td>RDS chuyển endpoint tới standby</td><td>Promote theo quy trình phù hợp, đổi endpoint app</td></tr></tbody></table></div>
+<h3 class="subheading">2. Multi-AZ DB instance</h3>
+<p>Ứng dụng dùng DB endpoint ổn định. Khi primary lỗi, AWS failover sang standby; app cần retry/reconnect và xử lý transaction bị gián đoạn.</p>
+<p>Multi-AZ trong một Region không bảo vệ sự cố cả Region và không thay backup chống xóa nhầm dữ liệu.</p>
+<h3 class="subheading">3. Đừng nhầm Multi-AZ DB cluster</h3>
+<p class="definition"><strong>RDS Multi-AZ DB cluster:</strong> mô hình khác: một writer và hai readable standby qua ba AZ, dùng semisynchronous replication.</p>
+<p>Nó hỗ trợ cả HA và tải đọc; không áp dụng câu “mọi standby Multi-AZ đều không đọc được”. <a href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.html" rel="noopener noreferrer" target="_blank">AWS phân biệt hai mô hình</a>.</p>
+<h3 class="subheading">4. Read Replica</h3>
+<p>Replica có thể ở cùng hoặc khác Region khi engine hỗ trợ.</p>
+<p>App phải đưa read query tới replica endpoint; query yêu cầu dữ liệu mới nhất nên dùng primary khi cần.</p>
+<pre class="flow-diagram"><code class="language-text">Promote replica tạo DB độc lập, không còn tự theo primary cũ.
+Số replica và tính năng phụ thuộc engine.
+Replication cùng Region được miễn phí transfer theo cơ chế RDS hỗ trợ;
+cross-Region có phí transfer.</code></pre>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  DB production cần tự failover khi AZ lỗi: Multi-AZ. Báo cáo nặng làm chậm giao dịch: Read Replica. Người dùng ở Region khác cần đọc gần hơn hoặc có DR: cross-Region replica kèm kế hoạch promote.</p>
+<h3 class="subheading">6. Bảng đối chiếu RTO / RPO / Failover (RDS &amp; Aurora) &amp; Aurora Read Replica từ RDS</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Mô hình triển khai</th><th>RTO thường gặp</th><th>RPO</th><th>Cơ chế Failover</th></tr></thead><tbody>
+<tr><td>RDS Read Replica</td><td>Vài phút trở lên</td><td>Phụ thuộc replication lag</td><td>Manual promotion</td></tr>
+<tr><td>RDS Multi-AZ DB Instance</td><td>60–120 giây</td><td>0 (synchronous)</td><td>Automatic</td></tr>
+<tr><td>RDS Multi-AZ DB Cluster</td><td>Dưới 35 giây</td><td>0 (semi-sync quorum)</td><td>Automatic</td></tr>
+<tr><td>Aurora DB Cluster + Replica</td><td>Thường dưới 30 giây</td><td>0 (shared storage 6 bản/3 AZ)</td><td>Automatic</td></tr>
+<tr><td>Aurora Global Database (Cross-Region)</td><td>Dưới 1 phút (managed)</td><td>Thường &lt; 1 giây (async)</td><td>Cần kích hoạt bước Managed/Manual Failover để promote secondary cluster</td></tr>
+</tbody></table></div>
+<p><strong>Migration ít downtime:</strong> có thể tạo <strong>Aurora Read Replica</strong> trực tiếp từ RDS MySQL/PostgreSQL đang chạy, đợi bắt kịp replication rồi promote lên Aurora cluster độc lập.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Multi-AZ ưu tiên high availability/failover; Read Replica ưu tiên scale read. Read Replica không thay thế backup hoặc cơ chế đồng bộ HA.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Amazon Aurora – Tổng quan|Aurora – High Availability &amp; Read Scaling (6 bản sao)|Aurora DB Cluster – Writer &amp; Reader Endpoints|Aurora Replicas – Auto Scaling|Aurora – Custom Endpoints|Amazon Aurora" data-track="Amazon Aurora architecture &amp; scaling">
+<summary><span class="t-title">Amazon Aurora architecture &amp; scaling</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Dùng database tương thích MySQL/PostgreSQL với storage phân tán và read scaling được tích hợp.</p>
+<p class="lead-in">Hai đường truy cập:</p>
+<pre class="flow-diagram"><code class="language-text">Write → Writer endpoint → Primary instance
+Read → Reader endpoint → Aurora Replicas
+Compute → shared distributed storage</code></pre>
+<h3 class="subheading">1. Compute tách khỏi storage</h3>
+<p>Aurora cluster thường có một writer và tối đa 15 Aurora Replicas. Các instance dùng chung distributed storage; storage tự mở rộng khi dữ liệu tăng.</p>
+<p>Storage giữ 6 bản sao qua 3 AZ và tự sửa bản sao lỗi.</p>
+<p>Cơ chế quorum thường được mô tả là 4 bản cho ghi, 3 bản cho đọc; các bản sao storage không phải 6 database instances.</p>
+<h3 class="subheading">2. Writer và Reader endpoint</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Endpoint</th><th>Dùng khi</th></tr></thead><tbody><tr><td>Writer/cluster endpoint</td><td>Ghi hoặc đọc-ghi; trỏ tới writer hiện tại</td></tr><tr><td>Reader endpoint</td><td>Phân phối kết nối đọc qua replicas</td></tr><tr><td>Instance endpoint</td><td>Cần một instance cụ thể</td></tr><tr><td>Custom endpoint</td><td>Tách nhóm replica cho một workload</td></tr></tbody></table></div>
+<p>Reader endpoint cân bằng ở mức connection, không tự chia từng SQL query.</p>
+<p>Nếu không có replica, reader endpoint có thể trỏ tới writer; không coi tên endpoint là cơ chế cưỡng chế read-only.</p>
+<h3 class="subheading">3. Failover</h3>
+<p>Khi writer lỗi, Aurora có thể promote replica và cập nhật writer endpoint.</p>
+<p>Đặt replica ở AZ khác giúp khôi phục compute nhanh hơn; storage đa AZ tự nó không đảm bảo không gián đoạn kết nối.</p>
+<p>App vẫn cần reconnect/retry. Thời gian failover thực tế phụ thuộc tình huống; không coi các con số nhanh trong slide là SLA cho mọi lỗi.</p>
+<h3 class="subheading">4. Auto Scaling và custom endpoint</h3>
+<p>Aurora Auto Scaling tăng/giảm số reader theo metric như CPU hoặc connections. Nó tăng capacity đọc, khác Serverless v2 điều chỉnh compute capacity của instance.</p>
+<p>Custom endpoint có thể đưa báo cáo nặng vào nhóm replica mạnh hơn. Reader endpoint vẫn tồn tại; app chọn endpoint theo workload.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  OLTP cần MySQL/PostgreSQL-compatible và HA; SaaS đọc nhiều dùng reader endpoint; tách reporting khỏi truy vấn giao dịch bằng replica/custom endpoint.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Aurora có kiến trúc lưu trữ và replication riêng; Reader Endpoint phân phối truy vấn đọc, Writer Endpoint dành cho ghi.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Aurora Serverless|Aurora Global Database|Aurora Machine Learning|Babelfish cho Aurora PostgreSQL|Aurora Database Cloning" data-track="Aurora Serverless, Global &amp; advanced capabilities">
+<summary><span class="t-title">Aurora Serverless, Global &amp; advanced capabilities</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Chọn tính năng Aurora phù hợp tải biến động, người dùng toàn cầu và môi trường dev/test.</p>
+<h3 class="subheading">1. Aurora Serverless v2</h3>
+<pre class="flow-diagram"><code class="language-text">Serverless v2 tự điều chỉnh compute capacity theo tải trong khoảng min/max ACU
+đã cấu hình.
+Phù hợp tải khó đoán; vẫn cần chọn engine, network, bảo mật và giới hạn
+capacity.</code></pre>
+<p>Khác với reader Auto Scaling: Serverless v2 đổi capacity của instance, reader Auto Scaling đổi số replica.</p>
+<p>Khả năng scale về 0/auto-pause phụ thuộc engine version và cấu hình, không phải mặc định mọi cluster đều dừng khi rảnh.</p>
+<h3 class="subheading">2. Aurora Global Database</h3>
+<p>Primary Region nhận ghi; secondary Regions nhận dữ liệu bất đồng bộ để đọc gần người dùng và phục vụ DR.</p>
+<p>Khi Region chính lỗi, failover/promote Region dự phòng theo quy trình của Global Database.</p>
+<pre class="flow-diagram"><code class="language-text">Primary Region: writer → replication → Secondary Region: local reads
+                                      └─ promote/failover khi DR</code></pre>
+<pre class="flow-diagram"><code class="language-text">Replication thường rất nhanh nhưng bất đồng bộ vẫn có nguy cơ mất thay đổi
+chưa replicate.
+Đánh giá RPO/RTO và thử failover; không coi Multi-AZ là thay thế cho
+cross-Region DR.</code></pre>
+<h3 class="subheading">3. Database Cloning</h3>
+<p>Clone dùng copy-on-write: ban đầu dùng chung các block dữ liệu, chỉ cấp block mới khi có thay đổi. Tạo môi trường test nhanh hơn sao chép toàn bộ database.</p>
+<pre class="flow-diagram"><code class="language-text">Clone có compute riêng và vẫn có chi phí; query test chạy trên clone thay vì
+writer production.
+Không coi clone là backup độc lập thay cho snapshot/DR.</code></pre>
+<h3 class="subheading">4. Babelfish và Machine Learning</h3>
+<p>Babelfish giúp Aurora PostgreSQL hiểu một phần T-SQL/TDS để giảm công sửa app SQL Server; phải kiểm tra tính năng tương thích, không đảm bảo mọi app chạy nguyên trạng.</p>
+<p>Aurora ML có thể gọi SageMaker/Comprehend qua SQL cho use case hỗ trợ. Đây là integration, không phải mọi database tự có model dự đoán.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Tải thất thường: Serverless v2. Local reads toàn cầu và DR: Global Database. Bản production để dev/test: clone. Migration SQL Server cần giảm thay đổi code: đánh giá Babelfish.</p>
+<h3 class="subheading">6. Aurora Standard vs Aurora I/O-Optimized</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Cấu hình Aurora Storage</th><th>Cách tính phí</th><th>Khi nào tối ưu?</th></tr></thead><tbody>
+<tr><td><strong>Aurora Standard</strong></td><td>Tính phí dung lượng GB-tháng + phí trên từng thao tác đọc/ghi I/O</td><td>Workload có lượng I/O vừa phải</td></tr>
+<tr><td><strong>Aurora I/O-Optimized</strong></td><td>Giá compute &amp; storage cao hơn nhưng <strong>miễn phí hoàn toàn từng I/O request</strong></td><td>Chi phí I/O vượt khoảng <strong>25% tổng hóa đơn Aurora</strong> hoặc cần dự báo chi phí ổn định cho tải I/O lớn</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Aurora Serverless giải quyết nhu cầu scale compute; Aurora Global Database tối ưu đọc nhiều Region và chiến lược DR, không đồng nghĩa đa Region tự động ghi.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="RDS Backups (Automated &amp; Snapshots)|RDS &amp; Aurora – Restore Options|RDS &amp; Aurora – Security|Amazon RDS Proxy|RDS/Aurora – Backup, restore, security và RDS Proxy" data-track="RDS/Aurora backup, restore, security &amp; RDS Proxy">
+<summary><span class="t-title">RDS/Aurora backup, restore, security &amp; RDS Proxy</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Khôi phục dữ liệu, bảo vệ kết nối và tránh database bị quá tải bởi nhiều connection.</p>
+<h3 class="subheading">1. Automated backup và snapshot</h3>
+<p>Automated backup kết hợp backup với transaction logs để Point-in-Time Restore (PITR) trong retention window.</p>
+<p>RDS DB instance hỗ trợ retention tới 35 ngày; đặt 0 tắt automated backup ở mô hình cho phép.</p>
+<p>Aurora giữ continuous backup theo retention cấu hình.</p>
+<p>Manual snapshot giữ tới khi tự xóa.</p>
+<p>Restore tạo DB/cluster mới, không ghi đè DB đang chạy; phải chuyển ứng dụng sang endpoint mới sau khi kiểm tra dữ liệu.</p>
+<h3 class="subheading">2. Restore và migration</h3>
+<pre class="flow-diagram"><code class="language-text">Xóa nhầm dữ liệu → PITR tới trước sự cố → DB mới → kiểm tra → đổi endpoint app</code></pre>
+<p>Một số restore MySQL từ S3 dùng backup tạo bởi Percona XtraBackup, cần đúng phiên bản/format hỗ trợ. Không phải upload bất kỳ file dump nào vào S3 là restore được.</p>
+<p>Snapshot khác read replica: replica có thể replicate cả thao tác xóa nhầm, còn backup cho phép quay lại thời điểm trước đó.</p>
+<h3 class="subheading">3. Network, credential và encryption</h3>
+<pre class="flow-diagram"><code class="language-text">Đặt DB private, SG chỉ nhận từ app.
+TLS mã hóa khi truyền; KMS mã hóa khi lưu và backup.
+Muốn mã hóa DB cũ thường snapshot → encrypted copy → restore mới.</code></pre>
+<p>Secrets Manager lưu/rotate password; IAM DB authentication dùng token cho DB user được cấu hình trên engine hỗ trợ.</p>
+<p>Quyền quản lý RDS API không tự cấp quyền chạy SQL trong DB.</p>
+<h3 class="subheading">4. RDS Proxy</h3>
+<p>Proxy pool/reuse connection, hữu ích khi Lambda/ứng dụng mở nhiều connection ngắn.</p>
+<p>Proxy nằm trong VPC, giúp giảm connection storm và cải thiện xử lý failover; không cache kết quả SQL hay làm query nặng tự nhanh hơn.</p>
+<pre class="flow-diagram"><code class="language-text">Lambda/EC2 → RDS Proxy → connection pool → RDS/Aurora</code></pre>
+<p>Có thể dùng password với Secrets Manager hoặc IAM authentication theo cấu hình hỗ trợ.</p>
+<p>IAM không luôn bắt buộc cho client; end-to-end IAM cũng có thể bỏ lưu password trong Secrets Manager. <a href="https://aws.amazon.com/rds/proxy/" rel="noopener noreferrer" target="_blank">AWS RDS Proxy authentication</a>.</p>
+<h3 class="subheading">5. Event vận hành và event dữ liệu</h3>
+<p>RDS Event Notifications/EventBridge báo sự kiện DB như failover, tạo snapshot hoặc đổi trạng thái; không phải stream thay đổi từng row.</p>
+<pre class="flow-diagram"><code class="language-text">Một số engine hỗ trợ gọi Lambda từ SQL/DB logic.
+Cần cả IAM permission và đường mạng tới Lambda; DB private có thể dùng NAT/VPC
+Endpoint phù hợp.
+Cần CDC thì dùng công cụ/luồng CDC, không dựa vào thông báo lifecycle.</code></pre>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Khôi phục xóa nhầm: PITR. Lambda mở quá nhiều kết nối: RDS Proxy. Bảo mật DB: private subnet + SG + TLS + KMS + quản lý secret. Cảnh báo failover: RDS event → SNS/EventBridge.</p>
+<h3 class="subheading">7. IAM Database Authentication &amp; Cross-VPC RDS Proxy</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Cơ chế xác thực / Kết nối</th><th>Cách hoạt động &amp; Điều kiện</th></tr></thead><tbody>
+<tr><td><strong>IAM Database Authentication</strong></td><td>Xác thực vào RDS/Aurora (MySQL, PostgreSQL, MariaDB) bằng <strong>auth token tạm thời hiệu lực 15 phút</strong> thay cho mật khẩu tĩnh; yêu cầu bật tính năng trên DB, tạo DB user tương ứng (ví dụ <code>AWSAuthenticationPlugin</code> trên MySQL), quyền IAM <code>rds-db:connect</code> và kết nối qua TLS (kết nối đã mở không bị ngắt khi token hết hạn 15 phút)</td></tr>
+<tr><td><strong>Cross-VPC RDS Proxy Endpoint</strong></td><td>Cho phép Lambda/EC2 ở VPC A kết nối tới RDS Proxy và Private RDS ở VPC B qua <strong>ENI + Private IP (AWS PrivateLink)</strong> mà không cần mở public DB hay ghép CIDR toàn mạng</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">EC2 / Lambda (IAM Role có rds-db:connect)
+  ↓ Tạo IAM Auth Token (15 phút)
+  ↓ Kết nối TLS
+RDS / Aurora (đối chiếu DB User + IAM Token)</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Backup/PITR dùng để khôi phục dữ liệu; Multi-AZ để tăng HA; RDS Proxy để quản lý và tái sử dụng kết nối ứng dụng đến database.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Amazon ElastiCache – Tổng quan|ElastiCache – Redis vs Memcached|ElastiCache – Cache Security (IAM Auth / Redis AUTH)|ElastiCache – Redis Use Case (Gaming Leaderboard)" data-track="Amazon ElastiCache">
+<summary><span class="t-title">Amazon ElastiCache</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Giữ dữ liệu thường dùng trong RAM để phản hồi nhanh và giảm số lần phải hỏi database.</p>
+<h3 class="subheading">1. Cache-aside</h3>
+<pre class="flow-diagram"><code class="language-text">App → cache: có dữ liệu → trả kết quả
+          └─ chưa có → đọc DB → ghi cache với TTL → trả kết quả</code></pre>
+<pre class="flow-diagram"><code class="language-text">Ứng dụng phải thêm logic đọc/ghi cache; ElastiCache không tự đứng trước
+database như RDS Proxy.
+Chọn TTL và invalidation để không trả dữ liệu cũ quá lâu.</code></pre>
+<p>Write-through cập nhật cache cùng khi ghi DB, giúp dữ liệu sẵn để đọc nhưng tăng công việc ghi và có thể cache dữ liệu không ai dùng.</p>
+<p>Cache-aside chỉ nạp khi cần nhưng lần đọc đầu có cache miss.</p>
+<h3 class="subheading">2. Redis/Valkey và Memcached</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Lựa chọn</th><th>Điểm chính</th></tr></thead><tbody><tr><td>Redis OSS/Valkey</td><td>Data structures, sorted sets, replication/read replicas, Multi-AZ failover và snapshot tùy cấu hình</td></tr><tr><td>Node-based Memcached</td><td>Cache key-value đơn giản, sharding, multi-thread; không có native replication/failover như Redis</td></tr></tbody></table></div>
+<p>Node-based Memcached không có backup như Redis/Valkey; Serverless Memcached có hỗ trợ snapshot/restore.</p>
+<p>Vì vậy cần nhìn cả engine lẫn deployment model. <a href="https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/backups.html" rel="noopener noreferrer" target="_blank">AWS backup support</a>.</p>
+<h3 class="subheading">3. Session và leaderboard</h3>
+<p>Lưu session trong cache giúp nhiều app instance dùng chung trạng thái đăng nhập. Redis/Valkey sorted sets hợp leaderboard vì lưu điểm và truy vấn thứ hạng nhanh.</p>
+<p>Cache đọc phổ biến giảm query lặp trên RDS.</p>
+<p>Read Replica vẫn chạy SQL trên dữ liệu DB; cache lưu kết quả/đối tượng để lấy nhanh, hai giải pháp có thể dùng cùng nhau.</p>
+<h3 class="subheading">4. Bảo mật và dữ liệu có thể mất</h3>
+<p>Dùng private network, SG giới hạn nguồn, TLS và authentication phù hợp engine/version: AUTH/RBAC hoặc IAM authentication khi hỗ trợ.</p>
+<p>IAM quản lý cluster và IAM data authentication là các quyền/cấu hình khác nhau.</p>
+<p>Thiết kế để chịu cache miss hoặc cache mất dữ liệu; với dữ liệu cần bền vững, phải có nguồn dữ liệu/backup đáp ứng yêu cầu.</p>
+<p>Replica bất đồng bộ không đảm bảo không mất mọi write khi lỗi.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Product catalog đọc nhiều: cache-aside. Web nhiều EC2 cần session chung: Redis/Valkey. Xếp hạng game: sorted sets. Cache đơn giản tái tạo được: Memcached.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>ElastiCache Redis/Valkey hoặc Memcached đặt dữ liệu trong RAM để giảm tải backend và giảm latency; DAX lại dành riêng cho DynamoDB.</p></aside>
+</div>
+</details>

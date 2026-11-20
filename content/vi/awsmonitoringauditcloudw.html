@@ -1,0 +1,729 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon CloudWatch: metrics, logs, alarms &amp; insights">
+<summary><span class="t-title">Amazon CloudWatch: metrics, logs, alarms &amp; insights</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon CloudWatch dùng để <strong>monitor hệ thống AWS</strong> bằng metrics, logs, dashboard và alarms.</p>
+<p><strong>CloudWatch</strong> = Metrics + Logs + Dashboard + Alarms</p>
+<p><strong>Nó trả lời:</strong> <code>"Hệ thống đang chạy thế nào?"</code></p>
+<p><strong>Khác với:</strong> <strong>CloudTrail</strong> = ai đã gọi AWS API nào?</p>
+<h3 class="subheading">1. Các nhóm chức năng và EventBridge</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Nhóm chức năng</th><th>Dùng để làm gì?</th></tr></thead><tbody>
+<tr><td>Metrics</td><td>Thu thập số đo theo thời gian: CPU, latency, request count</td></tr>
+<tr><td>Logs</td><td>Tập trung application/service logs</td></tr>
+<tr><td>Dashboards</td><td>Hiển thị biểu đồ và trạng thái hệ thống</td></tr>
+<tr><td>Alarms</td><td>Theo dõi điều kiện/trạng thái để cảnh báo hoặc gọi action</td></tr>
+<tr><td>Insights</td><td>Phân tích logs và quan sát workload chuyên biệt như containers/Lambda</td></tr>
+<tr><td>CloudWatch Events → Amazon EventBridge</td><td>Nhận events, dùng rules lọc và chuyển tới targets như Lambda/SQS</td></tr>
+</tbody></table></div>
+<p>Đây là các nhóm chức năng, không phải các loại monitoring loại trừ nhau. <strong>CloudWatch Events là tên cũ của Amazon EventBridge</strong>; alarm theo dõi metric, EventBridge định tuyến sự kiện như EC2 đổi trạng thái hoặc alarm đổi trạng thái. </p>
+<h3 class="subheading">2. CloudWatch Metrics</h3>
+<p><strong>Metric = một giá trị được đo theo thời gian.</strong></p>
+<p class="lead-in">Ví dụ:</p>
+<p class="compact-line"><code>CPUUtilization · NetworkIn · RequestCount · ErrorCount</code></p>
+<pre class="flow-diagram"><code class="language-text">EC2 / Lambda / RDS...
+↓
+Metrics
+↓
+CloudWatch
+↓
+Dashboard / Alarm</code></pre>
+<h3 class="subheading">3. Namespace &amp; Dimension</h3>
+<h4 class="minor-heading">3.1. Namespace</h4>
+<p>Dùng để nhóm metrics theo service/application.</p>
+<p class="compact-line"><code>AWS/EC2 · AWS/Lambda · AWS/RDS</code></p>
+<h4 class="minor-heading">3.2. Dimension</h4>
+<p>Dùng để xác định metric thuộc resource nào.</p>
+<p><strong>Metric</strong> = CPUUtilization</p>
+<p><strong>Dimension</strong> = InstanceId = i-123456</p>
+<p>→ cùng là CPUUtilization nhưng mỗi EC2 có time series riêng.</p>
+<h3 class="subheading">4. Độ chi tiết EC2 và RDS metrics</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Tài nguyên / chế độ</th><th>Granularity</th><th>Dữ liệu</th></tr></thead><tbody>
+<tr><td>EC2 Basic Monitoring</td><td>5 phút cho phần lớn metrics; status checks 1 phút</td><td>EC2 metrics mặc định</td></tr>
+<tr><td>EC2 Detailed Monitoring</td><td>1 phút</td><td>EC2 metrics; cần bật, có phí</td></tr>
+<tr><td>RDS CloudWatch mặc định</td><td>1 phút</td><td>Database metrics; không cần EC2 Detailed Monitoring</td></tr>
+<tr><td>RDS Enhanced Monitoring</td><td>Có thể xuống 1 giây</td><td>OS/process metrics → CloudWatch Logs; cần bật và monitoring role</td></tr>
+</tbody></table></div>
+<p>EC2 RAM cần Agent/custom metric. Enhanced Monitoring collection 1 giây không đồng nghĩa RDS console refresh mỗi giây.  · </p>
+<h3 class="subheading">5. Custom Metrics</h3>
+<p>Bạn có thể tự gửi metric lên CloudWatch.</p>
+<p class="lead-in">Ví dụ quan trọng:</p>
+<pre class="flow-diagram"><code class="language-text">EC2 mặc định
+→ có CPU / Network...
+
+RAM Usage
+→ không có mặc định
+→ cần Agent / Custom Metric</code></pre>
+<h3 class="subheading">6. CloudWatch Dashboard</h3>
+<pre class="flow-diagram"><code class="language-text">Metrics / Logs
+↓
+CloudWatch Dashboard
+↓
+Graph / Chart / Status</code></pre>
+<p class="compact-line"><strong>Ví dụ dashboard:</strong> <code>CPU · Memory · Request Count · Errors · Latency</code></p>
+<h3 class="subheading">7. CloudWatch Logs</h3>
+<p>CloudWatch Logs dùng để tập trung log từ application/service.</p>
+<p class="compact-line"><strong>Nguồn phổ biến:</strong> <code>Lambda · ECS · API Gateway · VPC Flow Logs · CloudTrail · EC2 · On-premises</code></p>
+<h4 class="minor-heading">7.1. EC2 / On-premises</h4>
+<p>Log không tự gửi lên CloudWatch.</p>
+<pre class="flow-diagram"><code class="language-text">EC2
+↓
+CloudWatch Agent
+↓
+CloudWatch Logs</code></pre>
+<p><strong>Agent cần:</strong> <strong>Config</strong> + IAM Permission</p>
+<h3 class="subheading">8. CloudWatch Logs Insights</h3>
+<p><strong>Logs Insights = query/search log đã lưu trong CloudWatch Logs.</strong></p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Logs Insights
+↓
+Filter / Search / Aggregate</code></pre>
+<p class="compact-line"><code>Tìm ERROR · Đếm request · Tìm IP · Xem log mới nhất</code></p>
+<p class="compact-line"><strong>Ví dụ query:</strong> <code>fields @timestamp, @message · | sort @timestamp desc · | limit 20</code></p>
+<blockquote class="caution"><p><strong>Logs Insights = query log lịch sử, không phải streaming engine.</strong></p></blockquote>
+<h3 class="subheading">9. Đưa Logs ra ngoài</h3>
+<p>Có 2 cách dễ nhớ.</p>
+<h4 class="minor-heading">9.1. S3 Export</h4>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Export Task
+↓
+S3</code></pre>
+<p><strong>= Batch</strong> = không dành cho real-time</p>
+<h4 class="minor-heading">9.2. Subscription Filter</h4>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Subscription Filter
+↓
+Kinesis / Firehose / Lambda</code></pre>
+<p><code>= gần real-time</code></p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Subscription Filter
+↓
+Firehose
+↓
+S3 / OpenSearch</code></pre>
+<h3 class="subheading">10. CloudWatch Agent</h3>
+<h4 class="minor-heading">10.1. Logs Agent</h4>
+<p><strong>Old Agent</strong> = chỉ gửi logs</p>
+<h4 class="minor-heading">10.2. Unified Agent</h4>
+<p><strong>Unified Agent</strong> = Logs + System Metrics</p>
+<p class="compact-line"><strong>Có thể lấy thêm:</strong> <code>RAM · Disk · Processes · Swap · Network · Detailed CPU</code></p>
+<pre class="flow-diagram"><code class="language-text">EC2
+↓
+Unified Agent
+↓
+RAM + Disk + Logs
+↓
+CloudWatch</code></pre>
+<h3 class="subheading">11. Metric Streams</h3>
+<p>Metric Streams dùng để gửi metrics liên tục sang hệ thống khác.</p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Metrics
+↓
+Metric Stream
+↓
+Data Firehose
+↓
+S3 / Redshift / OpenSearch</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch
+↓
+Datadog / New Relic / Splunk...</code></pre>
+<blockquote class="insight"><p><strong>Metric Stream = stream metrics ra ngoài gần real-time.</strong></p></blockquote>
+<h3 class="subheading">12. CloudWatch Alarms</h3>
+<p>Alarm theo dõi một metric và trigger action khi vượt threshold.</p>
+<pre class="flow-diagram"><code class="language-text">Metric
+↓
+CloudWatch Alarm
+↓
+Threshold bị vượt
+↓
+Action</code></pre>
+<pre class="flow-diagram"><code class="language-text">CPU &gt; 80%
+↓
+ALARM
+↓
+SNS Notification</code></pre>
+<p class="compact-line"><strong>Alarm có 3 trạng thái:</strong> <code>OK · ALARM · INSUFFICIENT_DATA</code></p>
+<p class="compact-line"><strong>Action có thể là:</strong> <code>SNS · Auto Scaling · EC2 Stop · EC2 Reboot · EC2 Recover</code></p>
+<h3 class="subheading">13. Composite Alarm</h3>
+<p>Composite Alarm kết hợp nhiều alarms.</p>
+<pre class="flow-diagram"><code class="language-text">CPU Alarm
+AND
+Disk IOPS Alarm
+↓
+Composite Alarm
+↓
+Incident</code></pre>
+<p class="purpose">Mục đích:</p>
+<p><code>giảm alarm noise</code></p>
+<blockquote class="caution"><p>Composite Alarm không đo metric mới, nó chỉ nhìn trạng thái các alarm khác.</p></blockquote>
+<h3 class="subheading">14. Logs → Metric → Alarm</h3>
+<p>Có thể biến log thành metric.</p>
+<pre class="flow-diagram"><code class="language-text">Application Logs
+↓
+Metric Filter
+↓
+ERROR Count Metric
+↓
+Alarm
+↓
+SNS</code></pre>
+<h3 class="subheading">15. EC2 Status Check &amp; Recovery</h3>
+<ul class="fact-list"><li><strong>EC2 có các status check như:</strong> <strong>Instance Status</strong> = vấn đề bên trong VM</li><li><strong>System Status</strong> = vấn đề underlying AWS host</li><li><strong>EBS Status</strong> = vấn đề attached storage</li></ul>
+<pre class="flow-diagram"><code class="language-text">StatusCheckFailed_System
+↓
+CloudWatch Alarm
+↓
+EC2 Recover</code></pre>
+<p>→ AWS chuyển instance sang hardware khỏe hơn.</p>
+<h3 class="subheading">16. CloudWatch Insights</h3>
+<ul class="fact-list"><li><strong>Một số feature chuyên biệt:</strong> <strong>Container Insights</strong> = monitor ECS / EKS / Containers</li><li><strong>Lambda Insights</strong> = monitor Lambda chi tiết</li><li><strong>Contributor Insights</strong> = tìm top contributor như IP gửi nhiều traffic/error nhất</li><li><strong>Application Insights</strong> = monitor application và dependency</li></ul>
+<p>Không cần nhớ quá sâu, chỉ cần nhớ đây là các công cụ monitoring chuyên biệt của CloudWatch.</p>
+<h3 class="subheading">17. Network Monitor</h3>
+<p>Dùng để monitor network giữa AWS và on-premises.</p>
+<p class="compact-line"><code>AWS · ↕ · Direct Connect / VPN · ↕ · On-premises</code></p>
+<p class="compact-line"><strong>Theo dõi:</strong> <code>Latency · Packet Loss · Jitter</code></p>
+<h3 class="subheading">18. Flow tổng thể</h3>
+<pre class="flow-diagram"><code class="language-text">AWS Resources / Application
+↓
+Metrics + Logs
+↓
+CloudWatch
+↓
+Dashboard / Logs Insights
+↓
+Alarm
+↓
+SNS / Auto Scaling / EC2 Action</code></pre>
+<h3 class="subheading usage-heading">19. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">EC2
+↓
+Unified Agent
+↓
+RAM / Disk / Logs
+↓
+CloudWatch
+↓
+Alarm</code></pre>
+<pre class="flow-diagram"><code class="language-text">Application Logs
+↓
+CloudWatch Logs
+↓
+Logs Insights
+↓
+Troubleshooting</code></pre>
+<pre class="flow-diagram"><code class="language-text">Logs
+↓
+Subscription Filter
+↓
+Firehose
+↓
+OpenSearch</code></pre>
+<pre class="flow-diagram"><code class="language-text">CPU + IOPS Alarm
+↓
+Composite Alarm
+↓
+SNS</code></pre>
+<h3 class="subheading">20. Alarm Actions, Dashboard Sharing, Cross-Account OAM &amp; Phân biệt Access Logs</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Tính năng CloudWatch</th><th>Cơ chế hoạt động</th></tr></thead><tbody>
+<tr><td><strong>CloudWatch Alarm Actions</strong></td><td>Kích hoạt <strong>SNS</strong>, <strong>Auto Scaling</strong>, <strong>Lambda</strong>, <strong>EC2 Actions</strong> (<code>Reboot</code>, <code>Recover</code> lên host vật lý mới giữ nguyên IP/EBS khi lỗi phần cứng, <code>Stop</code>, <code>Terminate</code>) và tạo <strong>SSM OpsItem / Incident</strong></td></tr>
+<tr><td><strong>CloudWatch Dashboard Sharing</strong></td><td>Chia sẻ dashboard cho người ngoài qua liên kết công khai, email/mật khẩu chỉ định hoặc SSO mà không cần tạo IAM User trong account (mặc định ẩn Logs widgets trừ khi bật quyền riêng)</td></tr>
+<tr><td><strong>CloudWatch Cross-Account OAM (Observability)</strong></td><td>Tạo <strong>OAM Sink</strong> tại Monitoring Account và triển khai <strong>OAM Link</strong> (tự động hóa qua CloudFormation StackSets) ở các Source Accounts để gom tập trung Metrics, Logs và Traces</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Dịch vụ</th><th>Loại Log</th><th>Nội dung ghi nhận</th></tr></thead><tbody>
+<tr><td><strong>CloudTrail</strong></td><td>API Activity Logs</td><td>Ai gọi AWS API nào, khi nào, từ IP nào</td></tr>
+<tr><td><strong>VPC</strong></td><td>VPC Flow Logs</td><td>Metadata gói tin IP (Source/Dest IP, Port, Protocol, ACCEPT/REJECT — không chứa HTTP body)</td></tr>
+<tr><td><strong>ALB / NLB / API Gateway / CloudFront</strong></td><td>Access Logs</td><td>Chi tiết request HTTP/HTTPS hoặc kết nối TLS tại tầng phân phối/cân bằng tải</td></tr>
+<tr><td><strong>S3</strong></td><td>Server Access Logs</td><td>Chi tiết từng request truy cập cấp object vào bucket</td></tr>
+<tr><td><strong>AWS WAF</strong></td><td>WAF Logs</td><td>Lưu lượng web khớp rule Allow, Block hoặc Count</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>CloudWatch theo dõi metrics/logs/alarms; CloudTrail ghi hoạt động API; Config theo dõi cấu hình và compliance.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon EventBridge">
+<summary><span class="t-title">Amazon EventBridge</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Amazon EventBridge là <strong>serverless event bus</strong> dùng để nhận event, lọc event và tự động gửi event tới service khác.</p>
+<p><strong>EventBridge</strong> = nhận event + filter event + route event tới target</p>
+<pre class="flow-diagram"><code class="language-text">"Có chuyện gì xảy ra"
+↓
+EventBridge phát hiện
+↓
+"Thì làm việc gì đó"</code></pre>
+<h3 class="subheading">1. Flow cơ bản</h3>
+<pre class="flow-diagram"><code class="language-text">Event Source
+↓
+EventBridge Bus
+↓
+Rule
+↓
+Target</code></pre>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">EC2 bị Stop
+↓
+EventBridge
+↓
+Rule match
+↓
+Lambda / SNS / SQS</code></pre>
+<blockquote class="insight"><p><strong>Rule quyết định khi nào chạy, Target mới là service thực sự làm việc.</strong></p></blockquote>
+<h3 class="subheading">2. Event Source</h3>
+<p class="compact-line"><strong>EventBridge có thể nhận event từ:</strong> <code>AWS Services · SaaS Applications · Custom Applications · CloudTrail</code></p>
+<p class="compact-line"><code>EC2 state change · S3 event · CodeBuild failed · CloudTrail API call · Custom application event</code></p>
+<h3 class="subheading">3. Rule</h3>
+<p class="lead-in">Rule có 2 kiểu chính:</p>
+<h4 class="minor-heading">3.1. Event Pattern</h4>
+<p>Chạy khi một event phù hợp điều kiện.</p>
+<pre class="flow-diagram"><code class="language-text">Event xảy ra
+↓
+Rule kiểm tra JSON
+↓
+Match?
+↓
+Target</code></pre>
+<pre class="flow-diagram"><code class="language-text">EC2 State = stopped
+↓
+EventBridge Rule
+↓
+SNS Alert</code></pre>
+<h4 class="minor-heading">3.2. Schedule / Cron</h4>
+<p>Chạy theo thời gian.</p>
+<pre class="flow-diagram"><code class="language-text">Every 1 hour
+↓
+EventBridge
+↓
+Lambda</code></pre>
+<pre class="flow-diagram"><code class="language-text">00:00 mỗi ngày
+↓
+EventBridge
+↓
+Lambda cleanup temporary files</code></pre>
+<h3 class="subheading">4. Target</h3>
+<p>Target là service xử lý event sau khi rule match.</p>
+<p class="compact-line"><strong>Có thể là:</strong> <code>Lambda · SQS · SNS · Step Functions · ECS · AWS Batch · Kinesis · CodePipeline · CodeBuild · SSM</code></p>
+<pre class="flow-diagram"><code class="language-text">Order Created
+↓
+EventBridge
+↓
+SQS
+↓
+Order Worker</code></pre>
+<h3 class="subheading">5. Event Bus</h3>
+<ul class="fact-list"><li><strong>EventBridge có các loại bus:</strong> <strong>Default Event Bus</strong> = AWS service events</li><li><strong>Partner Event Bus</strong> = SaaS như Datadog / Zendesk</li><li><strong>Custom Event Bus</strong> = event từ application của bạn</li></ul>
+<pre class="flow-diagram"><code class="language-text">My Application
+↓
+Custom Event Bus
+↓
+Rule
+↓
+Lambda</code></pre>
+<h3 class="subheading">6. Producer &amp; Consumer tách rời</h3>
+<p class="lead-in">Điểm quan trọng của EventBridge:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+EventBridge
+↓
+Consumer</code></pre>
+<p>Producer không cần biết ai xử lý event.</p>
+<pre class="flow-diagram"><code class="language-text">Order Service
+↓
+"OrderCreated"
+↓
+EventBridge
+├── Inventory Lambda
+├── Email SQS
+└── Analytics Kinesis</code></pre>
+<blockquote class="caution"><p>Order Service chỉ phát event, không cần gọi trực tiếp từng service.</p></blockquote>
+<h3 class="subheading">7. CloudTrail + EventBridge</h3>
+<p>CloudTrail ghi lại AWS API activity.</p>
+<p>EventBridge có thể phản ứng với các event đó.</p>
+<pre class="flow-diagram"><code class="language-text">User gọi DeleteTable
+↓
+CloudTrail ghi lại
+↓
+EventBridge Rule match
+↓
+SNS
+↓
+Security Team</code></pre>
+<p class="lead-in">Hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">Root Login
+↓
+EventBridge
+↓
+SNS Alert</code></pre>
+<blockquote class="caution"><p>EventBridge <strong>phản ứng sau khi event xảy ra</strong>, không chặn API call trước đó.</p></blockquote>
+<h3 class="subheading">8. Archive &amp; Replay</h3>
+<p>EventBridge có thể lưu event lại.</p>
+<pre class="flow-diagram"><code class="language-text">Event Bus
+↓
+Archive</code></pre>
+<p class="lead-in">Sau đó:</p>
+<pre class="flow-diagram"><code class="language-text">Archive
+↓
+Replay
+↓
+Rule / Target</code></pre>
+<p class="compact-line"><strong>Dùng khi:</strong> <code>Test lại consumer · Reprocess event · Debug incident</code></p>
+<blockquote class="caution"><p>Replay không thay thế idempotency/retry logic của consumer.</p></blockquote>
+<h3 class="subheading">9. Schema Registry</h3>
+<p><strong>Schema Registry</strong> = lưu / hiểu cấu trúc event JSON</p>
+<p class="lead-in">Ví dụ event:</p>
+<pre class="flow-diagram"><code class="language-text">{
+  "orderId": "123",
+  "status": "PAID"
+}</code></pre>
+<p>Schema giúp application biết event có những field nào.</p>
+<h3 class="subheading">10. Cross-account</h3>
+<p>EventBridge có thể gửi event giữa các AWS account.</p>
+<pre class="flow-diagram"><code class="language-text">Account A
+↓
+EventBridge
+↓
+Account B Central Event Bus</code></pre>
+<p class="compact-line"><strong>Phù hợp với:</strong> <code>Multi-account AWS Organization · Central Monitoring · Central Security Automation</code></p>
+<p><strong>Cần:</strong> <strong>IAM Permission</strong> + Event Bus Resource Policy</p>
+<h3 class="subheading usage-heading">11. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Every 1 hour
+↓
+EventBridge
+↓
+Lambda</code></pre>
+<pre class="flow-diagram"><code class="language-text">EC2 State Change
+↓
+EventBridge
+↓
+SNS Alert</code></pre>
+<pre class="flow-diagram"><code class="language-text">CloudTrail DeleteTable
+↓
+EventBridge
+↓
+Security Notification</code></pre>
+<pre class="flow-diagram"><code class="language-text">OrderCreated
+↓
+EventBridge
+↓
+SQS / Lambda / Step Functions</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>EventBridge nhận, lọc và route events; Scheduler dùng cho chạy lịch độc lập với event nguồn.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS CloudTrail">
+<summary><span class="t-title">AWS CloudTrail</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  AWS CloudTrail dùng để <strong>audit hoạt động trong AWS account</strong>.</p>
+<p class="compact-line"><strong>Nó trả lời:</strong> <code>Ai? · Làm gì? · Khi nào? · Từ đâu?</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">EC2 bị terminate
+↓
+CloudTrail
+↓
+User/Role nào gọi API?
+IP nào?
+Thời gian nào?
+API nào?</code></pre>
+<blockquote class="insight"><p><strong>CloudTrail = audit AWS API activity.</strong></p></blockquote>
+<h3 class="subheading">1. CloudTrail vs CloudWatch</h3>
+<p><strong>CloudTrail</strong> = ai đã làm gì trên AWS?</p>
+<p><strong>CloudWatch</strong> = hệ thống đang hoạt động thế nào?</p>
+<pre class="flow-diagram"><code class="language-text">EC2 bị xóa
+→ CloudTrail
+
+CPU EC2 = 95%
+→ CloudWatch</code></pre>
+<h3 class="subheading">2. CloudTrail ghi lại gì?</h3>
+<p class="compact-line"><strong>CloudTrail ghi activity từ:</strong> <code>AWS Console · CLI · SDK · AWS Services · IAM User / Role</code></p>
+<p class="compact-line"><code>CreateSubnet · DeleteBucket · TerminateInstances · AttachRolePolicy</code></p>
+<h3 class="subheading">3. Event History</h3>
+<p>CloudTrail có <strong>Event History</strong> mặc định cho management events.</p>
+<p><strong>Event History</strong> = xem activity gần đây = giữ khoảng 90 ngày</p>
+<p class="lead-in">Nếu cần lưu lâu hơn:</p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail Trail
+↓
+S3
+↓
+Athena query</code></pre>
+<h3 class="subheading">4. Trail</h3>
+<p><strong>Trail = cấu hình để CloudTrail gửi logs lâu dài ra storage.</strong></p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail
+↓
+Trail
+↓
+S3</code></pre>
+<p><strong>Có thể gửi thêm sang:</strong> <code>CloudWatch Logs</code></p>
+<p class="compact-line"><strong>Trail có thể:</strong> <code>Single Region · hoặc · All Regions</code></p>
+<h3 class="subheading">5. Các loại Event</h3>
+<h4 class="minor-heading">5.1. Management Events</h4>
+<p>Là thao tác quản lý AWS resource.</p>
+<p class="compact-line"><code>CreateSubnet · AttachRolePolicy · CreateTrail · TerminateInstances</code></p>
+<p><strong>Có thể chia:</strong> <strong>Read</strong> = chỉ đọc</p>
+<p><strong>Write</strong> = thay đổi resource</p>
+<blockquote class="insight"><p>Management events là loại phổ biến nhất khi điều tra ai sửa/xóa resource.</p></blockquote>
+<h3 class="subheading">6. Data Events</h3>
+<p>Là activity trực tiếp trên data/object/function.</p>
+<p class="compact-line"><code>S3 GetObject · S3 PutObject · S3 DeleteObject · Lambda Invoke</code></p>
+<p class="compact-line"><strong>Data events:</strong> <code>Volume cao · Cost cao hơn · Không log mặc định</code></p>
+<p>Nên thường chỉ bật cho resource quan trọng.</p>
+<h3 class="subheading">7. CloudTrail Insights</h3>
+<p>CloudTrail Insights dùng để phát hiện <strong>activity bất thường</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Bình thường:
+10 API calls / phút
+
+Đột nhiên:
+1000 API calls / phút
+↓
+CloudTrail Insights
+↓
+Anomaly</code></pre>
+<p class="compact-line"><strong>Có thể phát hiện:</strong> <code>IAM activity bất thường · Provisioning bất thường · API burst · Behavior khác baseline</code></p>
+<pre class="flow-diagram"><code class="language-text">Management Write Events
+↓
+CloudTrail Insights
+↓
+Detect anomaly
+↓
+EventBridge / Alert</code></pre>
+<h3 class="subheading">8. Điều tra với S3 + Athena</h3>
+<p class="lead-in">Nếu lưu CloudTrail vào S3:</p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail
+↓
+S3
+↓
+Athena
+↓
+SQL Query</code></pre>
+<p class="compact-line"><strong>Ví dụ muốn tìm:</strong> <code>Ai delete bucket? · Ai terminate EC2? · Ai sửa Security Group?</code></p>
+<h3 class="subheading">9. CloudTrail + EventBridge</h3>
+<p>CloudTrail ghi lại event.</p>
+<p>EventBridge có thể phản ứng với event đó.</p>
+<pre class="flow-diagram"><code class="language-text">User gọi DeleteTable
+↓
+CloudTrail ghi lại
+↓
+EventBridge match
+↓
+SNS / Lambda / SQS</code></pre>
+<blockquote class="insight"><p><strong>CloudTrail = ghi lại</strong></p><p><strong>EventBridge = phản ứng</strong></p></blockquote>
+<h3 class="subheading">10. Flow tổng thể</h3>
+<pre class="flow-diagram"><code class="language-text">User / Role / AWS Service
+↓
+API Call
+↓
+CloudTrail
+↓
+Management / Data / Insights Event
+↓
+Event History / S3 / CloudWatch Logs
+↓
+Athena / EventBridge
+↓
+Investigation / Alert / Automation</code></pre>
+<h3 class="subheading usage-heading">11. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">EC2 bị terminate
+↓
+CloudTrail
+↓
+Tìm user + API + IP + time</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sensitive S3 Bucket
+↓
+Enable Data Events
+↓
+Log GetObject / PutObject / DeleteObject</code></pre>
+<pre class="flow-diagram"><code class="language-text">CloudTrail
+↓
+S3
+↓
+Athena
+↓
+Audit lâu dài</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sensitive API Call
+↓
+CloudTrail
+↓
+EventBridge
+↓
+SNS Alert</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>CloudTrail ghi lại AWS API activity để audit; Event History, trail và CloudTrail Lake có phạm vi/lưu trữ khác nhau.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Config &amp; compliance automation">
+<summary><span class="t-title">AWS Config &amp; compliance automation</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  AWS Config dùng để <strong>theo dõi configuration của AWS resource theo thời gian</strong> và kiểm tra resource có <strong>tuân thủ rule hay không</strong>.</p>
+<p><strong>AWS Config</strong> = Configuration History + Compliance Check</p>
+<p class="compact-line"><strong>Nó trả lời:</strong> <code>Resource đang cấu hình thế nào? · Trước đây cấu hình ra sao? · Có compliant với rule không?</code></p>
+<h3 class="subheading">1. Ví dụ dễ hiểu</h3>
+<p class="compact-line"><strong>Bạn có rule:</strong> <code>Security Group · không được mở SSH 22 cho 0.0.0.0/0</code></p>
+<p class="compact-line"><strong>Nếu có SG:</strong> <code>Port 22 · Source = 0.0.0.0/0</code></p>
+<p><strong>Config đánh giá:</strong> <code>NON_COMPLIANT ❌</code></p>
+<p class="compact-line"><strong>Nếu chỉ cho IP công ty:</strong> <code>Port 22 · Source = Company IP</code></p>
+<p>→</p>
+<p><code>COMPLIANT ✅</code></p>
+<blockquote class="insight"><p><strong>Config = kiểm tra cấu hình có đúng policy không.</strong></p></blockquote>
+<h3 class="subheading">2. AWS Config theo dõi gì?</h3>
+<p class="lead-in">Ví dụ:</p>
+<p class="compact-line"><code>Security Group · S3 Bucket · EC2 · EBS · ALB · IAM · ...</code></p>
+<p class="compact-line"><strong>Có thể biết:</strong> <code>Configuration hiện tại · Configuration trước đây · Thời điểm configuration thay đổi · Compliance status</code></p>
+<h3 class="subheading">3. Resource Timeline</h3>
+<p>Config lưu lịch sử thay đổi của resource.</p>
+<p class="compact-line"><code>10:00 · S3 Bucket = Private · 11:00 · S3 Bucket = Public · 12:00 · S3 Bucket = Private</code></p>
+<p class="compact-line"><strong>Config Timeline giúp xem:</strong> <code>Resource thay đổi lúc nào · Configuration trước/sau · Compliance thay đổi thế nào</code></p>
+<p>Có thể liên kết với CloudTrail để xem API call nào gây ra thay đổi.</p>
+<h3 class="subheading">4. Config Rules</h3>
+<p>Rule dùng để kiểm tra configuration.</p>
+<pre class="flow-diagram"><code class="language-text">S3 Bucket
+→ không được Public
+
+Security Group
+→ không mở SSH toàn Internet
+
+ALB
+→ phải có SSL Certificate</code></pre>
+<p><strong>Có 2 loại:</strong> <strong>AWS Managed Rule</strong> = AWS làm sẵn</p>
+<p><strong>Custom Rule</strong> = logic riêng của bạn = thường dùng Lambda</p>
+<h3 class="subheading">5. Rule chạy khi nào?</h3>
+<p class="lead-in">Có thể chạy:</p>
+<pre class="flow-diagram"><code class="language-text">Configuration Change
+↓
+Config đánh giá ngay</code></pre>
+<p class="lead-in">hoặc:</p>
+<pre class="flow-diagram"><code class="language-text">Theo Schedule
+↓
+Config kiểm tra định kỳ</code></pre>
+<pre class="flow-diagram"><code class="language-text">EC2 configuration thay đổi
+↓
+Config Rule
+↓
+COMPLIANT / NON_COMPLIANT</code></pre>
+<h3 class="subheading">6. Config KHÔNG chặn thay đổi</h3>
+<p class="lead-in">Điểm rất quan trọng:</p>
+<pre class="flow-diagram"><code class="language-text">User mở S3 Public
+↓
+Action xảy ra trước
+↓
+Config phát hiện
+↓
+NON_COMPLIANT</code></pre>
+<blockquote class="caution"><p><strong>Config phát hiện sau khi configuration xảy ra, không phải firewall để chặn action trước đó.</strong></p></blockquote>
+<h3 class="subheading">7. Notification</h3>
+<p class="lead-in">Khi resource NON_COMPLIANT:</p>
+<pre class="flow-diagram"><code class="language-text">AWS Config
+↓
+EventBridge / SNS
+↓
+Alert</code></pre>
+<pre class="flow-diagram"><code class="language-text">Security Group mở port 22
+↓
+Config = NON_COMPLIANT
+↓
+EventBridge
+↓
+SNS
+↓
+Security Team</code></pre>
+<h3 class="subheading">8. Auto Remediation</h3>
+<p>Config có thể tự sửa resource thông qua <strong>SSM Automation</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">NON_COMPLIANT
+↓
+AWS Config
+↓
+SSM Automation
+↓
+Fix configuration</code></pre>
+<pre class="flow-diagram"><code class="language-text">IAM Access Key expired
+↓
+Config
+↓
+NON_COMPLIANT
+↓
+SSM Automation
+↓
+Revoke Key</code></pre>
+<blockquote class="insight"><p>Remediation cần IAM permission phù hợp.</p></blockquote>
+<h3 class="subheading">9. Multi-Account / Multi-Region</h3>
+<p class="lead-in">AWS Config hoạt động theo Region nhưng có thể aggregate:</p>
+<pre class="flow-diagram"><code class="language-text">Account A / Region A
+Account B / Region B
+Account C / Region C
+        ↓
+Config Aggregator
+        ↓
+Central Security Account</code></pre>
+<p>Phù hợp để quản compliance cho nhiều AWS accounts.</p>
+<h3 class="subheading">10. S3 + Athena</h3>
+<p class="lead-in">Config data có thể lưu vào S3:</p>
+<pre class="flow-diagram"><code class="language-text">AWS Config
+↓
+S3
+↓
+Athena
+↓
+SQL Analysis / Report</code></pre>
+<p>Dùng để audit lâu dài.</p>
+<h3 class="subheading">11. CloudWatch vs CloudTrail vs Config</h3>
+<ul class="fact-list"><li><strong>CloudWatch</strong> = hệ thống chạy thế nào?</li><li><code>CPU = 95% · Latency cao · Error nhiều</code></li><li><strong>CloudTrail</strong> = ai đã làm gì?</li></ul>
+<p class="compact-line"><code>Ai sửa Security Group? · Ai delete EC2? · API nào được gọi?</code></p>
+<p><strong>AWS Config</strong> = resource được cấu hình thế nào? = có compliant không?</p>
+<p class="compact-line"><code>Security Group có mở port 22 không? · S3 có public không? · ALB có SSL certificate không?</code></p>
+<h3 class="subheading">12. Ví dụ kết hợp</h3>
+<p class="lead-in">Giả sử Security Group bị mở:</p>
+<pre class="flow-diagram"><code class="language-text">0.0.0.0/0 → Port 22</code></pre>
+<h4 class="minor-heading">12.1. CloudTrail</h4>
+<pre class="flow-diagram"><code class="language-text">Ai đã sửa SG?
+↓
+User A
+AuthorizeSecurityGroupIngress</code></pre>
+<h4 class="minor-heading">12.2. AWS Config</h4>
+<pre class="flow-diagram"><code class="language-text">SG hiện tại:
+Port 22 open to Internet
+↓
+NON_COMPLIANT</code></pre>
+<h4 class="minor-heading">12.3. CloudWatch</h4>
+<p class="compact-line"><code>Monitor application/server metrics · CPU / Logs / Errors</code></p>
+<h3 class="subheading usage-heading">13. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">S3 Bucket
+↓
+Config
+↓
+Check Public Access</code></pre>
+<pre class="flow-diagram"><code class="language-text">Security Group
+↓
+Config
+↓
+Check unrestricted SSH</code></pre>
+<pre class="flow-diagram"><code class="language-text">NON_COMPLIANT
+↓
+EventBridge / SNS
+↓
+Security Alert</code></pre>
+<pre class="flow-diagram"><code class="language-text">NON_COMPLIANT
+↓
+SSM Automation
+↓
+Auto Remediation</code></pre>
+<h3 class="subheading">14. So sánh các lựa chọn</h3>
+<div class="table-wrap"><table class="study-table"><tbody></tbody></table></div>
+<h3 class="subheading">15. AWS Config Aggregator (Multi-Account / Multi-Region)</h3>
+<pre class="flow-diagram"><code class="language-text">Member Accounts (AWS Config bật ở từng Region)
+  ↓ Thu thập về
+Security / Management Account (AWS Config Aggregator)
+  ↓ Dashboard tập trung: Resource Inventory + Configuration History + Compliance Status</code></pre>
+<p>Config Aggregator chỉ <strong>tổng hợp hiển thị và kiểm tra tuân thủ</strong>; không thay thế CloudTrail và không tự động sửa tài nguyên hay dựng landing zone cho account mới.</p>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>AWS Config ghi configuration history, đánh giá rules và compliance; CloudTrail là nhật ký API, không phải cấu hình trạng thái.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS X-Ray &amp; Amazon Managed Grafana">
+<summary><span class="t-title">AWS X-Ray &amp; Amazon Managed Grafana</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> Truy vết phân tán từng request xuyên suốt kiến trúc microservices và trực quan hóa dữ liệu giám sát đa nguồn trên một bảng điều khiển thống nhất.</p>
+<h3 class="subheading">1. Bảng phân biệt AWS X-Ray &amp; Amazon Managed Grafana</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Dịch vụ</th><th>Vai trò cốt lõi</th><th>Tích hợp &amp; Cấu hình trọng tâm</th></tr></thead><tbody>
+<tr><td><strong>AWS X-Ray</strong></td><td>Truy vết phân tán (Distributed Tracing): ghi segments/subsegments và dựng <strong>Service Map</strong> đầu-cuối để khoanh vùng chính xác service gây nghẽn cổ chai hoặc lỗi 4xx/5xx</td><td>Tích hợp API Gateway, Lambda, ECS, EC2, SQS, SNS, DynamoDB, RDS; bật qua IaC (<code>TracingConfig: Active</code> trên Lambda, <code>TracingEnabled: true</code> trên API Gateway) kèm quyền IAM ghi trace</td></tr>
+<tr><td><strong>Amazon Managed Grafana</strong></td><td>Dashboard quan sát trực quan hoàn toàn managed (không cần tự vận hành máy chủ Grafana)</td><td>Truy vấn đồng thời từ CloudWatch, Managed Prometheus, X-Ray, OpenSearch, Timestream, Athena, RDS; đăng nhập SSO qua <strong>IAM Identity Center</strong></td></tr>
+</tbody></table></div>
+</div>
+</details>

@@ -1,0 +1,380 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon VPC foundations: CIDR, subnets &amp; routing">
+<summary><span class="t-title">Amazon VPC foundations: CIDR, subnets &amp; routing</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Create a private network in an AWS Region, select IP range, divide subnet by AZ and control traffic path.</p>
+<h3 class="subheading">1. VPC, subnet and CIDR</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Component</th><th>IP Range &amp; Banding Rules</th></tr></thead><tbody>
+<tr><td><strong>VPC</strong></td><td>Level range <strong>Region</strong>; A VPC can contain many subnets spanning many Availability Zones</td></tr>
+<tr><td><strong>Subnet</strong></td><td>Fixed mounting with <strong>an AZ</strong>; Subnets in the same VPC must not overlap IP ranges</td></tr>
+<tr><td><strong>CIDR</strong></td><td>IP range with prefix length — the larger the prefix, the smaller the range (<code>/24</code> = 256 IP, <code>/26</code> = 64, <code>/27</code> = 32, <code>/32</code> = 1 IPv4)</td></tr>
+</tbody></table></div>
+<p>Commonly used private ranges: <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>. Avoid overlap with VPC/on-premises that need connection.</p>
+<pre class="flow-diagram"><code class="language-text">VPC 10.0.0.0/16
+├─ AZ A: public 10.0.0.0/24 · private 10.0.1.0/24
+└─ AZ B: public 10.0.2.0/24 · private 10.0.3.0/24</code></pre>
+<h3 class="subheading">2. IP can be used in subnet</h3>
+<p class="lead-in"><strong>AWS keeps the first 4 IPv4s and 1 last IPv4.</strong> Subnet example <code>10.0.0.0/24</code>:</p>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th>IP</th><th>Meaning</th></tr><tr><td><code dir="ltr">10.0.0.0</code></td><td><strong>Network Address</strong> — represents the entire subnet</td></tr><tr><td><code dir="ltr">10.0.0.1</code></td><td><strong>VPC Router</strong> — route traffic</td></tr><tr><td><code dir="ltr">10.0.0.2</code></td><td><strong>Amazon-provided DNS</strong> — resolve domain → IP</td></tr><tr><td><code dir="ltr">10.0.0.3</code></td><td><strong>Reserved</strong> — AWS holds for future use</td></tr><tr><td><code dir="ltr">10.0.0.255</code></td><td><strong>Broadcast Address</strong> — AWS still reserves even though VPC does not support broadcast</td></tr></tbody></table></div>
+<p><strong>Usable IPv4 = total IP − 5.</strong> <code>/27</code> 27 IPs left; If you need 29 IPs, choose <code>/26</code> with 59 usable IPs.</p>
+<p>IPv4 subnets typically have a prefix from <code>/16</code> come <code>/28</code>. VPC does not support IP broadcast. .</p>
+<h3 class="subheading">3. Route Table and longest prefix match</h3>
+<p><strong>Destination = destination to be reached; target = where to go.</strong> Route <code>10.0.0.0/16 → local</code> for internal VPC traffic.</p>
+<p><strong>The most specific route wins.</strong> Destination <code>10.20.1.10</code> choose <code>10.20.0.0/16</code> instead <code>10.0.0.0/8</code>.</p>
+<p>Each subnet uses a route table; Multiple subnets can share the same table. Target can be IGW, NAT, peering, endpoint, VGW or TGW.</p>
+<p><code>0.0.0.0/0</code> = all IPv4; <code>::/0</code> = all IPv6. Dual-stack uses both types of addresses and corresponding routes.</p>
+<h3 class="subheading">4. Public and private subnets</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Network components</th><th>Internet routing mechanism</th></tr></thead><tbody>
+<tr><td><strong>Public Subnet</strong></td><td>Route Table has a direct route out <code>IGW</code>; If EC2 wants to go to the Internet using IPv4, it needs Public IPv4/EIP and SG/NACL permission</td></tr>
+<tr><td><strong>Private Subnet</strong></td><td>There is no direct route out <code>IGW</code>; IPv4 resources that want to go out onto the Internet usually go through one-way traffic <code>NAT Gateway</code></td></tr>
+<tr><td><strong>Internet Gateway (IGW)</strong></td><td>Internet gateway managed by AWS (HA &amp; scalable available); Just attaching IGW to VPC is not enough if the Route Table has not been updated</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Public EC2 has public IPv4 → IGW → Internet
+Private EC2 → NAT Gateway in public subnet → IGW → Internet</code></pre>
+<h3 class="subheading">5. Design and cost</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Design model</th><th>Architectural significance</th></tr></thead><tbody>
+<tr><td><strong>Default VPC</strong> vs <strong>Custom VPC</strong></td><td>Default VPC pre-builds public subnets, IGW and routes for quick testing; Custom VPC allows self-design of CIDR and strict public/private layer separation</td></tr>
+<tr><td><strong>Multi-AZ</strong></td><td>Place application tiers across multiple AZs to tolerate infrastructure failures; Prioritize using Private IP for internal communication</td></tr>
+</tbody></table></div>
+<p>Cross-AZ, Cross-Region, NAT processing and Internet egress may incur fees; Optimize the path while still maintaining fault tolerance.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<p>Three-tier web: public ALB, application and private database, deployed on at least two AZs.</p>
+<p>Set up CIDR before connecting AWS to on-premises to avoid overlap; Choose a subnet with enough IP for EC2, ENI and increased load.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>VPC creates virtual network: CIDR/subnet/route table decides the route; SG/NACL decides on allowed traffic.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="VPC Internet access: IGW, bastion, NAT &amp; IPv6">
+<summary><span class="t-title">VPC Internet access: IGW, bastion, NAT &amp; IPv6</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Send workloads to the Internet in the right direction: public resources via IGW; private resource actively goes out but does not receive new connections from the Internet via NAT/egress-only IGW.</p>
+<h3 class="subheading">1. Public IPv4 qua Internet Gateway</h3>
+<ul><li><strong>Three conditions:</strong> route <code>0.0.0.0/0 → IGW</code>, public IPv4/EIP, SG/NACL allow correct traffic.</li>
+<li>IGW attached to VPC; The subnet's route table determines whether the workload has an IGW outlet or not.</li></ul>
+<pre class="flow-diagram"><code class="language-text">Internet client
+↓ HTTPS 443
+IGW → public ALB/EC2
+↓ private IP
+Application private → database private</code></pre>
+<h3 class="subheading">2. Private IPv4 qua NAT Gateway</h3>
+<pre class="flow-diagram"><code class="language-text">Private EC2
+↓ private route: 0.0.0.0/0 → NAT
+Public NAT Gateway has EIP
+↓ public route: 0.0.0.0/0 → IGW
+IGW → Internet
+↑ response of opened EC2 connection</code></pre>
+<ul><li><strong>NAT for outbound.</strong> The Internet does not initiate a new connection to private EC2 via NAT; NAT does not replace bastion.</li>
+<li><strong>Zonal NAT Gateway:</strong> AWS manages, self-scales, HA in one AZ, no SG attached. Public NAT is located in the public subnet and requires EIP.</li>
+<li><strong>Multi-AZ with zonal NAT:</strong> The private subnet of each AZ uses NAT with the same AZ to avoid dependence on other AZs and reduce cross-AZ traffic.</li>
+<li><strong>Cost:</strong> calculated based on time and data processed. Traffic to S3/DynamoDB can use Gateway Endpoint to avoid NAT.</li></ul>
+<h3 class="subheading">3. NAT Gateway and NAT Instance</h3>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Characteristics</th><th>NAT Gateway</th><th>NAT Instance</th></tr>
+<tr><td>Type</td><td>AWS-managed service</td><td>EC2 instance</td></tr>
+<tr><td>Manage OS/Patch</td><td>AWS</td><td>You</td></tr>
+<tr><td>Scaling</td><td>AWS managed</td><td>Self-scale</td></tr>
+<tr><td>Bandwidth</td><td>Auto scale according to source</td><td>According to EC2 type</td></tr>
+<tr><td>High Availability</td><td>AZ-level; Multi-AZ typically implements NAT per AZ</td><td>Design yourself</td></tr>
+<tr><td>Public Subnet</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Elastic IP</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Security Group</td><td>No</td><td>Yes</td></tr>
+<tr><td>Bastion Host</td><td>No</td><td>Maybe</td></tr>
+<tr><td>Source/Destination Check</td><td>No management required</td><td>Must disable</td></tr>
+<tr><td>Recommended</td><td>Modern/default choice</td><td>Legacy / custom control</td></tr>
+</tbody></table></div>
+<p><strong>NAT Instance = EC2 does NAT itself.</strong> Source/destination check must be turned off because it forwards traffic from another machine; self-managed patching, scaling and failover.</p>
+<h3 class="subheading">4. Bastion and administrative access</h3>
+<pre class="flow-diagram"><code class="language-text">Admin IP / office CIDR
+↓ SSH 22
+Bastion EC2 is in public subnet
+↓ SSH 22
+Private EC2</code></pre>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Security Group</th><th>Minimum port opening rule</th></tr></thead><tbody>
+<tr><td><strong>Bastion SG</strong></td><td>Accept only <code>TCP 22</code> from specific admin/office IP range, avoid opening SSH for <code>0.0.0.0/0</code></td></tr>
+<tr><td><strong>Private EC2 SG</strong></td><td>Accept only <code>TCP 22</code> whose reference source is <strong>Bastion SG</strong> (more flexible and secure than hard-code IP)</td></tr>
+</tbody></table></div>
+<h3 class="subheading">5. IPv6: IGW, egress-only IGW and NAT64</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>IPv6 mechanism</th><th>Connection direction &amp; How it works</th></tr></thead><tbody>
+<tr><td><strong>Internet Gateway (IGW)</strong></td><td>Route <code>::/0 → IGW</code>; Enables two-way IPv6 communication if SG/NACL allows it</td></tr>
+<tr><td><strong>Egress-only IGW</strong></td><td>Route <code>::/0 → egress-only IGW</code>; instance proactively goes out to the IPv6 Internet and receives responses, blocking the Internet direction from opening new incoming connections</td></tr>
+<tr><td><strong>DNS64 + NAT64</strong></td><td>When IPv6 subnet needs to call a destination that only supports IPv4: DNS64 synthesizes IPv6 addresses and NAT Gateway uses NAT64 to translate to IPv4 (<a href="https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-nat64-dns64.html" rel="noopener noreferrer" target="_blank">AWS Docs</a>)</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">IPv4 private → NAT Gateway → IGW → Internet IPv4
+IPv6 outbound → egress-only IGW → Internet IPv6
+IPv6 client + DNS64 → NAT64 on NAT Gateway → IPv4 service</code></pre>
+<h3 class="subheading">6. Regional NAT Gateway</h3>
+<ul><li><strong>Regional mode:</strong> one NAT ID for multiple AZs, self-scaling according to workload in automatic mode; No need for public subnet to set NAT.</li>
+<li>There is a separate route table with routes to IGW; Does not support private NAT. Distinguished from zonal NAT when the problem clearly specifies the mode. .</li></ul>
+<h3 class="subheading usage-heading">7. Use cases</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Situation</th><th>Standard network solution</th></tr></thead><tbody>
+<tr><td><strong>Three-tier website</strong></td><td>Internet → Public ALB (443) → Private App (8080, received from ALB SG) → Private RDS (5432, received from App SG); NAT is only needed if the App calls to the Internet</td></tr>
+<tr><td><strong>Private EC2 downloads patches/calls external APIs</strong></td><td>Go through Public NAT Gateway; The Internet only responds to opened connections, reverse SSH over NAT is not possible</td></tr>
+<tr><td><strong>Private EC2 reads S3/DynamoDB</strong></td><td>Use <strong>Gateway VPC Endpoint</strong> Combine IAM/Resource Policy for free internal travel, reducing processing fees via NAT</td></tr>
+<tr><td><strong>Private IPv6 goes out to the Internet</strong></td><td>Use <strong>Egress-only Internet Gateway</strong> to block all connections initiated from outside the Internet</td></tr>
+</tbody></table></div>
+<h3 class="subheading">8. Distinguish between Public NAT vs Private NAT &amp; Zonal NAT vs Regional NAT</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>NAT Gateway type</th><th>Elastic IP &amp; IGW</th><th>Intended use</th></tr></thead><tbody>
+<tr><td><strong>Public NAT Gateway</strong></td><td><strong>Required to attach Elastic IP</strong>, located in Public Subnet with route out to IGW</td><td>Let resources in Private Subnet go out to the IPv4 Internet one-way</td></tr>
+<tr><td><strong>Private NAT Gateway</strong></td><td><strong>Do not attach Elastic IP</strong>, does not go through IGW</td><td>Translate source IP for pure internal connection to another VPC or On-premises network (e.g. avoid IP range conflicts)</td></tr>
+<tr><td><strong>Zonal NAT</strong> vs <strong>Regional NAT</strong></td><td>Zonal attaches 1 AZ (standard HA requires 1 NAT/AZ); Regional is managed at the Region level</td><td>Regional NAT automatically expands to serve multiple AZs in the Region without having to manually manage each NAT for each AZ</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Public subnet is not enough for EC2 to go to the Internet: it needs an IGW route and public IP. Private outbound uses NAT; Administrator uses bastion or SSM.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="VPC traffic controls, visibility &amp; AWS Network Firewall">
+<summary><span class="t-title">VPC traffic controls, visibility &amp; AWS Network Firewall</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Block/allow traffic at the correct layer, observe when connection errors occur, and inspect traffic more deeply using AWS Network Firewall.</p>
+<h3 class="subheading">1. Security Group and NACL</h3>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Characteristics</th><th>Security Group</th><th>NACL</th></tr>
+<tr><td>Level</td><td>ENI / Resource</td><td>Subnet</td></tr>
+<tr><td>Allow</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Deny</td><td>No</td><td>Yes</td></tr>
+<tr><td>Stateful</td><td>Yes</td><td>No</td></tr>
+<tr><td>Return traffic</td><td>Auto allow</td><td>There must be rules</td></tr>
+<tr><td>Rule priority</td><td>Consider the appropriate rules</td><td>According to rule number</td></tr>
+<tr><td>Apply</td><td>Resource is attached</td><td>All resources in the subnet</td></tr>
+</tbody></table></div>
+<ul><li><strong>SG = ENI/resource firewall.</strong> Only allow; stateful so the connection's response has been allowed to reverse itself.</li>
+<li><strong>NACL = subnet firewall.</strong> Allow + deny; stateless, so request and response must both have appropriate rules.</li>
+<li>SG and NACL apply together: if one layer blocks, traffic is still blocked, even if the other layer allows it.</li></ul>
+<h3 class="subheading">2. NACL: order and default</h3>
+<ul><li><strong>A small number of rules is considered first; first match wins.</strong> Rule no <code>1–32766</code>; bottom of the table is <code>* → deny</code>.</li>
+<li>For example <code>100 allow 10.0.0.0/8</code> stand before <code>200 deny 10.1.1.10/32</code>: That IP is allowed because it matches rule 100.</li>
+<li><strong>Default NACL:</strong> allow inbound/outbound. <strong>New Custom NACL:</strong> deny all traffic until the allow rule is added.</li>
+<li>Leave space between rule numbers like 100, 200, 300 to easily insert higher priority rules.</li></ul>
+<h3 class="subheading">3. Ephemeral ports and return traffic</h3>
+<pre class="flow-diagram"><code class="language-text">Request:  Web 10.0.1.10:50000 → DB 10.0.2.20:3306
+Response: DB 10.0.2.20:3306   → Web 10.0.1.10:50000</code></pre>
+<ul><li><strong>3306 = MySQL port; 50000 = temporary client port.</strong> NACL must allow routes to the service port and routes to the ephemeral port.</li>
+<li>Range depends on OS: for example Windows/IANA <code>49152–65535</code>, some Linux <code>32768–60999</code>; Do not assume all clients use the same range.</li>
+<li>Stateful SGs do not need a separate rule just to ensure the connection's response is allowed.</li></ul>
+<h3 class="subheading">4. VPC Flow Logs: observe metadata</h3>
+<ul><li>Turn on <strong>VPC, subnet or ENI</strong>; Record source/destination IP, port, protocol, packets/bytes, time and <code>ACCEPT/REJECT</code>.</li>
+<li>Other useful fields: <code>account-id</code>, <code>interface-id</code>, <code>start/end</code>, <code>log-status</code>.</li>
+<li><strong>Does not contain payload and does not block traffic.</strong> <code>dstport=22, action=REJECT</code> helps localize SSH rejected by SG/NACL; still need to check route, DNS, OS and application.</li>
+<li>Send to CloudWatch Logs, S3, or Data Firehose.</li></ul>
+<pre class="flow-diagram"><code class="language-text">Flow Logs → CloudWatch Logs → Metric Filter / Contributor Insights → Alarm → SNS
+Flow Logs → S3 → Athena → historical analytics / QuickSight</code></pre>
+<h3 class="subheading">5. Traffic Mirroring: copy packet</h3>
+<pre class="flow-diagram"><code class="language-text">ENI ├─ origin traffic → destination
+    └─ copy → IDS / packet analyzer / security appliance</code></pre>
+<p><strong>Mirroring for realistic packet analysis.</strong> Tool observes copies; Original traffic is still running. If you want to inspect and block along the way, use a firewall.</p>
+<h3 class="subheading">6. AWS Network Firewall</h3>
+<ul><li><strong>Managed firewall in VPC:</strong> Supports stateless and stateful inspection; Can match IP, port, protocol, domain/pattern with allow/drop/alert action according to rule type.</li>
+<li><strong>Must route traffic through the firewall endpoint.</strong> Used for Internet, VPC-to-VPC or hybrid traffic depending on architecture; Design both the outbound and return routes for stateful inspection to operate.</li>
+<li>Firewall logs can be sent to S3, CloudWatch Logs or Data Firehose for audit/investigation.</li></ul>
+<pre class="flow-diagram"><code class="language-text">Private workload
+↓ route to firewall endpoint
+Network Firewall: inspect → drop bad traffic
+↓ allow valid traffic
+NAT Gateway → IGW → Internet</code></pre>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Service</th><th>Level</th><th>Stateful</th><th>Allow/Deny</th><th>Purpose</th></tr>
+<tr><td>Security Group</td><td>ENI / Resource</td><td>Yes</td><td>Allow</td><td>Least privilege for resources</td></tr>
+<tr><td>NACL</td><td>Subnet</td><td>No</td><td>Allow + Deny</td><td>Boundary filtering</td></tr>
+<tr><td>Network Firewall</td><td>VPC traffic path</td><td>Yes</td><td>Allow / Drop / Alert</td><td>Advanced inspection</td></tr>
+</tbody></table></div>
+<h3 class="subheading usage-heading">7. Use cases</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Situation</th><th>How to configure/Test</th></tr></thead><tbody>
+<tr><td><strong>Least privilege for 3-tier Web</strong></td><td>ALB SG opens 443 from Internet → App SG only receives application port from ALB SG → DB SG only receives 3306 from App SG</td></tr>
+<tr><td><strong>Block bad IP ranges at Subnet level</strong></td><td>Set rules <code>Deny 1.2.3.0/24</code> There is a small number before the larger Allow rules <strong>NACL</strong></td></tr>
+<tr><td><strong>Diagnosing the error of not being able to SSH</strong></td><td>Check Route Table, SG/NACL and <strong>VPC Flow Logs</strong> (<code>ACCEPT/REJECT</code> — log only observes, does not automatically block traffic)</td></tr>
+<tr><td><strong>Deeply examine Outbound traffic</strong></td><td>Edit the Route Table to go through <strong>AWS Network Firewall</strong> before going to the Internet (use Traffic Mirroring if you only need to send a copy to the IDS)</td></tr>
+</tbody></table></div>
+<h3 class="subheading">8. CloudWatch Network Monitor, Network Access Analyzer &amp; Firewall Routing</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Network tools</th><th>Functions &amp; Distinguishing Points</th></tr></thead><tbody>
+<tr><td><strong>Network Firewall Routing</strong></td><td>Other than SG (attached to ENI) and NACL (attached to Subnet) are self-filtered, <strong>AWS Network Firewall requires adjusting the Route Table</strong> to direct traffic through the Firewall Endpoint</td></tr>
+<tr><td><strong>CloudWatch Network Synthetic Monitor</strong></td><td>Proactively monitor latency and packet loss between networks <strong>Subnets in AWS VPC and On-premises networks</strong></td></tr>
+<tr><td><strong>VPC Network Access Analyzer</strong> vs <strong>Reachability Analyzer</strong></td><td><strong>Network Access Analyzer</strong> Extensive auditing to find any unwanted network access (compliance); <strong>Reachability Analyzer</strong> diagnose the specific path between source A and destination B</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>SG is stateful, NACL is stateless; Flow Logs observe traffic metadata, Network Firewall is used to control flow at the network level.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="VPC private connectivity: peering &amp; endpoints">
+<summary><span class="t-title">VPC private connectivity: peering &amp; endpoints</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Private connection between VPCs or to a service without the need for public Internet, IGW or NAT.</p>
+<h3 class="subheading">1. VPC Peering: connecting two networks</h3>
+<ul><li><strong>Peering = VPC ↔ VPC.</strong> Cross-account and cross-Region support; CIDR cannot overlap.</li>
+<li>Create and accept peering connection, then add route <strong>both directions</strong>. SG/NACL must still allow traffic.</li>
+<li><strong>Non-transitive:</strong> A ↔ B and B ↔ C do not allow A to go through B to C. Need to peer A ↔ C separately or use TGW.</li></ul>
+<pre class="flow-diagram"><code class="language-text">VPC A: 10.0.0.0/16
+  route 10.1.0.0/16 → pcx-123
+↓ peering connection
+VPC B: 10.1.0.0/16
+  route 10.0.0.0/16 → pcx-123</code></pre>
+<h3 class="subheading">2. Gateway Endpoint and Interface Endpoint</h3>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th>Characteristics</th><th>Gateway Endpoint</th><th>Interface Endpoint</th></tr><tr><td>Service</td><td>S3, DynamoDB</td><td>Most AWS services</td></tr><tr><td>Mechanism</td><td>Route Table</td><td>ENI + Private IP</td></tr><tr><td>ENI</td><td>No</td><td>Yes</td></tr><tr><td>Private IP</td><td>No</td><td>Yes</td></tr><tr><td>Security Group</td><td>No</td><td>Yes</td></tr><tr><td>PrivateLink</td><td>No</td><td>Yes</td></tr><tr><td>Cost according to source</td><td>Free</td><td>Hourly + GB processed</td></tr></tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Component</th><th>Resolution Mechanism &amp; Connection</th></tr></thead><tbody>
+<tr><td><strong>Gateway Endpoint</strong></td><td>Add prefix list of S3/DynamoDB to Route Table; Does not create ENI, does not attach Security Group and is free</td></tr>
+<tr><td><strong>Interface Endpoint</strong></td><td>Create an ENI with Private IP in the subnet connecting via PrivateLink; The Endpoint's Security Group needs to be opened <code>HTTPS 443</code> from the client side</td></tr>
+<tr><td><strong>Private DNS</strong></td><td>Allows to keep the default hostname of the AWS service but resolve it directly to the Private IP of the Interface Endpoint (need to enable DNS support/hostnames on VPC)</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Private EC2 → route table → Gateway Endpoint → S3 / DynamoDB
+Private EC2 → Interface Endpoint ENI → PrivateLink → Secrets Manager</code></pre>
+<h3 class="subheading">3. PrivateLink and Endpoint Service</h3>
+<ul><li><strong>PrivateLink = access specific service.</strong> Consumers cannot connect to the entire provider's network like peering.</li>
+<li><strong>Provider:</strong> application behind NLB, create Endpoint Service and enable appropriate consumers.</li>
+<li><strong>Consumer:</strong> create Interface Endpoint in VPC; Connect via PrivateLink to the exposed service.</li></ul>
+<pre class="flow-diagram"><code class="language-text">Consumer application
+↓ Interface Endpoint ENI
+PrivateLink
+↓ Endpoint Service
+Provider NLB → provider application</code></pre>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th></th><th>VPC Peering</th><th>AWS PrivateLink</th></tr><tr><td>Target</td><td>Connect 2 VPCs</td><td>Access/expose service</td></tr><tr><td>Type</td><td>Network-to-network</td><td>Consumer-to-service</td></tr><tr><td>Target route</td><td><code dir="ltr">pcx-...</code></td><td>Do not use <code dir="ltr">pcx</code></td></tr><tr><td>Full network access</td><td>Maybe</td><td>No</td></tr><tr><td>CIDR overlap</td><td>No way</td><td>No need for full inter-VPC routing</td></tr><tr><td>Transitive</td><td>No</td><td>Not transit network</td></tr><tr><td>Consumers see</td><td>Other VPC/network</td><td>Specific service</td></tr></tbody></table></div>
+<h3 class="subheading">4. Network lines do not change permissions</h3>
+<ul><li><strong>Endpoint only creates private path.</strong> IAM, resource/bucket policy, endpoint policy and KMS permission are still considered.</li>
+<li>For example, EC2 to S3 via Gateway Endpoint is successful on the network but missing <code>s3:GetObject</code> Still Access Denied.</li></ul>
+<h3 class="subheading">5. Check when connection error</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Connection model</th><th>Test string when encountering an error</th></tr></thead><tbody>
+<tr><td><strong>VPC Peering</strong></td><td>No duplicate CIDR → Status <code>Active</code> → Route Table both directions → NACL → Security Group</td></tr>
+<tr><td><strong>Gateway Endpoint</strong></td><td>Route Table has attached Endpoint → Endpoint Policy → IAM Policy / Bucket Policy</td></tr>
+<tr><td><strong>Interface Endpoint</strong></td><td>Private DNS / Private IP → Security Group of Endpoint ENI → Endpoint Policy → IAM</td></tr>
+</tbody></table></div>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>Two VPCs need to access many of each other's resources: peering; Many VPCs need hub routing: TGW.</li>
+<li>Private subnet reads S3/DynamoDB: Gateway Endpoint; Call Secrets Manager or PrivateLink support service: Interface Endpoint.</li>
+<li>Provide internal API for another account and only expose that API: Endpoint Service + PrivateLink.</li></ul>
+<h3 class="subheading">7. VPC Peering Fee, Overlapping CIDR, VPC Lattice &amp; 4 VPC Connection Terms</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Note VPC Peering &amp; Gateway Endpoint</th><th>Architectural rules</th></tr></thead><tbody>
+<tr><td><strong>VPC Peering costs</strong></td><td>Free connection creation/maintenance and free data transfer <strong>with AZ</strong>; Charges for data transmission when <strong>different from AZ</strong> or <strong>Other Region</strong></td></tr>
+<tr><td><strong>Inter-Region Peering &amp; Security Group</strong></td><td>Cannot reference the ID of a Security Group belonging to a VPC in another Region → the rule must be opened in ranges <strong>Private IP/CIDR</strong></td></tr>
+<tr><td><strong>S3 / DynamoDB Gateway Endpoint</strong></td><td>Only serves resources located in the VPC attached to that Route Table; no bridging across Peering/TGW</td></tr>
+</tbody></table></div>
+<p class="definition"><strong>Amazon VPC Lattice:</strong> Application layer connection and authorization services (HTTP/HTTPS/gRPC/TCP) between services across multiple VPCs/Accounts with IAM integration without the need to build Peering or TGW.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Connection solution between 2 VPCs</th><th>Support Overlapping CIDR (overlapping IP range)?</th></tr></thead><tbody>
+<tr><td>VPC Peering / Transit Gateway pure routing</td><td>No</td></tr>
+<tr><td><strong>AWS PrivateLink (Interface Endpoint + Endpoint Service + NLB)</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Amazon VPC Lattice</strong></td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Transit Gateway combines 1:1 NAT / Private NAT Gateway</strong></td><td><strong>Yes</strong></td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>4 Easy-to-confuse terms in the topic</th><th>Ownership service</th><th>Uses</th></tr></thead><tbody>
+<tr><td><code>VPC Configuration</code></td><td>Lambda / CodeBuild / SageMaker</td><td>Attach Hyperplane ENI to call private resources in VPC</td></tr>
+<tr><td><code>Glue Connection</code></td><td>AWS Glue</td><td>Configure the VPC network so that the ETL job reads/writes private RDS/Redshift</td></tr>
+<tr><td><code>VPC Link</code></td><td>Amazon API Gateway</td><td>Pass requests from API Gateway to private ALB/NLB in VPC</td></tr>
+<tr><td><code>VPC Connector</code></td><td>AWS App Runner</td><td>Tell the App Runner service to send traffic to private resources in the VPC</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>VPC Peering connects each VPC pair and is not transitive; PrivateLink/Endpoints access private services; Select according to connection range.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Hybrid &amp; transit networking: VPN, Direct Connect &amp; Transit Gateway">
+<summary><span class="t-title">Hybrid &amp; transit networking: VPN, Direct Connect &amp; Transit Gateway</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Connect on-premises to AWS and consolidate multiple VPCs/accounts into one network with controlled routing.</p>
+<h3 class="subheading">1. Direct Connect, Site-to-Site VPN and Transit Gateway</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Criteria</th><th>Direct Connect (DX)</th><th>Site-to-Site VPN</th><th>Transit Gateway (TGW)</th></tr></thead><tbody>
+<tr><td>Purpose</td><td>On-premises private connection ↔ AWS</td><td>Secure on-premises VPN tunnel ↔ AWS</td><td>Central router connects multiple VPCs and on-premises</td></tr>
+<tr><td>Transmission line</td><td>Private network via carrier/DX Partner</td><td>Usually via the Internet; There is also VPN over DX</td><td>AWS network, depending on attachment</td></tr>
+<tr><td>Current bandwidth</td><td>50 Mbps–400 Gbps depending on hosted/dedicated connection</td><td>Standard: up to 1.25 Gbps/tunnel; Large: up to 5 Gbps/tunnel</td><td>VPC attachment: up to 100 Gbps each direction/AZ</td></tr>
+<tr><td>Encryption</td><td>No default</td><td>IPsec</td><td>Don't add end-to-end encryption yourself; Use mechanisms appropriate to attachment</td></tr>
+<tr><td>BGP</td><td>Yes</td><td>Sometimes Dynamic Routing; Static Routing can be used</td><td>Learn routes via appropriate VPN/DX attachments</td></tr>
+<tr><td>Use case</td><td>Long lasting hybrid, high bandwidth and stability</td><td>Fast deployment; backup path for DX</td><td>Multiple VPCs, centralized/transitive routing</td></tr>
+<tr><td>Point to remember</td><td>Do not go over the public Internet</td><td>Throughput depends on network, device and traffic</td><td>Do not create your own Internet connection or VPN/DX acceleration</td></tr>
+</tbody></table></div>
+<p><strong>VPN = Internet + IPsec.</strong> Quick deployment, data protection with encrypted tunnel; Stability depends on Internet connection.</p>
+<p><strong>DX = dedicated connection line.</strong> Long-term hybrid and big data fit; private is not synonymous with encrypted.</p>
+<h3 class="subheading">2. Site-to-Site VPN: components</h3>
+<pre class="flow-diagram"><code class="language-text">On-premises network
+↓ customer router/firewall (Customer Gateway)
+Internet + IPsec tunnels
+↓ VGW attached to VPC or TGW
+Route table → private workload</code></pre>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Site-to-Site VPN component</th><th>Roles &amp; Configuration Notes</th></tr></thead><tbody>
+<tr><td><strong>Customer Gateway (CGW)</strong></td><td>Resource on AWS represents the client-side router/firewall; Needs a routable public IP (or IP of the NAT device when using NAT-T)</td></tr>
+<tr><td><strong>Virtual Private Gateway (VGW)</strong></td><td>AWS-side VPN connector attached <strong>a VPC</strong> (switch to TGW if you need to consolidate many VPCs)</td></tr>
+<tr><td><strong>Hai IPsec Tunnels</strong></td><td>Each Site-to-Site VPN connection creates 2 tunnels at 2 different ends — both need to be configured to ensure High Availability</td></tr>
+<tr><td><strong>Route Propagation</strong></td><td>Automatically inject route learned via BGP from VGW into VPC Route Table (still need to configure return route on-prem and open SG/NACL, for example ICMP when ping)</td></tr>
+<tr><td><strong>AWS VPN CloudHub</strong></td><td>Allows multiple branches to connect BGP to the same VGW for site-to-site communication via hub-and-spoke model on VPN</td></tr>
+</tbody></table></div>
+<h4 class="minor-heading">AWS Client VPN — remote workers</h4>
+<p><strong>AWS Client VPN</strong> is a managed VPN service for employees from laptops/PCs to securely connect to AWS VPC via the Internet <strong>TLS encryption</strong>, using OpenVPN-compatible client.</p>
+<pre class="flow-diagram"><code class="language-text">Employee laptop/PC
+↓ OpenVPN client + Internet + TLS
+AWS Client VPN endpoint
+↓ routes + authorization rules + security groups
+Private resources in VPC</code></pre>
+<p>Need to configure authentication (certificate, Active Directory or SAML), connection to target network and appropriate permissions/route; Successful VPN login does not automatically have access to all resources.</p>
+<p><strong>Client VPN:</strong> per device/user → AWS. <strong>Site-to-Site VPN:</strong> both office network/data center → AWS using IPsec. </p>
+<h3 class="subheading">3. Direct Connect, VIF and DX Gateway</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Direct Connect concept</th><th>Characteristics &amp; Connection Rules</th></tr></thead><tbody>
+<tr><td><strong>DX Location</strong></td><td>Physical transit point where your or your partner's network connects to the AWS backbone (both IPv4 and IPv6 supported)</td></tr>
+<tr><td><strong>Dedicated</strong> vs <strong>Hosted Connection</strong></td><td><strong>Dedicated:</strong> 1/10/100/400 Gbps separate physical cable port <strong>Hosted:</strong> provisioned via AWS DX Partner from 50 Mbps to 25 Gbps (<a href="https://docs.aws.amazon.com/wellarchitected/latest/hybrid-networking-lens/aws-direct-connect.html" rel="noopener noreferrer" target="_blank">AWS Docs</a>)</td></tr>
+<tr><td><strong>3 types of VIF (Virtual Interface)</strong></td><td><code>Private VIF</code> → enter VPC via VGW/DXGW · <code>Public VIF</code> → call AWS public endpoints (S3, SQS…) · <code>Transit VIF</code> → Connect to TGW via DXGW</td></tr>
+<tr><td><strong>Direct Connect Gateway (DXGW)</strong></td><td>Global object connects Private VIF to multiple VGWs or connects Transit VIF to multiple TGWs in multiple Accounts/Regions</td></tr>
+<tr><td><strong>Encryption on DX</strong></td><td>Direct Connect goes its own way but <strong>No default encryption</strong>; combine <strong>Site-to-Site VPN over DX</strong> (or MACsec on a supported port) when encryption is required</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">                     ON-PREMISES
+                      Data Center
+                           |
+                           v
+                     DIRECT CONNECT
+                           |
+          +----------------+----------------+
+          |                |                |
+          v                v                v
+     TRANSIT VIF      PRIVATE VIF       PUBLIC VIF
+          |                |                |
+          v                v                |
+     DX Gateway A     DX Gateway B           |
+          |                |                |
+          v                v                |
+     Transit GW           VGW               |
+          |                |                |
+     +----+----+           v                v
+     |         |          VPC          AWS Public
+    VPC A     VPC B         |           Endpoints
+     |         |          EC2          S3 / APIs
+ Account A  Account B</code></pre>
+<p><strong>Transit VIF → DX Gateway → TGW</strong> to reach multiple VPCs/accounts via VPC attachments. <strong>Private VIF → DX Gateway → VGW → VPC</strong> use private IP; Private VIF can also connect directly to VGW without needing a DX Gateway.</p>
+<p>The two branches in the picture are used <strong>DX Gateways vary</strong>: Do not attach TGW and VGW to the same DX Gateway. Public VIF to AWS public endpoints via DX, not through DX Gateway/VGW; Service access is still required.  · </p>
+<h3 class="subheading">4. Transit Gateway: hub-and-spoke</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Transit Gateway concept</th><th>Routing role</th></tr></thead><tbody>
+<tr><td><strong>Transit Gateway (TGW)</strong></td><td>Region-level hub router connects multiple VPCs, Site-to-Site VPN and DXGW; support <strong>transitive routing</strong></td></tr>
+<tr><td><strong>Attachment</strong></td><td>Bind a VPC, VPN or DXGW to the TGW (both VPC Route Table and TGW Route Table must still be updated)</td></tr>
+<tr><td><strong>Association</strong> vs <strong>Propagation</strong></td><td><code>Association</code> decide which attachment to look up TGW Route Table; <code>Propagation</code> advertise the attachment's network range to the specified table (use the Prod ↔ Dev split while also opening to Shared Services)</td></tr>
+<tr><td><strong>Cross-Account &amp; Cross-Region</strong></td><td>Share TGW between accounts via <strong>AWS RAM</strong>; connecting across Region by <strong>TGW Peering</strong></td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th></th><th>VPC Peering</th><th>Transit Gateway</th></tr><tr><td>Type</td><td>VPC ↔ VPC</td><td>Hub-and-Spoke</td></tr><tr><td>Transitive</td><td>❌</td><td>✅</td></tr><tr><td>Few VPCs</td><td>Suitable</td><td>Can overkill</td></tr><tr><td>Multiple VPCs</td><td>Complex mesh</td><td>Suitable</td></tr><tr><td>VPN / DX integration</td><td>Limitations</td><td>Good</td></tr><tr><td>Cross-account</td><td>Yes</td><td>Yes + RAM</td></tr></tbody></table></div>
+<h3 class="subheading">5. Redundancy and increased bandwidth</h3>
+<p><strong>DX HA:</strong> multiple connections/locations/routers; does not depend on a physical path. VPN can do backup with proper routing/failover.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Concept</th><th>Functions/limitations</th></tr></thead><tbody>
+<tr><td>BGP</td><td>Routers exchange route information themselves; BGP itself does not increase bandwidth</td></tr>
+<tr><td>Static Routing</td><td>Declare routes manually; Site-to-Site VPN using static routing does not support ECMP VPN</td></tr>
+<tr><td>ECMP</td><td>Divide multiple network flows through paths with the same priority; increases total throughput, does not speed up a TCP flow</td></tr>
+<tr><td>Standard VPN tunnel</td><td>Up to 1.25 Gbps/tunnel; Supports VGW and TGW</td></tr>
+<tr><td>Large Bandwidth Tunnel</td><td>Up to 5 Gbps/tunnel; TGW/Cloud WAN only, VGW not supported; It depends on the Region</td></tr>
+</tbody></table></div>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Service/configuration</th><th>ECMP</th><th>Conditions</th></tr></thead><tbody>
+<tr><td>Site-to-Site VPN + VGW</td><td>ECMP VPN is not supported</td><td>Configure both tunnels for redundancy; a tunnel is preferred</td></tr>
+<tr><td>Site-to-Site VPN + TGW</td><td>Yes</td><td>Enable ECMP VPN, use BGP/dynamic routing and qualified routes</td></tr>
+<tr><td>Direct Connect</td><td>Available in support configuration</td><td>BGP multipath over multiple DX connections with appropriate routes/path attributes</td></tr>
+<tr><td>Transit Gateway</td><td>Yes for appropriate VPN attachments</td><td>It does not mean that ECMP can be used for all types of attachments</td></tr>
+</tbody></table></div>
+<p>The limits are tested day by day <strong>13/10/2026</strong>, the throughput is not always achieved. Do not use the 100 Gbps level of VPC attachment to infer that the VPN tunnel also reaches 100 Gbps.  · · </p>
+<h3 class="subheading">6. Choose services according to your needs</h3>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th>Service</th><th>What to use?</th></tr><tr><td>Client VPN</td><td>Employee Laptop/PC → AWS over Internet + TLS</td></tr><tr><td>Site-to-Site VPN</td><td>On-Prem ↔ AWS qua Internet</td></tr><tr><td>Direct Connect</td><td>Dedicated private connection On-Prem ↔ AWS</td></tr><tr><td>Transit Gateway</td><td>Hub connects multiple VPC/VPN/DX</td></tr></tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">VPN/DX
+= on-premises connection; TGW is hub routing.</code></pre>
+<p>TGW does not replace VPN or DX lines.</p>
+<h3 class="subheading usage-heading">7. Use cases</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Actual needs</th><th>Architecture of choice</th></tr></thead><tbody>
+<tr><td><strong>Need to connect Hybrid urgently</strong></td><td>Build now <strong>Site-to-Site VPN</strong> via the Internet; Add Direct Connect later if stable dedicated bandwidth is needed</td></tr>
+<tr><td><strong>Large, long-term data transmission</strong></td><td>Use <strong>Direct Connect</strong> build main road + <strong>Site-to-Site VPN</strong> backup; add VPN over DX if IPsec is required</td></tr>
+<tr><td><strong>Connect dozens of VPC / Accounts</strong></td><td>Use <strong>Transit Gateway</strong> make a shared hub <strong>AWS RAM</strong> and separate TGW Route Tables by Prod / Dev / Shared / Inspection</td></tr>
+</tbody></table></div>
+<h3 class="subheading">8. Direct Connect Gateway (DXGW), SiteLink &amp; BGP/ECMP Conditions</h3>
+<pre class="flow-diagram"><code class="language-text">1 single VPC: On-Premises → DX → Private VIF → VGW → VPC
+Multiple VPC/Reg: On-Premises → DX → Private VIF → DXGW → multiple VGW (multiple Accounts / Regions)
+Via TGW Hub: On-Premises → DX → Transit VIF → DXGW → TGW → multiple VPCs
+Site-to-Site: On-Premises A ↔ DX Location A ══(Direct Connect SiteLink)══ DX Location B ↔ On-Premises B</code></pre>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Mechanism/Note Hybrid</th><th>Routing Rules &amp; Differentiation Points</th></tr></thead><tbody>
+<tr><td><strong>Trap DXGW</strong></td><td>VPCs are attached to the same DXGW <strong>do not communicate directly with each other</strong> (want VPC ↔ VPC must go through TGW or VPC Peering)</td></tr>
+<tr><td><strong>Direct Connect SiteLink</strong></td><td>Directly connect On-premises offices/data centers together via AWS's global backbone network without having to go around to a VPC in the Region</td></tr>
+<tr><td><strong>BGP, Route Propagation &amp; ECMP</strong></td><td><code>BGP</code> dynamic prefix exchange; <code>TGW Association</code> select routing table for attachment, also <code>TGW Propagation</code> Fill in the route in the TGW table (still have to declare the route in the VPC Subnet Route Table). <strong>ECMP</strong> Divide multiple TCP flows across equal paths to add total bandwidth (a single TCP flow does not accumulate): only works on <strong>VPN + TGW with Dynamic BGP enabled + VPN ECMP Support</strong> (VPNs attached to VGW or Static VPN do not support ECMP)</td></tr>
+<tr><td><strong>AWS Private 5G</strong></td><td>Formerly AWS private mobile network service (discontinued on May 20, 2025)</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>VPN = IPsec over Internet; DX = private connection without self-encryption; TGW aggregates multiple VPC/hybrid connections. Two-way routing is very important.</p></aside>
+</div>
+</details>

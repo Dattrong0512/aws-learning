@@ -1,0 +1,229 @@
+<details class="topic" data-progress-aliases="High Availability &amp; Scalability cho EC2|Load Balancing là gì?|Vì sao dùng Elastic Load Balancer (ELB)?|High Availability và Elastic Load Balancing" data-track="High availability &amp; Elastic Load Balancing">
+<summary><span class="t-title">High availability &amp; Elastic Load Balancing</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Split requests to multiple machines and keep the application running when one machine or AZ fails.</p>
+<h3 class="subheading">1. Scalability and High Availability</h3>
+<p>Vertical scaling is changing to a stronger/weaker device. Horizontal scaling is adding/removing machines. High Availability (HA) means having spare resources and a mechanism to switch to healthy resources.</p>
+<p>A large machine increases capacity but is still the single point of failure. With web apps, often use load balancer and ASG across multiple AZs.</p>
+<h3 class="subheading">2. What does Load Balancer do?</h3>
+<p>The load balancer receives the connection from the client and then transfers it to the downstream target.</p>
+<p class="definition"><strong>ELB:</strong> managed service: AWS operates the load balancer infrastructure, you configure listener, target and health check.</p>
+<pre class="flow-diagram"><code class="language-text">Client → Route 53 → Load Balancer
+                    ├─ healthy target in AZ A
+                    └─ healthy target in AZ B</code></pre>
+<p>Internet-facing load balancer receives traffic from the Internet; internal load balancer serves connection in private network.</p>
+<p>Clients often use DNS names, not fixed ALB IPs.</p>
+<h3 class="subheading">3. Check health and remaining capacity</h3>
+<p>Health check helps avoid sending traffic to an error target during normal operation.</p>
+<p>When one AZ is lost, the remaining AZ must have enough capacity; ELB does not automatically create additional EC2 without ASG/scaling mechanism.</p>
+<p>Databases, files, and sessions also need fault-tolerant design. Putting the session to an external store helps users continue working when the request is transferred to another machine.</p>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web/API has many EC2/ECS tasks: ELB shares load, ASG manages number of machines. Microservice private: internal ALB/NLB. Use Route 53 Alias ​​to point the domain to ELB, ACM for TLS and CloudWatch for monitoring.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Vertical scaling increases the power of each machine; horizontal scaling more machines; HA needs to distribute error domains and transfer traffic to healthy targets.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Các loại Load Balancer trên AWS|Application Load Balancer (ALB) – v2|Network Load Balancer (NLB) - v2|Gateway Load Balancer (GWLB)|ALB, NLB và GWLB" data-track="ALB vs NLB vs GWLB">
+<summary><span class="t-title">ALB vs NLB vs GWLB</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Choose load balancer according to protocol and how traffic needs to be handled.</p>
+<h3 class="subheading">1. Simply understand the 4 types of Load Balancers</h3><div class="table-wrap"><table class="study-table"><tbody><tr><th><p>Type</p></th><th><p>Understand simply</p></th><th><p>When to choose?</p></th></tr><tr><td><p>ALB</p></td><td><p>Delivered according to HTTP request content</p></td><td><p>Website, API, Microservices</p></td></tr><tr><td><p>NLB</p></td><td><p>Distributed by network connection, supporting static IP</p></td><td><p>TCP/UDP, game, IP allowlist</p></td></tr><tr><td><p>GWLB</p></td><td><p>Pass traffic through the security checking system</p></td><td><p>Firewall, IDS/IPS</p></td></tr><tr><td><p>CLB</p></td><td><p>Old Load Balancer</p></td><td><p>Legacy applications</p></td></tr></tbody></table></div><h3 class="subheading">2. ALB — Application Load Balancer (Layer 7)</h3><p>ALB understands the HTTP request content so it can route by URL, hostname, header...</p><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Client
+   ↓
+ALB (HTTPS)
+   │
+   ├── /users  → EC2 User Service
+   │
+   ├── /orders → EC2 Order Service
+   │
+   └── /images → Lambda</code></pre></div><p>An ALB can serve multiple microservices through Target Groups. </p><h3 class="subheading">3. NLB — Network Load Balancer (Layer 4)</h3><p>NLB distributes network connections, not URL parsing like ALB.</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Game Clients
+      ↓
+ NLB (UDP/TCP)
+      │
+      ├── Game Server A
+      ├── Game Server B
+      └── Game Server C</code></pre></div><p class="lead-in">Special:</p><ul><li><p>Supports static IP according to AZ.</p></li><li><p>Elastic IP can be assigned to Internet-facing NLB.</p></li><li><p>Suitable for TCP, UDP, TLS protocols and workloads that require low latency.</p></li><li><p>NLB → ALB can be set when both static IP and HTTP routing are needed. </p></li></ul><h3 class="subheading">4. GWLB — Gateway Load Balancer (Layer 3)</h3><p>GWLB does not primarily deliver HTTP requests to the application, but rather sends traffic through security appliances.</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Internet
+    ↓
+Gateway Load Balancer
+    ↓
+Firewall / IDS / IPS
+    │
+    ├── Appliance A
+    └── Appliance B
+    ↓
+Application</code></pre></div><p>For example: The company wants all traffic to be inspected by a third-party firewall before reaching EC2.</p><p>GWLB uses GENEVE, UDP port 6081 to transfer traffic to appliances</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>ALB = Layer 7 / HTTP routing; NLB = Layer 4 / TCP-UDP and static IP; GWLB = send traffic through security appliances; Club = legacy.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Health Checks|Load Balancer Security Groups|Target Groups|Sticky Sessions (Session Affinity)|Sticky Sessions – Cookie Names|Cross-Zone Load Balancing|ELB – SSL/TLS Certificates|SNI – Server Name Indication|Connection Draining / Deregistration Delay|ELB – Targets, health checks và traffic behavior|ELB – TLS certificates và SNI" data-track="ELB targets, health, sessions &amp; TLS">
+<summary><span class="t-title">ELB targets, health, sessions &amp; TLS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Understand how load balancers choose targets, protect connections, and handle requests when deploying or scaling-in.</p>
+<p class="lead-in">Request flow:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ TLS / Listener
+Load Balancer
+↓ Rule → Target Group
+Healthy Target</code></pre>
+<h3 class="subheading">1. Listener, rule and target group</h3>
+<p>Listener receives traffic at protocol/port, for example HTTPS 443. Rule selects target group; target group contains backends and health check configuration.</p>
+<p>Health check checks port/path such as /health, according to set interval and number of success/failures. Matcher can configure successful HTTP codes, not always just 200. Endpoints should reflect the service capabilities of the application.</p>
+<h3 class="subheading">2. Security Group and IP client</h3>
+<p>Let the client enter the ALB SG on the necessary port; SG app shows ALB SG power on backend/health check port. No need to open the entire backend to the Internet.</p>
+<p>With ALB, the application gets the client IP from X-Forwarded-For instead of just looking at the ALB's IP connection.</p>
+<p>NLB has a client IP preservation mechanism depending on target/protocol; Network security must still be configured correctly.</p>
+<h3 class="subheading">3. Sticky session</h3>
+<p>ALB stickiness uses cookies to keep a client on a target: cookies created by LB such as AWSALB or application-based cookies.</p>
+<p>NLB stickiness uses source IP when supported, not HTTP cookies.</p>
+<p>Stickiness can distort the load and not protect the session when the target dies.</p>
+<p>Saving sessions in ElastiCache/DynamoDB helps machines share the same state. <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-target-group-attributes.html" rel="noopener noreferrer" target="_blank">ALB sticky sessions</a>.</p>
+<h3 class="subheading">4. Cross-zone load balancing</h3>
+<pre class="flow-diagram"><code class="language-text">Enable cross-zone: LB node can send traffic to targets in other AZs.
+Off: node only sends to targets in its AZ; Different numbers of machines can do it
+Load each machine unevenly.</code></pre>
+<pre class="flow-diagram"><code class="language-text">ALB turns on at load balancer level, can be adjusted at target group.
+NLB/GWLB defaults to off; Transfer fee behavior varies by LB type, so check
+Check when deployed.</code></pre>
+<h3 class="subheading">5. TLS and SNI</h3>
+<p>ACM provides/manages certificates for HTTPS/TLS listeners.</p>
+<p>SNI lets the client send its hostname in the TLS handshake so ALB/NLB can select the correct certificate; CLB does not support multiple certificates through SNI.</p>
+<p>TLS client → LB and TLS LB → backend are two separate hops. To encrypt across hops, configure both the listener and the backend protocol accordingly.</p>
+<h3 class="subheading usage-heading">6. Deregistration delay and Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  When the target is deregistered, the LB stops sending new requests to it and gives the running request time to complete. This is deregistration delay; The default time is usually 300 seconds, need to adjust according to request length.</p>
+<pre class="flow-diagram"><code class="language-text">Used for deployment or ASG scale-in to avoid cutting requests.
+Combine graceful shutdown of the app; Don't consider delay as a way to save every request
+on target is broken.</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Health check determines healthy target; sticky session and TLS termination address different needs. Distinguish client–LB connection from LB–target connection.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Auto Scaling Group (ASG) – Tổng quan|ASG – Launch Template &amp; Attributes|Amazon EC2 Auto Scaling" data-track="Auto Scaling Groups &amp; Launch Templates">
+<summary><span class="t-title">Auto Scaling Groups &amp; Launch Templates</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Automatically maintain the required number of EC2 instances and recreate instances with a consistent configuration.</p>
+<h3 class="subheading">1. Minimum, desired and maximum</h3>
+<pre class="flow-diagram"><code class="language-text">Minimum is the minimum number of machines; desired is the number of machines ASG is trying to maintain; maximum is
+highest limit.
+If a machine is terminated or determined to be unhealthy, ASG creates a replacement machine
+about desired.</code></pre>
+<p>Select subnet in multiple AZs to distribute machines. ASG does not protect data that is only located on the device from being deleted, so the application should be stateless or use external storage.</p>
+<h3 class="subheading">2. Launch Template</h3>
+<p>Launch Template saves AMI, instance type, SG, IAM instance profile, User Data, key pair and disk. ASG selects subnet/AZ and attaches the target group according to the group's configuration.</p>
+<p>Template has version.</p>
+<p>Changing the template does not automatically make every old device a new device; Use Instance Refresh to replace the fleet to a new configuration with capacity control.</p>
+<h3 class="subheading">3. ASG and ELB</h3>
+<pre class="flow-diagram"><code class="language-text">Launch Template → ASG creates EC2 → registers target group → ELB sends request
+                       ↑
+          health check / scaling policy</code></pre>
+<p>ASG uses EC2 health check and can turn on ELB health check to replace devices that the app cannot serve. Need health check grace period to not delete bootstrap device.</p>
+<h3 class="subheading">4. Controlled launch and termination</h3>
+<p>Lifecycle hook pauses at a launch/terminate step to install, complete work, or drain the connection.</p>
+<p>Mixed Instances Policy combines multiple instance types with On-Demand/Spot, helping to get flexible capacity and reduce costs.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web fleet multiple AZs after ALB; SQS processing worker can create/delete according to backlog; Patch rollout using new AMI and Instance Refresh.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>ASG maintains the required number of EC2s across multiple AZs; Launch Template defines the machines to be launched, while scaling policy decides when to add/remove machines.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="ASG – Scaling với CloudWatch Alarms|ASG – Scaling Policies (tổng quan)|ASG – Dynamic Scaling (Target Tracking / Simple / Step)|ASG – Scheduled Scaling|ASG – Predictive Scaling|ASG – Metrics tốt để Scale (Good metrics)|ASG – Scaling Cooldowns" data-track="ASG scaling policies, metrics &amp; cooldowns">
+<summary><span class="t-title">ASG scaling policies, metrics &amp; cooldowns</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Increase capacity when lacking capacity and reduce capacity when excess, based on signals reflecting application load.</p>
+<p class="lead-in">Stream scales according to load:</p>
+<pre class="flow-diagram"><code class="language-text">Metric / Alarm
+↓ Scaling Policy
+Auto Scaling Group
+↓ increase or decrease desired capacity
+EC2 instances</code></pre>
+<h3 class="subheading">1. Scaling types</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Policy</th><th>How it works</th><th>For example</th></tr></thead><tbody><tr><td>Target tracking</td><td>Keep metrics close to target</td><td>Average CPU is about 50%</td></tr><tr><td>Step scaling</td><td>The more you exceed the threshold, the stronger the increase</td><td>CPU 70–85% add 1; above 85% add 3</td></tr><tr><td>Simple scaling</td><td>An alarm triggers a change, then waits for a cooldown</td><td>High CPU → add 2 machines</td></tr><tr><td>Scheduled</td><td>Change capacity according to known schedule</td><td>Add machines before peak hours</td></tr><tr><td>Predictive</td><td>Forecast from historical patterns to prepare in advance</td><td>The load increases repeatedly every morning</td></tr></tbody></table></div>
+<h3 class="subheading">2. Select metrics</h3>
+<p>CPU is suitable when the application is limited by CPU. ALBRequestCountPerTarget is suitable for web when requests are relatively similar. Network metrics for workloads with bandwidth congestion.</p>
+<p>SQS workers should use backlogs per instance, not just total messages: 1,000 messages with 2 workers is different from 1,000 messages with 100 workers.</p>
+<p>Metric target tracking should reflect usage per unit of capacity.</p>
+<h3 class="subheading">3. Warmup, grace period and cooldown</h3>
+<p>Warmup is the time a new instance takes to stabilize before being properly factored into a scaling decision. Health check grace period avoid hitting unhealthy too soon after launch.</p>
+<p>Cooldowns are mainly used for simple scaling, avoiding continuous reactions before the previous effect is visible.</p>
+<p>Target tracking/step scaling using warmup; There is no general rule that every scaling is locked for 300 seconds.</p>
+<h3 class="subheading">4. Increase quickly, decrease cautiously</h3>
+<pre class="flow-diagram"><code class="language-text">Creating an AMI with available software helps the machine to serve soon.
+Let the running request/job complete before scale-in; Use deregistration
+delay/lifecycle hook when needed.
+Always set maximum for the required load and monitor quota/capacity.</code></pre>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Web volatility: target tracking. Campaign knows start time: scheduled. SQS backlog grows very fast: step scaling or target tracking on backlog per worker.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Target tracking keeps metrics close to target; step scaling by threshold; scheduled scaling proactively by the hour. Choose according to loading pattern and boot time.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Elastic Beanstalk – Overview|Elastic Beanstalk – Web Server Tier vs Worker Tier" data-track="AWS Elastic Beanstalk">
+<summary><span class="t-title">AWS Elastic Beanstalk</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Elastic Beanstalk helps deploy web applications to AWS quickly without having to manually build each part such as EC2, Auto Scaling, Load Balancer and monitoring.</p>
+<pre class="flow-diagram"><code class="language-text">Code
+↓
+Elastic Beanstalk
+↓
+EC2 + ASG + Load Balancer</code></pre>
+<blockquote class="caution"><p><strong>Elastic Beanstalk = PaaS, not serverless.</strong></p></blockquote>
+<h3 class="subheading">1. How it works</h3>
+<p><strong>Developers mainly worry about:</strong> <code>Application Code</code></p>
+<p class="compact-line"><strong>Beanstalk supports:</strong> <code>Provision infrastructure · Deploy application · Auto Scaling · Load Balancing · Health Monitoring</code></p>
+<p class="compact-line"><strong>Support:</strong> <code>Java · .NET · Node.js · Python · Go · PHP · Docker</code></p>
+<p>You can still access and configure the resources below.</p>
+<h3 class="subheading">2. Web Server Tier</h3>
+<p>Used for web/API to receive HTTP requests.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+Load Balancer
+↓
+EC2 in Auto Scaling Group</code></pre>
+<p class="compact-line"><strong>Suitable:</strong> <code>Website · REST API · Synchronous Request</code></p>
+<h3 class="subheading">3. Worker Tier</h3>
+<p>Used for background jobs.</p>
+<pre class="flow-diagram"><code class="language-text">Web App
+↓
+SQS
+↓
+Worker Environment
+↓
+Process Job</code></pre>
+<p class="lead-in">For example:</p>
+<p class="compact-line"><code>Send Email · Resize Image · Generate Report</code></p>
+<blockquote class="insight"><p class="definition-inline"><strong>Web Tier = HTTP</strong> <strong>Worker Tier = SQS + async job</strong></p></blockquote>
+<h3 class="subheading">4. Deployment</h3>
+<ul class="fact-list"><li><strong>Important deployment types:</strong> <strong>Rolling</strong> = update each group of instances</li><li><strong>Immutable</strong> = create a new instance and replace the old instance</li><li><strong>Traffic Splitting</strong> = divide traffic between old and new versions</li></ul>
+<h3 class="subheading">5. Database</h3>
+<p class="lead-in">Production database should be separate from the Beanstalk lifecycle:</p>
+<pre class="flow-diagram"><code class="language-text">Elastic Beanstalk
+↓
+Application
+↓
+Private RDS</code></pre>
+<p>→ Terminating the environment does not destroy the production database.</p>
+<h3 class="subheading">6. Cost</h3>
+<p>Elastic Beanstalk itself has no separate fees.</p>
+<p class="compact-line"><strong>You pay for the resources below:</strong> <code>EC2 · Load Balancer · RDS · S3 · ...</code></p>
+<h3 class="subheading">7. AWS App Runner</h3>
+<p><strong>AWS App Runner</strong> Run web applications or APIs from source code or container images without needing to manage EC2, ECS or Kubernetes yourself. Services take care of infrastructure, deployment, load balancing, HTTPS endpoint and automatic scaling.</p>
+<pre class="flow-diagram"><code class="language-text">Java Spring Boot REST API
+↓
+Source code / Container image
+↓
+AWS App Runner
+↓ self-deploy and self-scale
+HTTPS Endpoint
+↓
+Users calls GET /products</code></pre>
+<p>For example, package the Spring Boot backend into a container image on ECR, deploy with App Runner for users to call <code>GET /products</code>. App Runner matches the receiving application <strong>HTTP requests</strong>; Scheduled batch jobs should use a dispatch service like AWS Batch combined with EventBridge Scheduler.</p>
+<p>Compared to Beanstalk, App Runner reduces web/container infrastructure management; Beanstalk allows accessing and customizing the underlying EC2/ASG/Load Balancer resources. </p>
+<p><strong>Updated from April 30, 2026:</strong> App Runner is not accepting new customers; Existing customers continue to use it. AWS recommends ECS Express Mode for new needs; still keep the App Runner concept to learn SAA-C03 material. </p>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>Team wants to deploy web app quickly but still uses EC2/ASG.</li><li>The Web tier writes the job to SQS and the Worker tier processes it.</li><li>Traditional applications need a managed platform rather than building the infrastructure yourself.</li></ul>
+<h3 class="subheading">9. Compare App Runner vs Elastic Beanstalk vs ECS Express Mode &amp; Deployment Type</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service</th><th>Input</th><th>Infrastructure management level</th></tr></thead><tbody>
+<tr><td><strong>AWS App Runner</strong></td><td>Source code or Container image</td><td>Fully managed (HTTPS, scaling, automatic LB); Minimum configuration required</td></tr>
+<tr><td><strong>AWS Elastic Beanstalk</strong></td><td>Application code / package</td><td>AWS builds EC2 + ALB + ASG but you still retain SSH/customization of the underlying EC2</td></tr>
+<tr><td><strong>ECS Express Mode</strong></td><td>Container image + IAM Roles</td><td>Quickly create ECS Service yourself on Fargate + ALB + Auto Scaling + HTTPS in your account</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Rolling Deployment → Gradually replace instances/tasks on the existing environment
+Blue/Green Deployment → Create a new environment in parallel and then transfer traffic (instant rollback)</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Beanstalk builds its own web/worker infrastructure but still runs on AWS resources; Web Tier receives HTTP, Worker Tier handles async via SQS.</p></aside>
+</div>
+</details>

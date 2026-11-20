@@ -31,3 +31,7 @@ node_modules/
 
 # Scratch / test files
 t.mjs
+tmp/
+
+# Rebuilt by tools/build-site.mjs; edit content/ and src/ instead
+public/

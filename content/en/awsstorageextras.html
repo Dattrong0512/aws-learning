@@ -1,0 +1,148 @@
+<details class="topic" data-progress-aliases="Snowball – Di chuyển dữ liệu ngoại tuyến|Snowball Edge – Storage Optimized và Compute Optimized|Snowball – Đường vào S3 và Glacier" data-track="AWS Snow Family">
+<summary><span class="t-title">AWS Snow Family</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Understand how to transfer data using a physical device when transferring over the network takes too long or the workplace lacks connectivity.</p>
+<h3 class="subheading">1. Why use equipment?</h3>
+<p>Hundreds of TB via slow transmission can take weeks/months. Snowball Edge copies data on-premises and then transports the device to AWS for import into S3.</p>
+<pre class="flow-diagram"><code class="language-text">Create job → receive device → copy data → send back to AWS → import to S3</code></pre>
+<p>Compare network transmission time with receive/copy/send/import time; Actual bandwidth, cost and deadline must also be considered.</p>
+<h3 class="subheading">2. Snowball Edge and edge compute</h3>
+<p>Storage Optimized prioritizes capacity; Compute Optimized prioritizes processing at the place of data creation.</p>
+<p>Edge compute integrates data filtering, inference or media processing at low-Internet sites before sending data to the cloud.</p>
+<p>Data on the device is encrypted; Key management, job credentials and shipping are still important parts of the process.</p>
+<h3 class="subheading">3. Import and archive</h3>
+<p>Import into S3 and then use Lifecycle to switch to the appropriate Glacier layer, do not choose the "Snowball import directly into Glacier vault" route.</p>
+<p>Do not use the device for continuous synchronization that requires frequent updates; online recurring copy is more suitable for DataSync.</p>
+<h3 class="subheading">4. Note current availability</h3>
+<p>From November 7, 2025, Snowball Edge is only available to existing customers.</p>
+<p>The Snowcone/Snowmobile in the old document is not the new option that is always available.</p>
+<p>Keep the concept of offline migration for learning, but when implementing, check the service/solution currently provided. <a href="https://aws.amazon.com/snowball/faqs/" rel="noopener noreferrer" target="_blank">AWS Snowball availability</a>.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Data center has a lot of data and limited WAN: offline bulk transfer if eligible. Site disconnected needs to be handled locally: edge compute. The NAS has a good enough connection and needs scheduled copying: DataSync.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Snow Family uses large-scale data movement/processing when network lines are not suitable; Select device according to data size and edge compute request.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="Amazon FSx – Chọn hệ thống file được quản lý|FSx for Windows File Server|FSx for Lustre – HPC và S3|FSx for Lustre – Scratch và Persistent|FSx for NetApp ONTAP|FSx for OpenZFS|Amazon FSx" data-track="Amazon FSx managed file systems">
+<summary><span class="t-title">Amazon FSx managed file systems</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Choose a managed file system with protocols and features suitable for the existing application.</p>
+<p><strong>Types of file systems:</strong> FSx for Windows File Server  ·  FSx for Lustre  ·  FSx for NetApp ONTAP  ·  FSx for OpenZFS</p>
+<h3 class="subheading">1. FSx menu</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Type</th><th>Protocol/strengths</th><th>Suitable</th></tr></thead><tbody><tr><td>Windows File Server</td><td>SMB, NTFS, Active Directory</td><td>Windows share, home directory, app Windows</td></tr><tr><td>Lustre</td><td>Parallel file system, S3 integration</td><td>HPC, ML training, media processing</td></tr><tr><td>NetApp ONTAP</td><td>NFS/SMB/iSCSI, ONTAP feature</td><td>NAS/NetApp migration, multi-protocol</td></tr><tr><td>OpenZFS</td><td>NFS, snapshot/clone/compression ZFS</td><td>Linux/ZFS workload needs low latency</td></tr></tbody></table></div>
+<h3 class="subheading">2. Windows File Server</h3>
+<p>Integrated AD, file permissions/ACL and user quotas. Linux clients can also mount SMB; This is not an EC2 Windows-only service.</p>
+<pre class="flow-diagram"><code class="language-text">Multi-AZ deployment increases BP; Backup protects data.
+On-prem access via VPN/DX with appropriate route, SG and file permissions.
+Windows SMB shares often choose Windows FSx instead of EFS NFS.</code></pre>
+<h3 class="subheading">3. Luster and S3</h3>
+<p>Luster helps multiple compute nodes process files in parallel with high throughput. You can link datasets in S3, read them as files and export the results to S3.</p>
+<p>Scratch is for temporary processing, not replicating data to protect file server errors like Persistent. Persistent combines data that needs to be kept and longer workloads. Choose deployment according to durability and supported features, don't assume every FSx has the same HA model.</p>
+<h3 class="subheading">4. ONTAP and OpenZFS</h3>
+<p>ONTAP is suitable for applications that rely on NetApp, multiple protocols, snapshots/clones and tiering. OpenZFS is suitable for ZFS/NFS applications and corresponding snapshot/clone features.</p>
+<p>Quick Clone does not replace independent backup. Encrypt at rest using KMS; encryption in transit and file permissions depend on protocol/filesystem.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Company Windows share + AD: FSx Windows. HPC reads dataset S3: Luster. Lift-and-shift NetApp NAS: ONTAP. Workload is using ZFS: OpenZFS. Shared Linux files across multiple AZs: compare EFS first.</p>
+<h3 class="subheading">6. Integrate S3, Single-AZ/Multi-AZ &amp; Storage tier of 4 FSx series</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>FSx series</th><th>Single-AZ / Multi-AZ</th><th>Storage options</th><th>How to integrate S3</th></tr></thead><tbody>
+<tr><td><strong>FSx for Windows File Server</strong></td><td>Both</td><td>SSD / HDD</td><td>Copy data over <strong>AWS DataSync</strong></td></tr>
+<tr><td><strong>FSx for Lustre</strong></td><td><strong>Single-AZ</strong> (file server)</td><td>SSD / HDD / <strong>Intelligent-Tiering</strong></td><td>Original link <strong>Data Repository Association (DRA)</strong> Automatically import metadata &amp; export HPC results to S3</td></tr>
+<tr><td><strong>FSx for NetApp ONTAP</strong></td><td>Both</td><td>SSD + <strong>Capacity Pool</strong> (Auto Tiering)</td><td>Mount <strong>S3 Access Points</strong> (read/write via S3 API while data remains on FSx)</td></tr>
+<tr><td><strong>FSx for OpenZFS</strong></td><td>Both</td><td>SSD / Intelligent-Tiering</td><td>Mount <strong>S3 Access Points</strong> or switch to DataSync</td></tr>
+</tbody></table></div>
+<p><strong>FSx for Lustre Intelligent-Tiering</strong> Automatically transfer data through 3 layers: <code>Frequent Access</code> (&lt; 30 days) → <code>Infrequent Access</code> (≥ 30 days) → <code>Archive Instant Access</code> (≥ 90 days); This mode's data has multi-AZ persistence but components <strong>Luster file server still runs Single-AZ</strong>.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>FSx for Windows = SMB/AD; FSx for Luster = HPC; FSx for NetApp ONTAP and OpenZFS serve other file system needs.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="AWS Storage Gateway – Hybrid storage|Storage Gateway – S3 File Gateway|Storage Gateway – Volume Gateway|Storage Gateway – Tape Gateway" data-track="AWS Storage Gateway">
+<summary><span class="t-title">AWS Storage Gateway</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> For on-prem applications to use the familiar file/block/tape protocol with storage in AWS.</p>
+<h3 class="subheading">1. Gateway and local cache</h3>
+<p class="definition"><strong>Gateway:</strong> appliance connects on-premises applications to the cloud.</p>
+<p>Local cache holds recently used data for quick access; Data is transmitted to AWS according to the gateway mechanism.</p>
+<p>Storage Gateway serves seamless hybrid access. It is different from DataSync which runs a transfer job and Snowball which transfers data by device.</p>
+<h3 class="subheading">2. S3 File Gateway</h3>
+<pre class="flow-diagram"><code class="language-text">App on-prem --NFS/SMB--&gt; File Gateway + cache --HTTPS--&gt; S3 objects</code></pre>
+<p>The app sees the file share, S3 saves the object. Gateway has IAM role to access bucket; SMBs can use AD. Share/file permissions and S3 permissions are classes that need to be configured.</p>
+<p>Do not consider the local cache as a permanent place for all data or that the gateway file is a shared POSIX filesystem like EFS.</p>
+<h3 class="subheading">3. Volume Gateway</h3>
+<p>Provide block volumes via iSCSI. Cached volumes keep the main data in AWS, caching the portion in use locally to reduce local storage. Stored volumes keep all core data on-premises and backed up to AWS.</p>
+<p>Backup uses EBS snapshots to serve restore.</p>
+<p>Stored is suitable when you need to access the entire dataset with local latency; cached is suitable when you want to reduce on-prem capacity.</p>
+<h3 class="subheading">4. Tape Gateway</h3>
+<p>Provides iSCSI virtual tape library (VTL) for existing backup software. Tape stored on AWS, can be archived to Glacier Flexible Retrieval/Deep Archive according to configuration.</p>
+<p>No more buying and shipping physical tape; Restoring tape archives still has retrieval time/costs to consider.</p>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  NFS/SMB share backed by S3: File Gateway. Block storage on-prem with cloud backup: Volume Gateway. Replace the tape library but keep the backup software: Tape Gateway.</p>
+<h3 class="subheading">6. Compare Volume Gateway: Cached Volumes vs Stored Volumes</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Criteria</th><th>Cached Volumes</th><th>Stored Volumes</th></tr></thead><tbody>
+<tr><td>Where full original data is kept</td><td>Above <strong>Amazon S3</strong> (managed by Storage Gateway)</td><td>Right now <strong>On-premises</strong> to access the entire dataset locally</td></tr>
+<tr><td>On-premises disk space required</td><td>Show <strong>Cache</strong> (recently read data) + Upload Buffer</td><td><strong>Entire volume capacity</strong> + Upload Buffer</td></tr>
+<tr><td>Backups on AWS</td><td>Volume + EBS Snapshots scheduled</td><td>Backup asynchronously to S3 as <strong>EBS Snapshots</strong></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Storage Gateway connects on-prem applications to AWS storage using a compatible file/volume/tape protocol.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="AWS DataSync – Đồng bộ dữ liệu có lịch|AWS Transfer Family – SFTP, FTPS và FTP được quản lý|AWS DataSync và Transfer Family" data-track="AWS DataSync &amp; Transfer Family">
+<summary><span class="t-title">AWS DataSync &amp; Transfer Family</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Distinguish between copying data between the storage system and the endpoint receiving files from users/partners.</p>
+<h3 class="subheading">1. DataSync</h3>
+<p>DataSync runs the task of transferring data between supported storage such as NFS/SMB/HDFS/object storage and S3/EFS/FSx. There is scheduling, data checking, bandwidth limit and transmission over TLS.</p>
+<pre class="flow-diagram"><code class="language-text">NAS on-prem → DataSync agent/task → S3 / EFS / FSx</code></pre>
+<pre class="flow-diagram"><code class="language-text">On-prem file storage often requires an agent; AWS-to-AWS in the same regular account
+no agent needed.
+Some cloud/cross-account sources have different rules by location and task mode.</code></pre>
+<h3 class="subheading">2. Metadata and sync</h3>
+<p>It is possible to keep permissions/metadata supported in source/destination pairs. Copying NFS to S3 does not turn S3 into a POSIX filesystem with full file permissions as the source.</p>
+<p>This is a transfer task that runs on schedule or on demand, not CDC database or real-time filesystem replication. <a href="https://docs.aws.amazon.com/datasync/latest/userguide/metadata-copied.html" rel="noopener noreferrer" target="_blank">AWS metadata behavior</a>.</p>
+<h3 class="subheading">3. Transfer Family</h3>
+<p>Managed endpoint for clients to use SFTP/FTPS/FTP to transfer files to S3/EFS according to supported protocols; AS2 serves B2B exchanges with its own support backend.</p>
+<pre class="flow-diagram"><code class="language-text">Partners using SFTP client → Transfer Family → S3 prefix are authorized</code></pre>
+<pre class="flow-diagram"><code class="language-text">Authentication can be service-managed, AD or custom provider depending on the protocol.
+IAM role/policy and filesystem permissions limit where each user can access.
+FTP is unencrypted and only uses the VPC endpoint; Do not choose FTP for sensitive files
+via the Internet.</code></pre>
+<h3 class="subheading">4. Select by task</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Request</th><th>Select</th></tr></thead><tbody><tr><td>Copy large NAS to AWS, with schedule/verification</td><td>DataSync</td></tr><tr><td>Partners still use SFTP client to send files</td><td>Transfer Family</td></tr><tr><td>On-premises apps continue to use hybrid file/block/tape</td><td>Storage Gateway</td></tr><tr><td>Just need a private network line</td><td>VPN/Direct Connect; Also need transfer tool</td></tr></tbody></table></div>
+<h3 class="subheading usage-heading">5. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Migration NFS → EFS: DataSync. Scheduled file synchronization: DataSync. Instead of self-managed SFTP server, data goes to S3: Transfer Family.</p>
+<h3 class="subheading">6. Transfer Family: SFTP Server vs Connector &amp; Identity Providers</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Component</th><th>The active party opens the connection</th><th>Data stream</th></tr></thead><tbody>
+<tr><td><strong>Transfer Family Server (SFTP Server)</strong></td><td>External partner clients connect to your Endpoint</td><td>Client actively Uploads or Downloads files from S3 / EFS</td></tr>
+<tr><td><strong>Transfer Family Connector (SFTP Connector)</strong></td><td><strong>AWS is proactive</strong> Connect to the partner's external SFTP Server</td><td>Execute command <code>SEND</code> (S3 → partner) or <code>RETRIEVE</code> (partner → S3)</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Identity Provider on Transfer Family</th><th>User authentication mechanism</th></tr></thead><tbody>
+<tr><td><strong>Service-managed users</strong></td><td>Transfer Family stores username + directly <strong>SSH Public Key</strong> and private S3/EFS directory mapping</td></tr>
+<tr><td><strong>AWS Managed Microsoft AD / AD Connector</strong></td><td>Sign in with a business Active Directory account</td></tr>
+<tr><td><strong>Custom IdP (Lambda / API Gateway)</strong></td><td>Integrates external identity store, supports custom password + SSH key</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>DataSync transfers data automatically between storage systems; Transfer Family provides SFTP/FTPS/FTP protocols to AWS storage.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="AWS Storage – Bản đồ chọn dịch vụ|AWS Storage – Chọn dịch vụ" data-track="AWS storage selection guide">
+<summary><span class="t-title">AWS storage selection guide</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Choose storage based on how the application accesses data first, then consider durability, latency and cost.</p>
+<p class="lead-in">Select according to how the application reads/writes:</p>
+<pre class="flow-diagram"><code class="language-text">Block → EBS
+Shared File → EFS / FSx
+Object → S3
+Local temporary disk → Instance Store</code></pre>
+<h3 class="subheading">1. Block, file or object?</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Demand</th><th>Service</th></tr></thead><tbody><tr><td>Object/API, data lake, static assets, backup</td><td>S3</td></tr><tr><td>Disk for EC2, boot or database</td><td>EBS</td></tr><tr><td>NFS/POSIX files are shared by many Linux clients</td><td>EFS</td></tr><tr><td>SMB/AD or specialized file system</td><td>FSx</td></tr><tr><td>Local disk is very fast, data can be recreated</td><td>Instance Store</td></tr></tbody></table></div>
+<p>Do not choose S3 as disk mount for databases that need block I/O. Don't choose EBS so that multiple apps across AZs can share files. Archive object: select the S3 Glacier class according to the required retrieval time.</p>
+<h3 class="subheading">2. Where is the data located and can it be lost?</h3>
+<pre class="flow-diagram"><code class="language-text">EBS is in one AZ, if you want to go to another AZ, you need a snapshot/restore.
+Regional EFS across multiple AZs; One Zone reduces fees but accepts AZ risk.
+Instance Store loses data over the instance/host life cycle.</code></pre>
+<pre class="flow-diagram"><code class="language-text">FSx has different deployments; Check HA/backup of specific type.
+Backup prevents accidental deletion; replication/failover serves availability, not replacement
+replace each other.</code></pre>
+<h3 class="subheading">3. Hybrid access or migration?</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Task</th><th>Service</th></tr></thead><tbody><tr><td>Continue file/block/tape at on-prem, AWS backend</td><td>Storage Gateway</td></tr><tr><td>Online bulk copy/sync has verification</td><td>DataSync</td></tr><tr><td>Receive SFTP/FTPS files from partners</td><td>Transfer Family</td></tr><tr><td>Offline bulk transfer</td><td>Snowball/physical transfer solutions are also available</td></tr></tbody></table></div>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Windows shared drive: FSx Windows. WordPress multiple EC2: EFS. Separate DB Disk: EBS io2/gp3 by I/O. Data lake: S3. Before closing, check RPO/RTO, throughput, encryption and transfer/retrieval cost.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Block storage → EBS; shared NFS → EFS; Specialized SMB/FS → FSx; object/backup → S3; Data migration → DataSync/Snow.</p></aside>
+</div>
+</details>

@@ -1,0 +1,505 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon Rekognition &amp; Textract">
+<summary><span class="t-title">Amazon Rekognition &amp; Textract</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> These are ML services available to process images, videos and documents.</p>
+<p><strong>Rekognition</strong> = understand image / video content</p>
+<p><strong>Textract</strong> = read document / scan = get text + table + form</p>
+<h3 class="subheading">1. Amazon Rekognition</h3>
+<p class="lead-in">Rekognition is used to analyze images/videos:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Image / Video
+↓
+Rekognition
+↓
+Object / Person / Face / Text / Scene</code></pre>
+<p class="compact-line"><strong>Can be used for:</strong> <code>Object Detection · Face Detection · Face Search / Compare · Text Detection · Content Moderation</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">User uploads image
+↓
+Rekognition
+↓
+detect:
+Car
+Person
+Dog
+Text</code></pre>
+<h3 class="subheading">2. Content Moderation</h3>
+<p>Used to detect sensitive/inappropriate content.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Image / Video
+↓
+Rekognition Moderation
+↓
+Confidence Score</code></pre>
+<p class="lead-in">Threshold can be set:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Confidence is high
+→ Flags
+
+Not sure
+→ Human Review</code></pre>
+<p><strong>Human review can be used:</strong> <strong>Amazon A2I</strong> = give ML results to reviewer</p>
+<h3 class="subheading">3. Amazon Textract</h3>
+<p>Textract is used to get data from document.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">PDF / Scan / Image
+↓
+Textract
+↓
+Text
+Handwriting
+Form
+Table</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Invoice / Form
+↓
+Textract
+↓
+Name
+DOB
+Invoice Number
+Amount</code></pre>
+<blockquote class="caution"><p>Textract is more powerful than basic OCR because it can be understood <strong>forms and tables</strong>, not just reading words.</p></blockquote>
+<h3 class="subheading">4. Simple flow</h3>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Image / Video
+↓
+Rekognition
+↓
+Visual Analysis</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">PDF / Scan
+↓
+Textract
+↓
+Structured Data</code></pre>
+<h3 class="subheading usage-heading">5. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">User Upload Image
+↓
+Rekognition
+↓
+Content Moderation</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Invoice / ID / Form
+↓
+Textract
+↓
+Extract Fields
+↓
+Application / Database</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Rekognition analyzes photos/videos; Textract extracts text, forms, and tables from documents.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Transcribe, Polly &amp; Translate">
+<summary><span class="t-title">Amazon Transcribe, Polly &amp; Translate</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> These are available ML services for speech and language processing, without the need to train the model yourself.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Transcribe
+= Speech → Text
+
+Polly
+= Text → Speech
+
+Translate
+= Text in language A → Text in language B</code></pre>
+<h3 class="subheading">1. Amazon Transcribe</h3>
+<p>Transcribe used <strong>Automatic Speech Recognition (ASR)</strong> to convert audio to text.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Audio / Voice
+↓
+Transcribe
+↓
+Text Transcript</code></pre>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Customer Call
+↓
+Transcribe
+↓
+Call Transcript</code></pre>
+<p class="compact-line"><strong>Can be used for:</strong> <code>Call transcript · Subtitle / Caption · Searchable video/audio</code></p>
+<p><strong>Also supports:</strong> <strong>Language Identification</strong> = language self-identification</p>
+<p><strong>PII Redaction</strong> = hide/delete personal information from transcript</p>
+<h3 class="subheading">2. Amazon Polly</h3>
+<p>Polly converts text to speech.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Text
+↓
+Polly
+↓
+Speech Audio</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">"Welcome to our application"
+↓
+Polly
+↓
+🔊 Voice</code></pre>
+<p><strong>Reading can be customized with:</strong> <strong>Lexicon</strong> = correct the pronunciation of word / name / acronym</p>
+<p><strong>SSML</strong> = adjust pronunciation / emphasis / speaking style</p>
+<blockquote class="insight"><p><strong>Polly = Text-to-Speech.</strong></p></blockquote>
+<h3 class="subheading">3. Amazon Translate</h3>
+<p>Translate is used to translate text between languages.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">English Text
+↓
+Translate
+↓
+Vietnamese Text</code></pre>
+<p class="compact-line"><strong>Suitable for:</strong> <code>Website localization · Product description · Notification · Multilingual Application</code></p>
+<h3 class="subheading">4. Combined flow</h3>
+<p class="lead-in">Three services can be combined together:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Customer Call
+↓
+Transcribe
+↓
+Text
+↓
+Translate
+↓
+Other languages
+↓
+Polly
+↓
+Speech</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">English Voice
+↓
+Transcribe
+↓
+English Text
+↓
+Translate
+↓
+Vietnamese Text
+↓
+Polly
+↓
+Vietnamese Voice</code></pre>
+<h3 class="subheading usage-heading">5. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Video / Call
+↓
+Transcribe
+↓
+Subtitle / Transcript</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Application Text
+↓
+Polly
+↓
+Voice / Accessibility</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Website Content
+↓
+Translate
+↓
+Multi-language Website</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Transcribe = speech-to-text; Polly = text-to-speech; Translate = translate language.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Lex &amp; Amazon Connect">
+<summary><span class="t-title">Amazon Lex &amp; Amazon Connect</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Lex is used to create chatbots/voice bots that understand user intentions, while Amazon Connect is a cloud contact center to receive calls and coordinate contact flow.</p>
+<p><strong>Lex</strong> = understand speech/text = recognize intent</p>
+<p><strong>Connect</strong> = receive calls = coordinate contact flow</p>
+<h3 class="subheading">1. Amazon Lex</h3>
+<p class="lead-in">Lex uses:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">ASR
+= Speech → Text
+
+NLU
+= understand what the user wants to do</code></pre>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">"I want to make an appointment for tomorrow"
+↓
+Lex
+↓
+Intent = BookAppointment</code></pre>
+<blockquote class="caution"><p><strong>Intent = user intent</strong>, not just keywords.</p></blockquote>
+<p class="compact-line"><strong>Lex is suitable for:</strong> <code>Chatbot · Voice Bot · Call Center Bot</code></p>
+<h3 class="subheading">2. Amazon Connect</h3>
+<p>Amazon Connect is <strong>cloud contact center</strong>.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Caller
+↓
+Amazon Connect
+↓
+Contact Flow
+↓
+Bot / Agent / Backend</code></pre>
+<p class="compact-line"><strong>Connect can:</strong> <code>Receive calls · Route calls · Create contact flow · Switch to agent · Integrate CRM / AWS services</code></p>
+<h3 class="subheading">3. Connect + Lex + Lambda</h3>
+<p class="lead-in">Popular flows:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Caller
+↓
+Amazon Connect
+↓
+Amazon Lex
+↓
+Intent identification
+↓
+Lambda
+↓
+CRM/Backend</code></pre>
+<p class="lead-in">Scheduling example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">"I want to book a 3pm appointment"
+↓
+Connect
+↓
+Lex
+→ Intent = BookAppointment
+↓
+Lambda
+↓
+CRM
+↓
+Create appointment</code></pre>
+<h3 class="subheading">4. When the Bot cannot handle it</h3>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Lex confidence is low
+or
+case has not been designed yet
+↓
+Fallback
+↓
+Human Agent</code></pre>
+<p class="compact-line"><strong>Backend still needs:</strong> <code>Validate input · Authorization · Business Rules · Idempotency</code></p>
+<p>Because Lex only understands the intent, it cannot decide whether to change the data or not.</p>
+<h3 class="subheading usage-heading">5. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Customer Call
+↓
+Connect + Lex
+↓
+FAQ / Booking / Order Status</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Simple request
+↓
+Processing bot
+
+Complex request
+↓
+Human Agent</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Lex builds chatbots with intent/slot; Connect provides contact center management, which can integrate Lex.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Comprehend &amp; Comprehend Medical">
+<summary><span class="t-title">Amazon Comprehend &amp; Comprehend Medical</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Comprehend uses NLP to analyze text and find insights, and Comprehend Medical uses NLP for clinical/medical text.</p>
+<p><strong>Comprehend</strong> = NLP for regular text</p>
+<p><strong>Comprehend Medical</strong> = NLP for medical text</p>
+<h3 class="subheading">1. Amazon Comprehend</h3>
+<p class="compact-line"><strong>Comprehend can find:</strong> <code>Language · Key Phrases · Entities · Sentiment · Topics</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Customer Review
+↓
+Comprehend
+↓
+Sentiment = Negative
+Entity = Product X
+Key Phrase = "slow delivery"</code></pre>
+<p class="lead-in">Suitable for:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Review
+Email
+Article
+Document
+↓
+Search / Filter / Group by topic</code></pre>
+<h3 class="subheading">2. Comprehend Medical</h3>
+<p class="lead-in">Used for unstructured medical text:</p>
+<p class="compact-line"><code>Doctor Notes · Discharge Summary · Test Results · Case Notes</code></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Clinical Text
+↓
+Comprehend Medical
+↓
+Medical Information / Entities</code></pre>
+<h3 class="subheading">3. DetectPHI</h3>
+<p><strong>DetectPHI</strong> = detect sensitive medical information</p>
+<p class="compact-line"><code>Patient Name · Address · Phone · Medical ID</code></p>
+<blockquote class="caution"><p>DetectPHI helps <strong>detect PHI</strong>, but does not replace the security/compliance process.</p></blockquote>
+<h3 class="subheading">4. Simple flow</h3>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Email / Review
+↓
+Comprehend
+↓
+Sentiment / Entity / Topic</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Patient Audio
+↓
+Transcribe
+↓
+Text
+↓
+Comprehend Medical
+↓
+Medical Data / PHI</code></pre>
+<h3 class="subheading usage-heading">5. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Customer Reviews
+↓
+Comprehend
+↓
+Sentiment Analysis</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Large Document Collection
+↓
+Comprehend
+↓
+Group by Topic</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Clinical Document
+↓
+Comprehend Medical
+↓
+Detect PHI</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Comprehend natural language analysis; Comprehend Medical handles entities/concepts in medical data</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon SageMaker AI">
+<summary><span class="t-title">Amazon SageMaker AI</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon SageMaker AI is a managed service to build, train, tune, and deploy custom Machine Learning models.</p>
+<p><strong>SageMaker</strong> = Build ML Model = Train = Tune = Deploy = Predict</p>
+<p class="lead-in">Different from available AI services such as Translate or Textract:</p>
+<p><strong>Translate / Textract</strong> = ready-made AWS model</p>
+<p><strong>SageMaker</strong> = you train your own model for your own problem</p>
+<h3 class="subheading">1. Basic ML Flow</h3>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Historical Data
+↓
+Features + Labels
+↓
+SageMaker Training
+↓
+Model
+↓
+New Data
+↓
+Prediction</code></pre>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Historical Students
+↓
+Study Time + Experience
+↓
+Exam Result
+↓
+Train Model
+↓
+New Student
+↓
+Predict Pass / Fail</code></pre>
+<h3 class="subheading">2. Training Data</h3>
+<p><strong>Training usually requires:</strong> <strong>Features</strong> = input information</p>
+<p><strong>Label</strong> = result needs model to learn</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Study Hours
+AWS Experience
+IT Experience
+↓
+Features
+
+Exam Score
+↓
+Label</code></pre>
+<p>The model learns the relationship between features and labels to predict new data.</p>
+<h3 class="subheading">3. Train / Tune / Deploy</h3>
+<ul class="fact-list"><li><strong>Train</strong> = model learned from historical data</li><li><strong>Tune</strong> = try configurations to get a better model</li><li><strong>Deploy</strong> = send the model to the endpoint for the application to call</li></ul>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Train
+↓
+Tune
+↓
+Model Artifact
+↓
+Deploy Endpoint
+↓
+Application
+↓
+Prediction</code></pre>
+<h3 class="subheading">4. Managed but still have to check the model</h3>
+<p class="lead-in">SageMaker manages the infrastructure, but the model still depends on:</p>
+<p class="compact-line"><code>Training Data · Feature · Label · Model Quality</code></p>
+<p class="lead-in">If data is wrong:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Bad Data
+↓
+Bad Model
+↓
+Bad Prediction</code></pre>
+<p class="compact-line"><strong>Also need monitor:</strong> <code>Model Quality · Data Drift · Prediction Quality</code></p>
+<h3 class="subheading usage-heading">5. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Customer History
+↓
+SageMaker
+↓
+Churn Prediction</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Transaction Data
+↓
+SageMaker
+↓
+Fraud Risk Score</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Sales History
+↓
+SageMaker
+↓
+Demand Forecast</code></pre>
+<h3 class="subheading">6. SageMaker Batch Transform vs Real-Time Endpoint</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Inference mode</th><th>Mechanisms &amp; Use Cases</th></tr></thead><tbody>
+<tr><td><strong>SageMaker Batch Transform</strong></td><td>Run offline batch inference on large data sets stored in S3 and then write the results to S3, automatically turn off compute when the job is finished — used when immediate results are not needed for each request (not used for ETL data cleaning)</td></tr>
+<tr><td><strong>SageMaker Real-Time Endpoint</strong></td><td>Maintain a continuously running HTTPS endpoint to deliver predictable low latency (milliseconds) for each online request</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>SageMaker AI is a machine learning lifecycle management platform from data preparation/training to deployment.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Kendra &amp; Amazon Personalize">
+<summary><span class="t-title">Amazon Kendra &amp; Amazon Personalize</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Kendra is used to search and find answers in documents, while Amazon Personalize is used to suggest suitable content/products for each user.</p>
+<p><strong>Kendra</strong> = Intelligent Document Search</p>
+<p><strong>Personalize</strong> = Recommendation Engine</p>
+<h3 class="subheading">1. Amazon Kendra</h3>
+<p>Kendra uses ML to search the knowledge base using natural language.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Documents
+↓
+Kendra Index
+↓
+User Question
+↓
+Relevant Answer / Result</code></pre>
+<p class="compact-line"><strong>Data sources can be:</strong> <code>S3 · RDS · Google Drive · SharePoint · OneDrive · Salesforce · ServiceNow · PDF / Word / HTML / FAQ</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">"Where is the IT support desk?"
+↓
+Kendra
+↓
+Find the answer in internal documentation</code></pre>
+<blockquote class="caution"><p><strong>Kendra = smart search on documents, not just simple keyword matching.</strong></p></blockquote>
+<h3 class="subheading">2. Amazon Personalize</h3>
+<p>Personalize uses user behavior to create recommendations.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">User / Item / Interaction Data
+↓
+Personalize
+↓
+Recommendation</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">User buys Gardening Tools
+↓
+Personalize
+↓
+suggestion:
+Seeds
+Gloves
+Watering Can</code></pre>
+<p class="compact-line"><strong>Can be used for:</strong> <code>Website · Mobile App · Email · SMS</code></p>
+<p class="lead-in">In addition to recommending items, Personalize can also:</p>
+<p><strong>Re-rank list</strong> = reorder the list according to each user</p>
+<h3 class="subheading">3. Kendra vs Personalize</h3>
+<p><strong>Kendra</strong> = "What information is the user looking for?"</p>
+<p><strong>Personalize</strong> = "What item should this user see next?"</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Documents
+↓
+Kendra
+↓
+Search / Answer</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">User Behavior
+↓
+Personalize
+↓
+Recommendation</code></pre>
+<h3 class="subheading usage-heading">4. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">Company Documents
+↓
+Kendra
+↓
+Employee Search</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">FAQ / PDF / Knowledge Base
+↓
+Kendra
+↓
+Customer Support Search</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text" dir="ltr">User Purchase / Click History
+↓
+Personalize
+↓
+Product Recommendation</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Kendra is a search enterprise; Personalize generates personalized suggestions based on behavioral data.</p></aside>
+</div>
+</details>

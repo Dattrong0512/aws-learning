@@ -1,0 +1,1422 @@
+<details class="topic" data-progress-aliases="" data-track="Amazon Athena">
+<summary><span class="t-title">Amazon Athena</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Athena is a serverless SQL query service to analyze data primarily located in Amazon S3 without needing to build a database/data warehouse server.</p>
+<p><strong>Athena</strong> = SQL + S3 + Serverless</p>
+<pre class="flow-diagram"><code class="language-text">The file is in S3
+↓
+Athena
+↓
+SELECT ... FROM ...
+↓
+Results</code></pre>
+<blockquote class="insight"><p><strong>Athena = runs SQL directly on data in S3.</strong></p></blockquote>
+<h3 class="subheading">1. Basic Flow</h3>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+S3
+↓
+Glue Data Catalog
+↓
+Athena
+↓
+SQL Query
+↓
+Query Result
+↓
+S3
+↓
+QuickSight / Application</code></pre>
+<p><strong>In which:</strong> <strong>S3</strong> = contains real data</p>
+<p><strong>Glue Data Catalog</strong> = table description / schema / partition</p>
+<p><strong>Athena</strong> = run SQL</p>
+<h3 class="subheading">2. What can Athena read?</h3>
+<p class="compact-line"><strong>Athena can query files such as:</strong> <code>CSV · JSON · Parquet · ORC · Avro</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">s3://logs/orders/
+↓
+Athena
+↓
+SELECT *
+FROM orders
+WHERE year = 2026;</code></pre>
+<p>No need to import data into Athena first.</p>
+<h3 class="subheading">3. Serverless</h3>
+<p class="compact-line"><strong>Athena does not need:</strong> <code>Provision server · Choose instance · Manage cluster · Patch server</code></p>
+<p class="lead-in">You just:</p>
+<pre class="flow-diagram"><code class="language-text">There is data in S3
+↓
+Definition of table/schema
+↓
+Run SQL</code></pre>
+<blockquote class="caution"><p>Without a query, there is almost no compute Athena has to run for that query.</p></blockquote>
+<h3 class="subheading">4. Pricing: Data Scanned</h3>
+<p><strong>Athena mainly charges according to:</strong> <code>The amount of data scanned by the query</code></p>
+<p><strong>According to the slides:</strong> <code>≈ $5 / TB scanned</code></p>
+<p class="lead-in">So:</p>
+<pre class="flow-diagram"><code class="language-text">Scan less
+↓
+Query is cheaper
++
+usually faster</code></pre>
+<blockquote class="insight"><p>Prices may vary by Region/time.</p></blockquote>
+<h3 class="subheading">5. Data Scanned example</h3>
+<p><strong>Let's say S3 has:</strong> <code>1 TB CSV data</code></p>
+<p class="compact-line"><strong>Query:</strong> <code>SELECT name · FROM users;</code></p>
+<p>With CSV, Athena may have to read a lot of file data.</p>
+<p class="lead-in">If the same data is saved using Parquet:</p>
+<p><code>Athena just needs to read the column "name"</code></p>
+<p>→ scan less.</p>
+<h3 class="subheading">6. Parquet / ORC</h3>
+<p><strong>Parquet and ORC are columnar formats.</strong></p>
+<p class="compact-line"><strong>For example the table has:</strong> <code>Name · Age · Country · Salary · Email</code></p>
+<p class="compact-line"><code>SELECT Name, Salary · FROM employees;</code></p>
+<p><strong>CSV:</strong> <code>often have to read the entire row/file</code></p>
+<p class="compact-line"><strong>Parquet:</strong> <code>read only: · Name · Salary</code></p>
+<p>→ reduce scanned data.</p>
+<p><strong>Parquet / ORC</strong> = less scans = faster = cheaper</p>
+<h3 class="subheading">7. Compression</h3>
+<p class="compact-line"><strong>Files can be compressed:</strong> <code>gzip · Snappy · zstd · ...</code></p>
+<pre class="flow-diagram"><code class="language-text">Data
+↓
+Compression
+↓
+Smaller files
+↓
+Athena reads fewer bytes</code></pre>
+<p>→ can reduce cost and reading time.</p>
+<h3 class="subheading">8. Partition</h3>
+<p><strong>Partition = divide data in S3 into groups according to folder/prefix.</strong></p>
+<p class="compact-line"><code>s3://logs/ · year=2026/ · month=09/ · day=29/</code></p>
+<p class="compact-line"><strong>Athena understands:</strong> <code>year · month · day</code></p>
+<p>as partition columns.</p>
+<p class="compact-line"><code>SELECT * · FROM logs · WHERE year = 2026 · AND month = 9;</code></p>
+<p><strong>Athena simply read:</strong> <code>year=2026/month=09/</code></p>
+<p>instead of the entire bucket.</p>
+<h3 class="subheading">9. Partition is Virtual Column</h3>
+<p class="lead-in">For example, the Parquet file inside does not necessarily contain:</p>
+<p><strong>But S3 path:</strong> <code>/year=2026/month=09/day=29/</code></p>
+<p class="compact-line"><strong>Tell Athena:</strong> <code>year = 2026 · month = 09 · day = 29</code></p>
+<blockquote class="caution"><p><strong>Partition value can come from the S3 path, not necessarily in the file.</strong></p></blockquote>
+<h3 class="subheading">10. If not filter Partition</h3>
+<p class="compact-line"><strong>Suppose:</strong> <code>2024/ · 2025/ · 2026/</code></p>
+<p class="compact-line"><code>SELECT * · FROM logs;</code></p>
+<p>→ Athena can scan everything.</p>
+<p><strong>If:</strong> <code>WHERE year = 2026</code></p>
+<p>→ only scan partition 2026.</p>
+<h3 class="subheading">11. Glue + Athena</h3>
+<p class="lead-in">Raw data:</p>
+<pre class="flow-diagram"><code class="language-text">CSV / JSON
+↓
+AWS Glue
+↓
+Convert
+↓
+Parquet + Partition
+↓
+S3
+↓
+Athena</code></pre>
+<p><strong>This is a very common pattern:</strong> <strong>Glue</strong> = prepare data</p>
+<p><strong>Athena</strong> = query data</p>
+<h3 class="subheading">12. Glue Data Catalog</h3>
+<p class="compact-line"><strong>Athena needs to know:</strong> <code>What is the name of the table? · What columns? · What type of data? · Where is S3 location? · What partition?</code></p>
+<p>Glue Data Catalog stores that metadata.</p>
+<p><strong>S3</strong> = Data</p>
+<p><strong>Glue Data Catalog</strong> = Metadata</p>
+<p><strong>Athena</strong> = SQL Engine</p>
+<h3 class="subheading">13. Athena + QuickSight</h3>
+<p class="lead-in">Can create BI flow:</p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Athena
+↓
+QuickSight
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sales Data on S3
+↓
+Athena SQL
+↓
+QuickSight
+↓
+Sales Dashboard</code></pre>
+<h3 class="subheading">14. Log Analytics</h3>
+<p class="lead-in">Athena is great for query logs stored in S3:</p>
+<p class="compact-line"><code>CloudTrail Logs · VPC Flow Logs · ALB / ELB Logs · Application Logs</code></p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail
+↓
+S3
+↓
+Athena
+↓
+"Find all DeleteBucket API calls"</code></pre>
+<p>No need to build a separate log database.</p>
+<h3 class="subheading">15. Athena vs Redshift</h3>
+<p><strong>Athena</strong> = direct query S3 = serverless = ad-hoc analytics = pay per data scanned</p>
+<p><strong>Redshift</strong> = Data Warehouse = data optimized for analytics = query/join/aggregate frequently</p>
+<pre class="flow-diagram"><code class="language-text">Occasionally query logs in S3
+→ Athena</code></pre>
+<pre class="flow-diagram"><code class="language-text">BI dashboard runs continuously
++ multiple joins / aggregates
+→ Redshift</code></pre>
+<h3 class="subheading">16. Federated Query</h3>
+<p>Athena doesn't just query S3.</p>
+<p>Can query other sources through <strong>Data Source Connector</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Athena
+↓
+Lambda Connector
+↓
+DynamoDB / RDS / DocumentDB / ...</code></pre>
+<pre class="flow-diagram"><code class="language-text">Athena SQL
+↓
+Lambda Connector
+↓
+DynamoDB
+↓
+Result</code></pre>
+<p class="compact-line"><strong>Sources may include:</strong> <code>DynamoDB · Aurora / RDS · DocumentDB · Redshift · ElastiCache · On-prem Database · ...</code></p>
+<h3 class="subheading">17. Federated Query Flow</h3>
+<pre class="flow-diagram"><code class="language-text">Analyst
+↓
+Athena SQL
+↓
+Lambda Data Source Connector
+↓
+External Database
+↓
+Return Data
+↓
+Athena
+↓
+Result saved to S3</code></pre>
+<p class="compact-line"><strong>Suitable when needed:</strong> <code>Ad-hoc query · Join temporary data · Query multiple sources</code></p>
+<p>This does not mean that Athena turns those databases into data warehouses.</p>
+<h3 class="subheading">18. File Size</h3>
+<p><strong>Should avoid:</strong> <code>10 million files is very small</code></p>
+<p>because Athena has to open and process too many objects.</p>
+<p><strong>Usually better:</strong> <strong>Fewer files</strong> + reasonably large files</p>
+<p><strong>Suggested slide ranges:</strong> <code>&gt; 128 MB / file</code></p>
+<p>But this is a guideline, not a mandatory rule.</p>
+<h3 class="subheading">19. Athena optimization</h3>
+<p class="compact-line"><strong>Remember 4 main things:</strong> <code>1. Parquet / ORC · 2. Compression · 3. Partition · 4. Avoid too many small files</code></p>
+<p class="lead-in">Ideal flow:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV / JSON
+↓
+Glue
+↓
+Parquet
++ Compression
++ Partition
+↓
+S3
+↓
+Athena</code></pre>
+<h3 class="subheading usage-heading">20. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">CloudTrail Logs
+↓
+S3
+↓
+Athena
+↓
+Security Investigation</code></pre>
+<pre class="flow-diagram"><code class="language-text">Raw Data
+↓
+Glue
+↓
+Parquet + Partition
+↓
+S3
+↓
+Athena
+↓
+QuickSight</code></pre>
+<pre class="flow-diagram"><code class="language-text">S3 + DynamoDB / RDS
+↓
+Athena Federated Query
+↓
+Ad-hoc Analytics</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Athena = Direct SQL on S3 data; Glue Data Catalog defines schema/partition; Parquet and partitioning help optimize the amount of scanned data.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon Redshift">
+<summary><span class="t-title">Amazon Redshift</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon Redshift is a data warehouse that uses SQL for analytics/BI, suitable for large queries, joins, aggregates and reporting on large amounts of data.</p>
+<p><strong>Redshift</strong> = Data Warehouse = SQL = OLAP</p>
+<p>Not suitable as the main database for application transactions.</p>
+<pre class="flow-diagram"><code class="language-text">Order / Payment / Account Update
+→ RDS / Aurora / DynamoDB
+
+Analytics / Reporting / BI
+→ Redshift</code></pre>
+<h3 class="subheading">1. OLAP vs OLTP</h3>
+<h4 class="minor-heading">1.1. OLTP</h4>
+<p class="compact-line"><strong>Used for application transactions:</strong> <code>Create Order · Update User · Payment · Insert / Update small and frequently</code></p>
+<p class="compact-line"><strong>Suitable:</strong> <code>RDS · Aurora · DynamoDB</code></p>
+<h4 class="minor-heading">1.2. OLAP</h4>
+<p class="compact-line"><strong>Used to analyze a variety of data:</strong> <code>SUM · COUNT · GROUP BY · JOIN · Reporting · Analytics</code></p>
+<p><code>Redshift</code></p>
+<blockquote class="caution"><p><strong>Redshift = OLAP, not OLTP database.</strong></p></blockquote>
+<h3 class="subheading">2. Popular flow</h3>
+<pre class="flow-diagram"><code class="language-text">RDS / Aurora / DynamoDB / S3
+↓
+ETL / ELT
+↓
+Redshift
+↓
+SQL Analytics
+↓
+QuickSight / Tableau</code></pre>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Sales Data
+Product Data
+Customer Data
+↓
+Redshift
+↓
+JOIN + GROUP BY
+↓
+Sales Dashboard</code></pre>
+<h3 class="subheading">3. Why is Redshift fast for Analytics?</h3>
+<p class="compact-line"><strong>Redshift is optimized with:</strong> <code>Columnar Storage · MPP · Sort Key · Distribution</code></p>
+<h3 class="subheading">4. Columnar Storage</h3>
+<p>Data is stored in columns instead of rows.</p>
+<p class="compact-line"><strong>Table example:</strong> <code>Name · Age · Country · Salary</code></p>
+<p class="compact-line"><strong>Query:</strong> <code>SELECT Country, AVG(Salary) · FROM employees · GROUP BY Country;</code></p>
+<p class="compact-line"><strong>Redshift mainly needs to read:</strong> <code>Country · Salary</code></p>
+<p>instead of the entire row.</p>
+<p><strong>Columnar</strong> = scan fewer columns = suitable for analytics</p>
+<h3 class="subheading">5. MPP</h3>
+<p><strong>MPP = Massively Parallel Processing</strong></p>
+<p>Redshift divides the query into multiple compute nodes for parallel processing.</p>
+<pre class="flow-diagram"><code class="language-text">SQL Query
+↓
+divided into several parts
+↓
+Compute Node 1
+Compute Node 2
+Compute Node 3
+↓
+parallel processing
+↓
+Result</code></pre>
+<blockquote class="insight"><p><strong>MPP = multiple machines processing one large query.</strong></p></blockquote>
+<h3 class="subheading">6. Sort Key</h3>
+<p>Sort Key helps data to be sorted by columns commonly used for filtering.</p>
+<p><code>Sort Key = OrderDate</code></p>
+<p><code>WHERE OrderDate &gt;= '2026-09-01'</code></p>
+<p>→ Redshift can skip many unrelated data blocks.</p>
+<p><strong>Sort Key</strong> = reduce the data to be scanned</p>
+<h3 class="subheading">7. Distribution</h3>
+<p>Distribution decides how data is divided into compute nodes.</p>
+<pre class="flow-diagram"><code class="language-text">Data
+↓
+Compute Node 1
+Compute Node 2
+Compute Node 3</code></pre>
+<p><strong>Objective:</strong> <strong>distribute workload evenly</strong> + Reduce data that must be moved when JOIN</p>
+<blockquote class="insight"><p class="definition-inline"><strong>Sort Key = how data is sorted.</strong> <strong>Distribution = which node the data is located at.</strong></p></blockquote>
+<h3 class="subheading">8. Cluster Architecture</h3>
+<p class="lead-in">In provisioned Redshift:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+Leader Node
+↓
+Compute Nodes</code></pre>
+<h4 class="minor-heading">8.1. Leader Node</h4>
+<p><strong>Leader Node</strong> = receive SQL = create query plan = divide work among compute nodes = synthesize results</p>
+<h4 class="minor-heading">8.2. Compute Nodes</h4>
+<p><strong>Compute Nodes</strong> = scan data = join = aggregate = parallel processing</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight/Client
+↓
+Leader Node
+↓
+split query
+↓
+Compute Nodes
+↓
+parallel processing
+↓
+General leader
+↓
+Result</code></pre>
+<h3 class="subheading">9. Provisioned vs Serverless</h3>
+<h4 class="minor-heading">9.1. Provisioned</h4>
+<p class="compact-line"><strong>You choose:</strong> <code>Node Type · Number of Nodes · Capacity</code></p>
+<p><strong>Redshift Cluster</strong> = always provisioned</p>
+<p class="compact-line"><code>Stable workload · Predictable traffic · Want to control capacity</code></p>
+<p class="compact-line"><strong>But need:</strong> <code>Capacity Planning · Resize · Monitor Cluster</code></p>
+<h4 class="minor-heading">9.2. Redshift Serverless</h4>
+<pre class="flow-diagram"><code class="language-text">Do not manage clusters/nodes directly
+↓
+AWS provides compute on its own
+↓
+run query</code></pre>
+<p class="compact-line"><code>Fluctuating traffic · Don't want to manage cluster · Ad-hoc / intermittent workload</code></p>
+<p><strong>Remember:</strong> <strong>Provisioned</strong> = you manage capacity</p>
+<p><strong>Serverless</strong> = AWS manages compute capacity</p>
+<h3 class="subheading">10. Redshift vs Athena</h3>
+<p>Both use SQL for analytics but work differently.</p>
+<h4 class="minor-heading">10.1. Athena</h4>
+<pre class="flow-diagram"><code class="language-text">S3 Files
+↓
+Athena
+↓
+SQL</code></pre>
+<p><strong>= query S3 directly</strong> = serverless = ad-hoc = pay per data scanned</p>
+<h4 class="minor-heading">10.2. Redshift</h4>
+<pre class="flow-diagram"><code class="language-text">Data
+↓
+Load / Model into Warehouse
+↓
+Redshift
+↓
+SQL</code></pre>
+<p><strong>= data warehouse</strong> = optimal for repeated queries = strong with large JOIN / Aggregates</p>
+<pre class="flow-diagram"><code class="language-text">Occasionally query CloudTrail logs
+→ Athena</code></pre>
+<pre class="flow-diagram"><code class="language-text">Dashboard sales runs continuously
++ multiple JOIN / GROUP BY
+→ Redshift</code></pre>
+<h3 class="subheading">11. Snapshot</h3>
+<p><strong>Snapshot = backup of Redshift cluster at a point in time.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Redshift Cluster
+↓
+Snapshot
+↓
+Backup</code></pre>
+<p><strong>Snapshots are incremental:</strong> <strong>Headshot</strong> = full data</p>
+<p><strong>Snapshot sau</strong> = saves only the changes</p>
+<h3 class="subheading">12. Restore Snapshot</h3>
+<p>Restore does not overwrite the old cluster.</p>
+<pre class="flow-diagram"><code class="language-text">Snapshot
+↓
+Restore
+↓
+New Redshift Cluster</code></pre>
+<blockquote class="insight"><p><strong>Restore Snapshot = create new cluster.</strong></p></blockquote>
+<h3 class="subheading">13. Automated Snapshot</h3>
+<p>Redshift automatically creates backups periodically.</p>
+<pre class="flow-diagram"><code class="language-text">Cluster
+↓
+Automated Snapshot
+↓
+Retention Window</code></pre>
+<p class="compact-line"><strong>Used for:</strong> <code>Regular Recovery · Accidental Change · Operational Backup</code></p>
+<h3 class="subheading">14. Manual Snapshot</h3>
+<p class="lead-in">You create it yourself:</p>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+Manual Snapshot</code></pre>
+<p>Keep it until you delete it.</p>
+<p class="compact-line"><code>Before migration · Before major change · Long-term backup</code></p>
+<h3 class="subheading">15. Cross-Region Snapshot</h3>
+<p class="lead-in">You can copy snapshots to another Region:</p>
+<pre class="flow-diagram"><code class="language-text">Region A
+Redshift
+↓
+Snapshot
+↓
+Copy
+↓
+Region B</code></pre>
+<p><code>Disaster Recovery</code></p>
+<p class="lead-in">If Region A has problems:</p>
+<pre class="flow-diagram"><code class="language-text">Snapshot in Region B
+↓
+Restore
+↓
+New Cluster</code></pre>
+<h3 class="subheading">16. Multi-AZ</h3>
+<p>Redshift supports Multi-AZ for suitable configurations.</p>
+<pre class="flow-diagram"><code class="language-text">AZ A
++
+AZ B
+↓
+Redshift</code></pre>
+<p><code>High Availability</code></p>
+<p><strong>Multi-AZ</strong> ≠ Cross-Region DR</p>
+<p>Cross-Region still uses its own snapshot copy/DR strategy.</p>
+<h3 class="subheading">17. QuickSight / Tableau</h3>
+<p class="lead-in">Redshift often works as a backend for BI:</p>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+QuickSight / Tableau
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sales
+Orders
+Products
+Customers
+↓
+Redshift
+↓
+JOIN / Aggregate
+↓
+QuickSight
+↓
+Business Dashboard</code></pre>
+<h3 class="subheading usage-heading">18. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">RDS / S3
+↓
+ETL
+↓
+Redshift
+↓
+QuickSight</code></pre>
+<pre class="flow-diagram"><code class="language-text">Sales + Product + Customer
+↓
+Redshift
+↓
+Large JOIN / Aggregate
+↓
+BI Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+Automated Snapshot
+↓
+Recovery</code></pre>
+<pre class="flow-diagram"><code class="language-text">Snapshot
+↓
+Cross-Region Copy
+↓
+Disaster Recovery</code></pre>
+<h3 class="subheading">19. Redshift Spectrum &amp; Comparison of Provisioned vs Serverless for Data Services</h3>
+<p class="definition"><strong>Redshift Spectrum:</strong> Use Redshift's computing power to directly query SQL data on S3 (join immediately with Redshift internal tables) without having to first load the entire file into the cluster; If only simple ad-hoc queries on S3 do not have Redshift available, priority is given <strong>Athena</strong>.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Data services</th><th>Provisioned mode</th><th>Serverless mode</th></tr></thead><tbody>
+<tr><td><strong>Amazon Redshift</strong></td><td>Manage the type/number of nodes in the cluster</td><td>Self-scaling data warehouse capacity accordingly <strong>RPU</strong></td></tr>
+<tr><td><strong>Amazon OpenSearch</strong></td><td>Choose your own domain instances and EBS</td><td>Self-scaling search/vector according to <strong>OCU</strong></td></tr>
+<tr><td><strong>Amazon MSK (Kafka)</strong></td><td>Choose the number of brokers and disk capacity</td><td>Self-scaling throughput streaming, without managing brokers</td></tr>
+<tr><td><strong>AWS DMS</strong></td><td>Choose your own replication instance size</td><td>Self-scaling between min/max <strong>DCU</strong> for Full Load &amp; CDC</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Redshift = data warehouse large-scale OLAP analytics, not the default choice for OLTP transactions.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon OpenSearch Service">
+<summary><span class="t-title">Amazon OpenSearch Service</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon OpenSearch Service is a managed search + analytics service, used to create a search index to help search quickly and flexibly across many fields.</p>
+<p><strong>OpenSearch</strong> = Search Engine + Log Analytics + Dashboard</p>
+<blockquote class="insight"><p><strong>Database keeps original data, OpenSearch keeps index for quick search.</strong></p></blockquote>
+<h3 class="subheading">1. What is OpenSearch used for?</h3>
+<p class="compact-line"><strong>Product examples include:</strong> <code>Name · Description · Category · Tags · Brand</code></p>
+<p><strong>User search:</strong> <code>"iphone pro"</code></p>
+<p class="compact-line"><strong>OpenSearch can:</strong> <code>Full-text Search · Partial Match · Filter · Sort · Ranking</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">"iph pro"
+↓
+OpenSearch
+↓
+iPhone 15 Pro
+iPhone 16 Pro</code></pre>
+<h3 class="subheading">2. Database vs OpenSearch</h3>
+<p><strong>DynamoDB example:</strong> <strong>DynamoDB</strong> = source of truth = saves real data</p>
+<p><strong>OpenSearch:</strong> <strong>OpenSearch</strong> = search index = search service</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+OpenSearch</code></pre>
+<p class="lead-in">Khi user:</p>
+<pre class="flow-diagram"><code class="language-text">Get item by ID
+→ DynamoDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">Search by Name / Description / Tag
+→ OpenSearch</code></pre>
+<h3 class="subheading">3. Why not just use DynamoDB?</h3>
+<p class="compact-line"><strong>DynamoDB is strong when querying with:</strong> <code>Partition Key · Sort Key · Secondary Index</code></p>
+<p class="compact-line"><strong>But if needed:</strong> <code>Search by text · Partial Match · Autocomplete · Search multiple fields</code></p>
+<p>then OpenSearch is more suitable.</p>
+<pre class="flow-diagram"><code class="language-text">ProductId = 123
+→ DynamoDB</code></pre>
+<pre class="flow-diagram"><code class="language-text">"wireless noise cancelling headphone"
+→ OpenSearch</code></pre>
+<h3 class="subheading">4. Eventual Consistency</h3>
+<p class="lead-in">Because OpenSearch is usually an index copied from the database:</p>
+<pre class="flow-diagram"><code class="language-text">DynamoDB Update
+↓
+Streams
+↓
+Lambda
+↓
+OpenSearch Update</code></pre>
+<p>so there may be a small delay.</p>
+<p><strong>Database</strong> = latest data</p>
+<p><strong>OpenSearch</strong> = updates may be a little slower</p>
+<blockquote class="insight"><p>Here it is <strong>eventual consistency of search index</strong>.</p></blockquote>
+<h3 class="subheading">5. Log Analytics</h3>
+<p>OpenSearch is also very popular for searching logs.</p>
+<pre class="flow-diagram"><code class="language-text">Application Logs
+↓
+CloudWatch Logs
+↓
+OpenSearch
+↓
+Search / Filter / Dashboard</code></pre>
+<p class="lead-in">There are 2 popular flows:</p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Subscription Filter
+↓
+Lambda
+↓
+OpenSearch</code></pre>
+<p class="lead-in">or:</p>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+Subscription Filter
+↓
+Firehose
+↓
+OpenSearch</code></pre>
+<h3 class="subheading">6. Lambda vs Firehose Ingest</h3>
+<ul class="fact-list"><li><strong>Lambda</strong> = flexible transform log = more custom logic</li><li><strong>Firehose</strong> = managed delivery = buffering = less self-management</li><li><strong>Remember:</strong> <strong>Lambda path</strong> = event-driven / custom transform</li><li><strong>Firehose path</strong> = managed near real-time delivery</li></ul>
+<h3 class="subheading">7. OpenSearch Dashboards</h3>
+<p class="lead-in">OpenSearch has a visualization interface:</p>
+<pre class="flow-diagram"><code class="language-text">Indexed Data
+↓
+OpenSearch Dashboards
+↓
+Chart / Graph / Search</code></pre>
+<pre class="flow-diagram"><code class="language-text">Error Logs
+↓
+OpenSearch
+↓
+Dashboard:
+Error Count
+Top IP
+Latency
+Status Code</code></pre>
+<h3 class="subheading">8. Managed vs Serverless</h3>
+<ul class="fact-list"><li><strong>There are 2 types of deployment:</strong> <strong>Provisioned OpenSearch</strong> = you choose cluster capacity</li><li><strong>OpenSearch Serverless</strong> = AWS manages scaling/capacity more</li><li><strong>Provisioned</strong> = more control over the cluster</li><li><strong>Serverless</strong> = less infrastructure management</li></ul>
+<h3 class="subheading">9. Security</h3>
+<p class="compact-line"><strong>OpenSearch can use:</strong> <code>IAM · VPC / Network Policy · TLS · KMS Encryption · Cognito for Dashboard login</code></p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+Cognito
+↓
+OpenSearch Dashboards</code></pre>
+<p><strong>While:</strong> <strong>IAM</strong> = control API access</p>
+<h3 class="subheading">10. OpenSearch is not a transactional database</h3>
+<p class="lead-in">OpenSearch should not be used as a source of truth for:</p>
+<p class="compact-line"><code>Payment · Order Transaction · Account Balance</code></p>
+<p><strong>Should:</strong> <strong>RDS / DynamoDB</strong> = save standard data</p>
+<p><strong>and:</strong> <strong>OpenSearch</strong> = search / analytics</p>
+<h3 class="subheading usage-heading">11. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Product Catalog
+↓
+OpenSearch
+↓
+Full-text Search</code></pre>
+<pre class="flow-diagram"><code class="language-text">DynamoDB
+↓
+Streams
+↓
+Lambda
+↓
+OpenSearch
+↓
+Search Index</code></pre>
+<pre class="flow-diagram"><code class="language-text">CloudWatch Logs
+↓
+OpenSearch
+↓
+Error Investigation
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">IoT / Firehose
+↓
+OpenSearch
+↓
+Filter / Aggregate / Visualize</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>OpenSearch is used for search, log analytics and indexing; not a primary relational data source instead of RDS.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon EMR">
+<summary><span class="t-title">Amazon EMR</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon EMR is a managed service for running big-data processing clusters across multiple EC2 instances.</p>
+<p><strong>EMR</strong> = Spark / Hadoop / HBase / Presto / Flink = big data processing in a distributed fashion</p>
+<p>AWS takes care of basic provisioning/configuration; You still choose the framework, nodes, and how to optimize your workload.</p>
+<h3 class="subheading">1. Node in EMR</h3>
+<ul class="fact-list"><li><strong>Primary</strong> = cluster coordination = health management / job schedule</li><li><strong>Core</strong> = run task = save data in cluster</li><li><strong>Task</strong> = only runs task = does not keep data</li></ul>
+<pre class="flow-diagram"><code class="language-text">Primary
+↓ divide job into multiple tasks
+Core + Task Nodes
+↓
+parallel processing
+↓
+Output</code></pre>
+<blockquote class="insight"><p><strong>Primary dispatcher, Core = compute + data, Task = compute only.</strong></p></blockquote>
+<h3 class="subheading">2. Spot / On-Demand</h3>
+<p><strong>On-Demand</strong> = stable = not reclaimed like Spot</p>
+<p><strong>Spot</strong> = cheaper = can be terminated</p>
+<p><strong>Spot is often best suited for:</strong> <code>Task Nodes</code></p>
+<p>Because the Task node does not hold data and the task can retry.</p>
+<p>Primary/Core usually needs more stability.</p>
+<h3 class="subheading">3. Auto Scaling</h3>
+<p class="lead-in">EMR can automatically change the number of nodes according to workload:</p>
+<pre class="flow-diagram"><code class="language-text">Job increases
+↓
+add node
+
+Job decreased
+↓
+reduce nodes</code></pre>
+<p>→ reduce costs when workload changes.</p>
+<h3 class="subheading">4. Long-running vs Transient Cluster</h3>
+<h4 class="minor-heading">4.1. Long-running</h4>
+<p><code>Cluster is always running</code></p>
+<p class="compact-line"><strong>Suitable:</strong> <code>Notebook · Interactive workload · HBase · Service needs to operate continuously</code></p>
+<h4 class="minor-heading">4.2. Transient</h4>
+<pre class="flow-diagram"><code class="language-text">Create Cluster
+↓
+Run Job
+↓
+Write the results to S3
+↓
+Terminate Cluster</code></pre>
+<p class="compact-line"><strong>Suitable for:</strong> <code>Batch · Periodic ETL · Spark processing</code></p>
+<p>→ avoid paying when cluster is idle.</p>
+<h3 class="subheading">5. Popular flow</h3>
+<pre class="flow-diagram"><code class="language-text">S3/HDFS
+↓
+EMR
+↓
+Spark/Hadoop Job
+↓
+Core + Task parallel processing
+↓
+S3 / Data Store</code></pre>
+<p>Important data should be saved in sustainable storage such as <strong>S3</strong>, especially when using Spot or transient clusters.</p>
+<h3 class="subheading">6. EMR vs Athena vs Glue</h3>
+<ul class="fact-list"><li><strong>EMR</strong> = Spark / Hadoop / Flink = custom big-data code = more cluster control</li><li><strong>Athena</strong> = Ad-hoc SQL directly on S3 = no cluster management</li><li><strong>Glue</strong> = serverless ETL = less infrastructure management</li></ul>
+<h3 class="subheading usage-heading">7. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Big Data on S3
+↓
+Spark on EMR
+↓
+Transform / Feature Engineering</code></pre>
+<pre class="flow-diagram"><code class="language-text">Hadoop / HBase workload
+↓
+EMR</code></pre>
+<pre class="flow-diagram"><code class="language-text">Large-scale ML preprocessing / Web indexing
+↓
+EMR Cluster</code></pre>
+<h3 class="subheading">8. Instance Groups vs Instance Fleets, Managed Scaling &amp; Spark Catalog</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Concepts on EMR</th><th>Distinguishing point</th></tr></thead><tbody>
+<tr><td><strong>EMR Instance Group</strong> vs <strong>EMR Instance Fleet</strong></td><td>Instance Group fixes one EC2 type per node group; <strong>Instance Fleet</strong> Allows mixing many types of EC2 + On-Demand/Spot and manually selecting the available AZ</td></tr>
+<tr><td><strong>EMR Managed Scaling</strong></td><td>Automatically increase/decrease the number of Core and Task nodes continuously according to the actual load of the job to optimize costs</td></tr>
+<tr><td><strong>Apache Spark</strong> vs <strong>Spark Catalog</strong></td><td>Spark is a distributed processing engine; <code>spark_catalog</code> (usually integrated <strong>Glue Data Catalog</strong>) only manages table/schema metadata, not original data</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>EMR is a big data processing platform using the Spark/Hadoop ecosystem and supported frameworks.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon QuickSight">
+<summary><span class="t-title">Amazon QuickSight</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon QuickSight is a serverless Business Intelligence (BI) service for creating:</p>
+<p class="compact-line"><code>Charts · Reports · Interactive Analysis · Dashboards</code></p>
+<p>QuickSight is used to <strong>visualize data and create insights</strong>, not a database, data warehouse or ETL engine.</p>
+<p><strong>QuickSight</strong> = BI = Visualization = Dashboard</p>
+<h3 class="subheading">1. Where does QuickSight get its data?</h3>
+<p class="compact-line"><strong>Can connect to:</strong> <code>RDS · Aurora · Athena · Redshift · S3 · OpenSearch · Timestream</code></p>
+<p class="compact-line"><strong>There are also:</strong> <code>CSV / XLSX / JSON / TSV · Salesforce / Jira · On-prem database qua JDBC</code></p>
+<pre class="flow-diagram"><code class="language-text">Data Source
+↓
+QuickSight
+↓
+Charts / Dashboard</code></pre>
+<h3 class="subheading">2. Analysis vs Dashboard</h3>
+<h4 class="minor-heading">2.1. Analysis</h4>
+<p><strong>Analysis = where the author creates and edits dashboards.</strong></p>
+<p class="compact-line"><strong>Can add:</strong> <code>Charts · Filters · Parameters · Controls · Sort</code><a class="gtx-a" href="https://translate.google.com/?source=gtx_m#ca/vi/Charts%20%C2%B7%20Filters%20%C2%B7%20Parameters%20%C2%B7%20Controls%20%C2%B7%20Sort" id="more" style="color: rgb(162, 162, 162); padding-top: 16px; display: inline !important;" target="_blank">MORE »</a></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Sales Analysis
+├── Revenue chart
+├── Region filter
+├── Date filter
+└── Product chart</code></pre>
+<h4 class="minor-heading">2.2. Dashboard</h4>
+<p class="lead-in">After analysis is complete:</p>
+<pre class="flow-diagram"><code class="language-text">Analysis
+↓
+Publish
+↓
+Dashboard</code></pre>
+<p>Dashboards are mainly for viewers.</p>
+<p><strong>Analysis</strong> = where build/edit</p>
+<p><strong>Dashboard</strong> = published version to share/view</p>
+<p class="compact-line"><strong>Viewers can still interact with:</strong> <code>Filter · Drill-down · Controls</code></p>
+<p>within published scope.</p>
+<h3 class="subheading">3. Direct Query</h3>
+<p>QuickSight can directly query the data source.</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight
+↓
+Redshift / Athena / RDS</code></pre>
+<p class="lead-in">Each time the dashboard needs data:</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight
+↓
+query source
+↓
+get results</code></pre>
+<p><strong>Advantages:</strong> <code>Newer data</code></p>
+<p class="compact-line"><strong>Disadvantages:</strong> <code>Depends on source speed · Increase source load</code></p>
+<h3 class="subheading">4. SPICE</h3>
+<p><strong>SPICE = QuickSight's in-memory engine.</strong></p>
+<pre class="flow-diagram"><code class="language-text">Data Source
+↓
+Import
+↓
+SPICE
+↓
+Dashboard</code></pre>
+<p>QuickSight queries the imported data in memory instead of continuously querying the source.</p>
+<p class="compact-line"><strong>Benefits:</strong> <code>Faster dashboard · Reduced database load</code></p>
+<p class="lead-in">In return:</p>
+<pre class="flow-diagram"><code class="language-text">Data is not automatically always fresh
+↓
+need refresh</code></pre>
+<h3 class="subheading">5. Direct Query vs SPICE</h3>
+<p><strong>Direct Query</strong> = query source directly = fresher data = depends on source</p>
+<p><strong>SPICE</strong> = import copy into QuickSight = faster = need to refresh</p>
+<blockquote class="insight"><p class="definition-inline"><strong>Direct Query = prioritize freshness.</strong> <strong>SPICE = performance priority.</strong></p></blockquote>
+<h3 class="subheading">6. Sharing</h3>
+<p class="compact-line"><strong>Dashboards can:</strong> <code>Share with QuickSight User · Share with QuickSight Group · Embed into application</code></p>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+QuickSight
+↓
+Sales Dashboard
+↓
+Embed into the company portal</code></pre>
+<p>QuickSight users/groups is the identity within QuickSight.</p>
+<p><strong>QuickSight Group</strong> ≠ IAM Group</p>
+<h3 class="subheading">7. Column-Level Security</h3>
+<p>Enterprise edition supported <strong>Column-Level Security (CLS)</strong>.</p>
+<p class="compact-line"><strong>Table example:</strong> <code>Name · Department · Salary · Email</code></p>
+<p class="compact-line"><strong>HR:</strong> Sales user: <code>Name · Department · Email</code></p>
+<p><strong>don't see:</strong> <code>Salary</code></p>
+<blockquote class="insight"><p><strong>CLS = controls which columns the user can view.</strong></p></blockquote>
+<h3 class="subheading">8. Row-Level Security</h3>
+<p>In addition to columns, you can limit by row.</p>
+<pre class="flow-diagram"><code class="language-text">User Singapore
+→ only see Region = Singapore
+
+User Vietnam
+→ only see Region = Vietnam</code></pre>
+<p><strong>RLS</strong> = controls which rows the user can see</p>
+<p><strong>Remember:</strong> <strong>CLS</strong> = Column</p>
+<p><strong>RLS</strong> = Row</p>
+<h3 class="subheading">9. Security Layers</h3>
+<p class="lead-in">There are two different types of permissions:</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight → Data Source</code></pre>
+<p>QuickSight needs permission/credential to read the database.</p>
+<p class="lead-in">And:</p>
+<pre class="flow-diagram"><code class="language-text">User → QuickSight Dashboard</code></pre>
+<p>QuickSight user/group decides who gets to see the dashboard.</p>
+<blockquote class="caution"><p>Having permission to view the dashboard does not mean that the user directly has access to the source database.</p></blockquote>
+<h3 class="subheading">10. What doesn't QuickSight do?</h3>
+<p class="compact-line"><strong>QuickSight is not:</strong> <code>Data Warehouse · ETL Engine · Transactional Database</code></p>
+<p><strong>Glue</strong> = transform data</p>
+<p><strong>Redshift</strong> = warehouse</p>
+<p><strong>Athena</strong> = query data</p>
+<p><strong>QuickSight</strong> = visualize results</p>
+<h3 class="subheading usage-heading">11. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Athena
+↓
+QuickSight
+↓
+Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Redshift
+↓
+QuickSight
+↓
+Sales / Finance Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Timestream / OpenSearch
+↓
+QuickSight
+↓
+Operational Dashboard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Dashboard
+↓
+Embed
+↓
+Web Application</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>QuickSight serves BI dashboard/visualization; not a data warehouse; typically read from Athena, Redshift, or another source.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Glue &amp; Lake Formation">
+<summary><span class="t-title">AWS Glue &amp; Lake Formation</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> AWS Glue provides serverless ETL and metadata catalog to prepare data for analytics; AWS Lake Formation builds a data lake management layer on Glue to ingest, catalog, and centrally control access to data typically stored in S3.</p>
+<p><strong>AWS Glue</strong> = ETL + Data Catalog</p>
+<p><strong>Lake Formation</strong> = Governance + Permission for Data Lake</p>
+<p><strong>S3</strong> = contains data</p>
+<p><strong>Glue</strong> = learn data + transform data</p>
+<p><strong>Lake Formation</strong> = control who can see the data</p>
+<h3 class="subheading">1. AWS Glue</h3>
+<p>Glue is the service <strong>serverless ETL</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Extract
+↓
+Transform
+↓
+Load</code></pre>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV/JSON on S3
+↓
+Glue
+↓
+Clean + Convert Parquet + Partition
+↓
+Curated Data on S3
+↓
+Athena / Redshift / QuickSight</code></pre>
+<h3 class="subheading">2. Glue Crawler</h3>
+<p><strong>Crawler = explore data and schema.</strong></p>
+<p class="compact-line"><strong>It reads:</strong> <code>S3 · RDS · DynamoDB · JDBC Source</code></p>
+<p class="compact-line"><strong>then discovered:</strong> <code>Column · Data Type · Partition · Location</code></p>
+<p><strong>then save the metadata to:</strong> <code>Glue Data Catalog</code></p>
+<blockquote class="caution"><p><strong>Crawler only discovers schema, does not transform data.</strong></p></blockquote>
+<h3 class="subheading">3. Glue Data Catalog</h3>
+<p>Data Catalog is like <strong>table of contents of data lake</strong>.</p>
+<p><strong>Glue Data Catalog</strong> = Table + Schema + Partition + S3 Location</p>
+<p class="compact-line"><code>Table: orders · Columns: id, price, date · Location: s3://data/orders/</code></p>
+<p><strong>The real data is still located at:</strong> <code>S3</code></p>
+<p><strong>The catalog only holds:</strong> <code>Metadata</code></p>
+<p class="compact-line"><strong>Services using Catalog:</strong> <code>Athena · Redshift Spectrum · EMR · Glue</code></p>
+<h3 class="subheading">4. Crawler vs Glue Job</h3>
+<p><strong>Crawler</strong> = What structure does this data have?</p>
+<p><strong>Glue Job</strong> = How to transform data?</p>
+<pre class="flow-diagram"><code class="language-text">S3 Raw CSV
+↓
+Crawler
+↓
+Catalog knows schema</code></pre>
+<p class="lead-in">Then:</p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV
+↓
+Glue Job
+↓
+Clean / Join / Filter
+↓
+Parquet</code></pre>
+<h3 class="subheading">5. Job Bookmark</h3>
+<p>Job Bookmark remembers which data has been processed.</p>
+<pre class="flow-diagram"><code class="language-text">Run 1
+→ process files A and B
+
+Run 2
+→ only processes C files</code></pre>
+<p class="lead-in">Instead:</p>
+<pre class="flow-diagram"><code class="language-text">A + B + C
+→ reprocess everything</code></pre>
+<blockquote class="insight"><p><strong>Bookmark = avoid reprocessing old data.</strong></p></blockquote>
+<p>It should not be understood as an exactly-once guarantee for every pipeline.</p>
+<h3 class="subheading">6. Glue Studio &amp; DataBrew</h3>
+<p><strong>Glue Studio</strong> = GUI create/run/monitor Glue Jobs</p>
+<p><strong>DataBrew</strong> = low-code/no-code data cleaning</p>
+<p class="compact-line"><strong>DataBrew is suitable for:</strong> <code>Remove duplicate · Normalize · Clean values · Standardize data</code></p>
+<h3 class="subheading">7. Glue Streaming ETL</h3>
+<p>In addition to batch ETL, Glue can handle streams.</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis / Kafka / MSK
+↓
+Glue Streaming ETL
+↓
+Transform
+↓
+S3 / Analytics Target</code></pre>
+<p><strong>It uses:</strong> <code>Apache Spark Structured Streaming</code></p>
+<h3 class="subheading">8. AWS Lake Formation</h3>
+<p><strong>Lake Formation is used to manage and protect Data Lake.</strong></p>
+<p><strong>Lake Formation</strong> = Data Lake Governance</p>
+<p><strong>Usually data is still located in:</strong> <code>Amazon S3</code></p>
+<p>Lake Formation is not new storage.</p>
+<h3 class="subheading">9. Glue vs Lake Formation</h3>
+<p><strong>Glue</strong> = data has what schema? = transform data how?</p>
+<p><strong>Lake Formation</strong> = Who can see which data?</p>
+<pre class="flow-diagram"><code class="language-text">S3 Data Lake
+↓
+Glue Catalog
+↓
+Lake Formation Permissions
+↓
+Athena
+↓
+User</code></pre>
+<h3 class="subheading">10. Fine-Grained Access</h3>
+<p class="lead-in">Lake Formation can limit permissions to:</p>
+<p class="compact-line"><code>Database · Table · Column · Row</code></p>
+<p class="lead-in">Table example:</p>
+<pre class="flow-diagram"><code class="language-text">Employee
+├── Name
+├── Department
+└── Salary</code></pre>
+<p class="compact-line"><strong>HR:</strong> <code>Name ✅ · Department ✅ · Salary ✅</code></p>
+<p class="compact-line"><strong>Analyst:</strong> <code>Name ✅ · Department ✅ · Salary ❌</code></p>
+<p><code>Column-Level Access</code></p>
+<p class="lead-in">Rows can be limited:</p>
+<pre class="flow-diagram"><code class="language-text">Vietnam Team
+→ only see Region = Vietnam</code></pre>
+<h3 class="subheading">11. Lake Formation does not replace IAM/S3/KMS</h3>
+<p>Lake Formation is an additional layer of governance.</p>
+<p class="compact-line"><strong>You may still need:</strong> <code>IAM · S3 permissions · KMS permissions · Network access</code></p>
+<p class="lead-in">Example file using SSE-KMS:</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+Lake Formation allows tables
+↓
+but no KMS permission
+↓
+Still can't read data</code></pre>
+<h3 class="subheading">12. Full Flow Data Lake</h3>
+<pre class="flow-diagram"><code class="language-text">S3 / RDS / DynamoDB
+↓
+Glue Crawler
+↓
+Glue Data Catalog
+↓
+Glue ETL
+↓
+Curated S3 Data Lake
+↓
+Lake Formation
+↓
+Fine-Grained Permission
+↓
+Athena / Redshift / EMR
+↓
+QuickSight</code></pre>
+<h3 class="subheading usage-heading">13. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Raw CSV
+↓
+Glue
+↓
+Parquet + Partition
+↓
+S3
+↓
+Athena</code></pre>
+<pre class="flow-diagram"><code class="language-text">Company Data Lake
+↓
+Lake Formation
+↓
+Finance only views Finance data
+HR only views HR data</code></pre>
+<pre class="flow-diagram"><code class="language-text">Kinesis / MSK
+↓
+Glue Streaming ETL
+↓
+Clean data
+↓
+S3 / Redshift</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Glue = ETL, crawler/catalog; Lake Formation manages data lake permissions centrally. Distinguish between data transformation and authority management.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Streaming platforms: Amazon MSK &amp; Managed Service for Apache Flink">
+<summary><span class="t-title">Streaming platforms: Amazon MSK &amp; Managed Service for Apache Flink</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon MSK is managed Apache Kafka to stream event streams by topic/partition; Amazon Managed Service for Apache Flink (formerly Kinesis Data Analytics for Apache Flink) runs Flink managed applications to process real-time streams from Kinesis Data Streams or MSK.</p>
+<p><strong>Amazon MSK</strong> = Managed Apache Kafka = receive and transmit event stream</p>
+<p><strong>Managed Service for Apache Flink</strong> = real-time stream processing</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+MSK / Kafka
+↓
+Flink
+↓
+Transform / Aggregate / Detect
+↓
+Sink</code></pre>
+<h3 class="subheading">1. Amazon MSK</h3>
+<p>Amazon MSK is <strong>Apache Kafka is managed by AWS</strong>.</p>
+<p class="compact-line"><strong>Instead of self:</strong> <code>Install Kafka · Manage broker · Patch · Recovery · Scaling</code></p>
+<p>AWS manages the infrastructure for you.</p>
+<p><strong>MSK</strong> = Kafka API + Kafka ecosystem + Managed infrastructure</p>
+<p>Clusters usually run in VPC and can span multiple AZs to increase HA.</p>
+<h3 class="subheading">2. Kafka Model</h3>
+<ul class="fact-list"><li><strong>Kafka has 3 important components:</strong> <strong>Producer</strong> = send event</li><li><strong>Topic</strong> = stream / event type</li><li><strong>Consumer</strong> = read event</li></ul>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Order Service
+↓ Producer
+Topic: orders
+↓
+Fraud Consumer
+Analytics Consumer
+Notification Consumer</code></pre>
+<p>An event stream can be processed independently by multiple consumers.</p>
+<h3 class="subheading">3. Topic &amp; Partition</h3>
+<p><strong>Topics are divided into:</strong> <code>Partitions</code></p>
+<pre class="flow-diagram"><code class="language-text">orders topic
+├── Partition 0
+├── Partition 1
+└── Partition 2</code></pre>
+<p class="compact-line"><strong>Partition helps:</strong> <code>Parallel Processing · Scale throughput</code></p>
+<p class="lead-in">Consumer Group can divide partitions among multiple consumers:</p>
+<pre class="flow-diagram"><code class="language-text">Partition 0 → Consumer A
+Partition 1 → Consumer B
+Partition 2 → Consumer C</code></pre>
+<blockquote class="insight"><p><strong>Topic = logical stream, Partition = parallelism unit.</strong></p></blockquote>
+<p>Kafka can <strong>add partition</strong>, but does not reduce partition count directly.</p>
+<h3 class="subheading">4. Producer &amp; Consumer is still your code</h3>
+<p>MSK manages the Kafka infrastructure, but the business logic is still handled by the application.</p>
+<pre class="flow-diagram"><code class="language-text">Producer Code
+↓
+MSK
+↓
+Consumer Code
+↓
+Business Logic</code></pre>
+<p class="compact-line"><strong>MSK does not understand:</strong> <code>Order · Payment · Fraud · Customer</code></p>
+<p>it just transports/saves event.</p>
+<h3 class="subheading">5. Storage &amp; Replication</h3>
+<p class="lead-in">Kafka records are saved according to retention:</p>
+<pre class="flow-diagram"><code class="language-text">Producer
+↓
+Broker
+↓
+EBS Storage</code></pre>
+<p class="lead-in">Broker can replicate data:</p>
+<pre class="flow-diagram"><code class="language-text">Broker A
+↓ replicate
+Broker B
+↓
+Broker C</code></pre>
+<p>→ increase durability and availability.</p>
+<h3 class="subheading">6. MSK Serverless</h3>
+<p><strong>Two main ways:</strong> <strong>Provisioned MSK</strong> = select/manage broker capacity</p>
+<p><strong>MSK Serverless</strong> = AWS self-provisioning + scale capacity</p>
+<p class="compact-line"><strong>Serverless is suitable when:</strong> <code>Traffic changes a lot · Don't want capacity planning</code></p>
+<p>Provisioned is suitable when more cluster/capacity control is needed.</p>
+<h3 class="subheading">7. Managed Service for Apache Flink</h3>
+<p>Flink is used for <strong>Process data while the stream is running</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis / MSK
+↓
+Flink
+↓
+Transform
+Filter
+Aggregate
+Join
+Window
+↓
+Output</code></pre>
+<p class="compact-line"><strong>Can be written with:</strong> <code>Java · Scala · SQL</code></p>
+<h3 class="subheading">8. Flink example</h3>
+<p class="lead-in">Event:</p>
+<pre class="flow-diagram"><code class="language-text">User A → $100
+User A → $500
+User A → $3000</code></pre>
+<p class="lead-in">Flink can:</p>
+<pre class="flow-diagram"><code class="language-text">Group by User
+↓
+total in 5 minutes
+↓
+Abnormal detection
+↓
+Fraud Alert</code></pre>
+<p>Here it is <strong>stateful stream processing</strong>.</p>
+<h3 class="subheading">9. Flink State &amp; Checkpoint</h3>
+<p>Flink can remember state between events.</p>
+<p><code>User A total = $600</code></p>
+<p><strong>New event:</strong> <code>+$3000</code></p>
+<p><strong>Flink continues from the old state:</strong> <code>Total = $3600</code></p>
+<p class="lead-in">To recover:</p>
+<pre class="flow-diagram"><code class="language-text">State
+↓
+Checkpoint / Snapshot
+↓
+Failure
+↓
+Restore State</code></pre>
+<blockquote class="insight"><p><strong>Checkpoint = saves state so Flink can continue after failure.</strong></p></blockquote>
+<h3 class="subheading">10. Auto Scaling &amp; Parallelism</h3>
+<p class="lead-in">Flink can parallelize:</p>
+<pre class="flow-diagram"><code class="language-text">Stream
+↓
+Worker 1
+Worker 2
+Worker 3</code></pre>
+<p class="lead-in">When throughput increases:</p>
+<pre class="flow-diagram"><code class="language-text">Auto Scaling
+↓
+More Compute</code></pre>
+<p class="compact-line"><strong>But correctness still depends:</strong> <code>Checkpoint · Offsets · Duplicate handling · Late events · Sink idempotency</code></p>
+<h3 class="subheading">11. Where does Flink read from?</h3>
+<p class="compact-line"><strong>According to slide content:</strong> <code>Kinesis Data Streams ✅ · Amazon MSK ✅ · Data Firehose ❌</code></p>
+<p><strong>Remember:</strong> <strong>KDS / MSK</strong> = stream source</p>
+<p><strong>Flink</strong> = stream processor</p>
+<h3 class="subheading">12. Kinesis Data Streams vs MSK</h3>
+<p><strong>Kinesis Data Streams</strong> = AWS-native streaming = uses Shards</p>
+<p><strong>MSK</strong> = Apache Kafka = use Topics + Partitions</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis
+→ want AWS-native, less interested in Kafka ecosystem</code></pre>
+<pre class="flow-diagram"><code class="language-text">MSK
+→ app used Kafka
+→ needs Kafka APIs / ecosystem</code></pre>
+<h3 class="subheading">13. Shard vs Partition</h3>
+<p><strong>Kinesis</strong> = Shard</p>
+<p><strong>Kafka / MSK</strong> = Partition</p>
+<p><strong>Both are used to:</strong> <strong>chia workload</strong> + parallel processing</p>
+<p class="lead-in">And we all need to choose a reasonable partition key to avoid:</p>
+<p><code>Hot Partition / Hot Shard</code></p>
+<h3 class="subheading">14. MSK Consumer</h3>
+<p class="compact-line"><strong>MSK can be consumed by:</strong> <code>Managed Flink · Glue Streaming ETL · Lambda · EC2 / ECS / EKS Application</code></p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+MSK
+├── Flink → Real-time Analytics
+├── Lambda → Business Logic
+└── Glue → S3 Data Lake</code></pre>
+<h3 class="subheading usage-heading">15. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Microservices
+↓
+MSK
+↓
+many independent consumers</code></pre>
+<pre class="flow-diagram"><code class="language-text">Kinesis / MSK
+↓
+Flink
+↓
+Fraud Detection</code></pre>
+<pre class="flow-diagram"><code class="language-text">Clickstream
+↓
+Flink
+↓
+5-minute aggregation
+↓
+Analytics</code></pre>
+<pre class="flow-diagram"><code class="language-text">Variable Kafka Traffic
+↓
+MSK Serverless</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>MSK manages Kafka; Managed Service for Apache Flink handles streaming according to state/event time. Choose according to ingest or real-time compute purposes.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Serverless big-data ingestion pipeline">
+<summary><span class="t-title">Serverless big-data ingestion pipeline</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> This is a pattern to receive real-time events → save to S3 → query with Athena → create dashboard/report without having to manage the ingestion cluster yourself.</p>
+<pre class="flow-diagram"><code class="language-text">IoT Devices
+↓
+IoT Core
+↓
+Kinesis Data Streams
+↓
+Data Firehose
+↓
+S3
+↓
+Athena
+↓
+QuickSight / Redshift</code></pre>
+<h3 class="subheading">1. Role of each service</h3>
+<ul class="fact-list"><li><strong>IoT Core</strong> = receive events from IoT devices</li><li><strong>Kinesis Data Streams</strong> = streaming ingestion real-time</li><li><strong>Data Firehose:</strong> buffer + delivery managed → usually writes to S3</li><li><strong>S3</strong> = save raw / processed data</li><li><strong>Athena</strong> = SQL query on S3</li><li><strong>QuickSight</strong> = dashboard / visualization</li><li><strong>Redshift</strong> = warehouse analytics if large queries/joins are needed frequently</li></ul>
+<h3 class="subheading">2. Full flow</h3>
+<pre class="flow-diagram"><code class="language-text">IoT Devices
+↓
+IoT Core
+↓
+Kinesis Data Streams
+↓
+Data Firehose
+↓
+Lambda Transform (optional)
+↓
+S3 Ingestion Bucket
+↓
+SQS (optional)
+↓
+Lambda
+↓
+Athena Query
+↓
+S3 Reporting Bucket
+↓
+QuickSight / Redshift</code></pre>
+<h3 class="subheading">3. Kinesis Data Streams</h3>
+<p>KDS receives data <strong>real-time</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Devices / Applications
+↓
+Kinesis Data Streams
+↓
+continuous records</code></pre>
+<p class="lead-in">For example:</p>
+<p class="compact-line"><code>Temperature event · Click event · Application log · Telemetry</code></p>
+<p><strong>Need to choose:</strong> <code>Partition Key</code></p>
+<p>reasonable to avoid hot shards.</p>
+<h3 class="subheading">4. Data Firehose</h3>
+<p>Firehose took the stream <strong>buffer and delivery to destination</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">Kinesis Data Streams
+↓
+Firehose
+↓
+S3</code></pre>
+<p class="compact-line"><strong>Firehose can:</strong> <code>Buffer records · Batch records · Retry delivery · Transform using Lambda</code></p>
+<p><strong>Because there is buffering:</strong> <strong>Firehose</strong> = Near Real-Time</p>
+<p>Not every event that arrives immediately appears in S3.</p>
+<h3 class="subheading">5. Lambda Transform in Firehose</h3>
+<p class="lead-in">Can add:</p>
+<pre class="flow-diagram"><code class="language-text">Firehose
+↓
+Lambda
+↓
+Transform Record
+↓
+S3</code></pre>
+<pre class="flow-diagram"><code class="language-text">Raw JSON
+↓
+Clean / Add field / Change format
+↓
+S3</code></pre>
+<p>Lambda here is <strong>optional</strong>.</p>
+<h3 class="subheading">6. S3 + SQS + Lambda</h3>
+<p class="lead-in">When Firehose writes the file to S3:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Event
+↓
+SQS
+↓
+Lambda</code></pre>
+<p class="compact-line"><strong>SQS is used to:</strong> <code>Buffer · Retry · Decouple · Handle traffic spike</code></p>
+<p class="lead-in">If the pipeline is simple:</p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Lambda</code></pre>
+<p>also.</p>
+<h3 class="subheading">7. Why add SQS?</h3>
+<p class="lead-in">Without SQS:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Event
+↓
+Lambda</code></pre>
+<p class="lead-in">Yes SQS:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Event
+↓
+SQS Queue
+↓
+Lambda</code></pre>
+<p class="lead-in">If Lambda is slow:</p>
+<pre class="flow-diagram"><code class="language-text">Message
+→ wait in SQS</code></pre>
+<p>instead of applying pressure directly to Lambda.</p>
+<blockquote class="insight"><p><strong>SQS = buffer + decouple + retry.</strong></p></blockquote>
+<h3 class="subheading">8. SQS does not guarantee exactly-once</h3>
+<p>Message/event can be reprocessed.</p>
+<pre class="flow-diagram"><code class="language-text">Same Event
+↓
+Lambda
+↓
+can run multiple times</code></pre>
+<p><strong>So consumers should:</strong> <code>Idempotent</code></p>
+<p class="compact-line"><strong>For example, the same file is processed again:</strong> <code>Do not create duplicate reports · Do not insert duplicate data</code></p>
+<h3 class="subheading">9. Athena Query</h3>
+<p class="lead-in">Lambda can trigger Athena:</p>
+<pre class="flow-diagram"><code class="language-text">Lambda
+↓
+Start Athena Query
+↓
+Athena reads data from S3
+↓
+SQL</code></pre>
+<p class="compact-line"><code>SELECT device_id, AVG(temperature) · FROM telemetry · GROUP BY device_id;</code></p>
+<p><strong>Athena saves the result to:</strong> <code>S3 Reporting Bucket</code></p>
+<h3 class="subheading">10. Query Result is in S3</h3>
+<pre class="flow-diagram"><code class="language-text">Athena
+↓
+Query Result
+↓
+S3</code></pre>
+<p class="lead-in">Then:</p>
+<pre class="flow-diagram"><code class="language-text">QuickSight
+↓
+Dashboard</code></pre>
+<p class="lead-in">or:</p>
+<pre class="flow-diagram"><code class="language-text">Reporting Data
+↓
+Redshift
+↓
+Warehouse Analytics</code></pre>
+<h3 class="subheading">11. Real-Time vs Near Real-Time</h3>
+<p><strong>Kinesis Data Streams</strong> = Real-Time Streaming</p>
+<p><strong>Firehose</strong> = Buffer + Delivery = Near Real-Time</p>
+<pre class="flow-diagram"><code class="language-text">Event occurs
+↓
+KDS received it immediately
+↓
+Firehose buffer
+↓
+Then write the batch to S3</code></pre>
+<p>Therefore, the entire pipeline to the dashboard is usually not strict real-time.</p>
+<h3 class="subheading">12. QuickSight vs Redshift at the end of the pipeline</h3>
+<pre class="flow-diagram"><code class="language-text">Athena / S3
+↓
+QuickSight</code></pre>
+<p class="compact-line"><strong>Use when:</strong> <code>Dashboard · Reporting · Visualization</code></p>
+<p class="compact-line"><strong>If needed:</strong> <code>many JOINs · large aggregates · continuously repeated queries</code></p>
+<p class="lead-in">then:</p>
+<pre class="flow-diagram"><code class="language-text">S3
+↓
+Redshift
+↓
+QuickSight</code></pre>
+<p>may be more suitable.</p>
+<h3 class="subheading usage-heading">13. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">IoT Devices
+↓
+Kinesis
+↓
+S3
+↓
+Athena
+↓
+QuickSight</code></pre>
+<p>→ IoT telemetry dashboard.</p>
+<pre class="flow-diagram"><code class="language-text">Application Logs
+↓
+Kinesis
+↓
+Firehose
+↓
+S3
+↓
+Athena</code></pre>
+<p>→ log analytics.</p>
+<pre class="flow-diagram"><code class="language-text">Clickstream
+↓
+S3
+↓
+Athena
+↓
+Redshift
+↓
+BI</code></pre>
+<p>→ big analytics/reporting.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Serverless ingest flows typically separate collection, storage, ETL, and query; Select Kinesis/Firehose, S3, Glue, Athena by role.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Data Pipeline, Amazon MWAA &amp; AWS Data Exchange">
+<summary><span class="t-title">AWS Data Pipeline, Amazon MWAA &amp; AWS Data Exchange</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Orchestrate complex scheduled/dependent data processing workflows and integrate third-party data sets to AWS.</p>
+<h3 class="subheading">1. Amazon MWAA vs AWS Data Pipeline</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service</th><th>Roles &amp; Distinguishing Points</th></tr></thead><tbody>
+<tr><td><strong>Amazon MWAA</strong> (Managed Workflows for Apache Airflow)</td><td>Run environment <strong>Apache Airflow</strong> managed to orchestrate multi-step data pipelines using Python code (<strong>DAGs</strong>), handling dependencies, retries, and warnings; MWAA itself <strong>coordination only</strong>, while computation/storage is handled by S3, Glue, EMR, Redshift</td></tr>
+<tr><td><strong>AWS Data Pipeline</strong></td><td>Service that coordinates periodic data migration and transformation between AWS/on-premises data warehouses according to dependencies</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Amazon MWAA (scheduled DAG) → enable AWS Glue ETL read S3 → load Amazon Redshift table → send SNS notification</code></pre>
+<h3 class="subheading">2. AWS Data Exchange</h3>
+<p class="definition"><strong>AWS Data Exchange:</strong> data marketplace helps subscribe to commercial/public datasets from third-party providers and receive them directly into S3, Redshift, Lake Formation or via API without having to write your own collection pipeline.</p>
+</div>
+</details>

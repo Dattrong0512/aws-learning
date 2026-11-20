@@ -1,31 +1,24 @@
 {
-  // Worker học AWS + Spaced Repetition
+  // Website chỉ đọc; giữ KV cũ để bảo toàn dữ liệu.
   "name": "aws-learning",
   "main": "src/worker.js",
   "compatibility_date": "2026-01-01",
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/Exam", "/Exam/*", "/all", "/all.html"]
   },
+  "build": { "command": "node tools/build-site.mjs" },
   "kv_namespaces": [
     {
       "binding": "SR",
       "id": "d946c6f1e85f4656b2781cb3939fb656",
-      // Same id everywhere → the SAME KV namespace, so review progress syncs
-      // between company & home.
+      // Giữ nguyên KV namespace hiện có để bảo toàn dữ liệu đã lưu (content-v1)
+      // và đồng bộ nội dung giữa các máy.
       "preview_id": "d946c6f1e85f4656b2781cb3939fb656",
-      // Run plain `wrangler dev` (local worker, fast, reliable) but bind this KV
-      // to the REAL remote namespace. Replaces `wrangler dev --remote`, which put
-      // the whole Worker on Cloudflare's preview edge and caused Error 1031
-      // ("Invalid Workers Preview configuration"). Local worker + remote KV = sync
-      // without the flaky preview session.
       "remote": true
     }
   ],
-  "triggers": {
-    // 22:00 UTC = 05:00 sáng giờ Việt Nam (UTC+7)
-    "crons": ["0 22 * * *"]
-  },
   "dev": {
     // Serve the local site on 8788 (avoids a clash with another process on 8787).
     "port": 8788

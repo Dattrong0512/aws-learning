@@ -1,0 +1,778 @@
+<details class="topic" data-progress-aliases="" data-track="Disaster Recovery: RPO, RTO &amp; recovery strategies">
+<summary><span class="t-title">Disaster Recovery: RPO, RTO &amp; recovery strategies</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Chuẩn bị cách khôi phục <strong>data + application</strong> khi xảy ra sự cố lớn.</p>
+<p><strong>DR thường cân bằng:</strong> <strong>RPO + RTO + Cost</strong></p>
+<h3 class="subheading">1. RPO vs RTO</h3>
+<p><strong>RPO = Recovery Point Objective</strong> = chấp nhận mất tối đa bao nhiêu dữ liệu.</p>
+<p class="lead-in">Ví dụ:</p>
+<p>Backup mỗi 1 giờ<br/>→ có thể mất tối đa gần 1 giờ data.</p>
+<p><strong>RTO = Recovery Time Objective</strong> = chấp nhận hệ thống down tối đa bao lâu.</p>
+<p>Disaster lúc <code dir="ltr">10:00</code><br/>App hoạt động lại <code dir="ltr">10:30</code></p>
+<p>→ RTO = <code dir="ltr">30 phút</code></p>
+<pre class="flow-diagram"><code class="language-text">Recovery Point
+↓
+RPO
+Disaster
+↓
+RTO
+Application hoạt động lại</code></pre>
+<blockquote class="insight"><p><strong>RPO = mất bao nhiêu data. RTO = down bao lâu.</strong></p></blockquote>
+<h3 class="subheading">2. 4 chiến lược Disaster Recovery</h3>
+<pre class="flow-diagram"><code class="language-text">Backup &amp; Restore
+↓
+Pilot Light
+↓
+Warm Standby
+↓
+Multi Site / Hot Site</code></pre>
+<p><strong>RTO giảm dần</strong><br/><strong>Cost tăng dần</strong></p>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th>Strategy</th><th>Trước disaster</th><th>Khi disaster</th><th>Cost / RTO</th></tr><tr><td>Backup &amp; Restore</td><td>Chỉ có backup</td><td>Restore + dựng lại hệ thống</td><td>Rẻ nhất / chậm nhất</td></tr><tr><td>Pilot Light</td><td>Critical core/DB chạy sẵn</td><td>Launch app còn thiếu</td><td>Nhanh hơn</td></tr><tr><td>Warm Standby</td><td>Full system chạy size nhỏ</td><td>Scale up + failover</td><td>Nhanh</td></tr><tr><td>Hot Site</td><td>Production chạy sẵn ở nhiều site</td><td>Chuyển traffic</td><td>Đắt nhất / nhanh nhất</td></tr></tbody></table></div><div class="table-wrap"><table class="study-table"><tbody><tr><th><p>Chiến lược</p></th><th><p>RPO điển hình</p></th><th><p>RTO điển hình</p></th><th><p>Chi phí</p></th></tr><tr><td><p>Backup &amp; Restore</p></td><td><p>Hàng giờ</p></td><td><p>Hàng giờ, có thể tới 24h</p></td><td><p>$</p></td></tr><tr><td><p>Pilot Light</p></td><td><p>Vài phút đến hàng chục phút</p></td><td><p>Hàng chục phút</p></td><td><p>$$</p></td></tr><tr><td><p>Warm Standby</p></td><td><p>Vài giây đến vài phút</p></td><td><p>Vài phút</p></td><td><p>$$$</p></td></tr><tr><td><p>Active-Active</p></td><td><p>Gần 0</p></td><td><p>Gần 0</p></td><td><p>$$$$</p></td></tr></tbody></table></div>
+<br/>
+<h3 class="subheading">3. Backup &amp; Restore</h3>
+<p><strong>Backup &amp; Restore</strong> = chỉ giữ backup/snapshot.</p>
+<p class="lead-in">Khi disaster:</p>
+<pre class="flow-diagram"><code class="language-text">Backup
+↓
+Restore DB
+↓
+Launch EC2 / Infrastructure
+↓
+Switch traffic</code></pre>
+<p class="lead-in">AWS services thường gặp:</p>
+<ul data-spread="false"><li>EBS Snapshot</li><li>RDS Backup / Snapshot</li><li>S3 / Glacier</li><li>AMI</li><li>CloudFormation</li></ul>
+<blockquote class="insight"><p><strong>RPO phụ thuộc backup frequency. RTO thường cao nhất.</strong></p></blockquote>
+<h3 class="subheading">4. Pilot Light</h3>
+<ul class="fact-list"><li><strong>Pilot Light</strong> = chỉ giữ phần quan trọng nhất chạy sẵn.</li><li>DB / critical data = đã replicate</li><li>Application compute = chưa chạy đầy đủ</li></ul>
+<pre class="flow-diagram"><code class="language-text">DB đã có
+↓
+Launch EC2/App
+↓
+Switch traffic</code></pre>
+<blockquote class="insight"><p><strong>Pilot Light = core chạy, app chưa chạy đầy đủ.</strong></p></blockquote>
+<h3 class="subheading">5. Warm Standby</h3>
+<p><strong>Warm Standby</strong> = toàn bộ application đã chạy ở recovery site nhưng ở <strong>minimum capacity</strong>.</p>
+<p class="lead-in">Recovery Region:</p>
+<pre class="flow-diagram"><code class="language-text">ALB
+↓
+EC2 ASG nhỏ
+↓
+Secondary DB</code></pre>
+<pre class="flow-diagram"><code class="language-text">Promote DB
+↓
+Scale ASG
+↓
+Switch traffic</code></pre>
+<blockquote class="insight"><p><strong>Warm Standby = full system chạy rồi, nhưng nhỏ.</strong></p></blockquote>
+<h3 class="subheading">6. Multi Site / Hot Site</h3>
+<p><strong>Multi Site / Hot Site</strong> = nhiều site/Region chạy production capacity sẵn.</p>
+<pre class="flow-diagram"><code class="language-text">Users
+↓
+Route 53
+├─ Region A
+└─ Region B</code></pre>
+<p class="lead-in">Nếu Region A fail:</p>
+<pre class="flow-diagram"><code class="language-text">Route 53
+↓
+Region B</code></pre>
+<p><strong>RTO:</strong> <strong>rất thấp</strong></p>
+<p><strong>chi phí cao nhất</strong></p>
+<p class="lead-in">Database vẫn có thể cần:</p>
+<pre class="flow-diagram"><code class="language-text">Secondary
+↓
+Promote / Failover
+↓
+become writer</code></pre>
+<blockquote class="caution"><p>App active ở 2 Region không có nghĩa 2 DB đều cùng là writer.</p></blockquote>
+<h3 class="subheading">7. Backup vs Replication vs Failover</h3>
+<ul class="fact-list"><li><strong>Backup</strong> = giữ recovery point = quay lại trạng thái cũ</li><li><strong>Replication</strong> = copy data sang recovery site = giảm RPO</li><li><strong>Failover</strong> = chuyển application/traffic sang recovery site</li></ul>
+<pre class="flow-diagram"><code class="language-text">Primary
+↓
+Replication
+Secondary
+↓
+Failover
+Users</code></pre>
+<p><strong>Replication ≠ Backup</strong></p>
+<p class="lead-in">Nếu xóa nhầm data:</p>
+<pre class="flow-diagram"><code class="language-text">Primary delete
+↓
+replication
+Secondary cũng có thể bị delete</code></pre>
+<p>→ vẫn cần backup riêng.</p>
+<h3 class="subheading">8. Multi-AZ vs Cross-Region DR</h3>
+<p><strong>Multi-AZ</strong> = High Availability trong <strong>một Region</strong></p>
+<pre class="flow-diagram"><code class="language-text">AZ A
+↓
+fail
+AZ B</code></pre>
+<p><strong>Dùng để chống:</strong> <strong>AZ failure</strong></p>
+<p><strong>Cross-Region DR</strong></p>
+<pre class="flow-diagram"><code class="language-text">Region A
+↓
+disaster
+Region B</code></pre>
+<p><strong>Region/site failure lớn hơn</strong></p>
+<blockquote class="insight"><p><strong>Multi-AZ = HA. Cross-Region = DR.</strong></p></blockquote>
+<h3 class="subheading">9. AWS Services thường gặp trong DR</h3>
+<p><strong>Backup</strong></p>
+<p>EBS Snapshot<br/>RDS Backup<br/>S3 / Glacier</p>
+<p><strong>Replication</strong></p>
+<p>RDS Cross-Region<br/>Aurora Global Database<br/>S3 Cross-Region Replication</p>
+<p><strong>Traffic Failover</strong></p>
+<p>Route 53</p>
+<p><strong>Rebuild Infrastructure</strong></p>
+<p>CloudFormation<br/>AMI</p>
+<p><strong>Automation</strong></p>
+<p>CloudWatch<br/>Lambda</p>
+<h3 class="subheading">10. All-AWS Multi-Region Example</h3>
+<p class="lead-in">Region A:</p>
+<pre class="flow-diagram"><code class="language-text">ALB
+↓
+EC2 ASG
+↓
+Aurora Primary</code></pre>
+<p class="lead-in">Region B:</p>
+<pre class="flow-diagram"><code class="language-text">ALB
+↓
+EC2 ASG
+↓
+Aurora Secondary</code></pre>
+<p class="lead-in">Aurora Global Database:</p>
+<pre class="flow-diagram"><code class="language-text">Primary
+↓
+replicate
+Secondary</code></pre>
+<pre class="flow-diagram"><code class="language-text">Secondary
+↓
+Promote
+Application Region B
+↓
+Route 53 switch
+↓
+Users</code></pre>
+<h3 class="subheading usage-heading">11. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul>
+<li>Ứng dụng nội bộ chịu được downtime dài: backup cross-Region và dùng CloudFormation + AMI để dựng lại khi cần.</li>
+<li>Enterprise app cần giảm chi phí DR nhưng giữ DB liên tục: Pilot Light; cần app luôn sẵn sàng ở quy mô nhỏ: Warm Standby.</li>
+<li>Dịch vụ có yêu cầu continuity cao: production stacks ở hai Regions, Route 53 và Aurora Global Database cùng quy trình DB failover đã thử nghiệm.</li>
+</ul>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>RPO = chấp nhận mất dữ liệu bao nhiêu; RTO = cần phục hồi nhanh thế nào. Backup/restore đến multi-site active-active tăng dần tốc độ và chi phí.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Elastic Disaster Recovery (DRS)">
+<summary><span class="t-title">AWS Elastic Disaster Recovery (DRS)</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Phục hồi server từ <strong>On-Prem / VM / cloud khác lên AWS</strong> khi có disaster.</p>
+<h3 class="subheading" data-pm-slice="1 1 []">1. AWS Elastic Disaster Recovery (DRS)</h3>
+<p>Tên cũ: <strong>CloudEndure Disaster Recovery</strong></p>
+<p class="lead-in">Điểm chính:</p>
+<pre class="flow-diagram"><code class="language-text">Continuous replication
++
+Low-cost staging
++
+Disaster → launch Recovery EC2</code></pre>
+<h3 class="subheading">2. Cách DRS hoạt động</h3>
+<p>Cài <strong>AWS Replication Agent</strong> trên source server.</p>
+<p class="lead-in">Agent replicate thay đổi ở mức <strong>disk block</strong>, nên bảo vệ được:</p>
+<ul data-spread="false"><li>OS</li><li>Application</li><li>Database</li><li>Files</li></ul>
+<pre class="flow-diagram"><code class="language-text">Source Server
+↓
+AWS Replication Agent
+↓
+Continuous Block Replication
+↓
+AWS Staging Area
+↓ disaster
+Recovery EC2</code></pre>
+<blockquote class="caution"><p>DRS replicate gần như <strong>cả server/disk</strong>, không chỉ database.</p></blockquote>
+<h3 class="subheading">3. Staging Area</h3>
+<p class="lead-in">Bình thường AWS chỉ giữ một môi trường phục hồi chi phí thấp:</p>
+<pre class="flow-diagram"><code class="language-text">Source
+↓ replication
+Staging Area
+├─ small replication resources
+└─ EBS replica</code></pre>
+<p class="lead-in">Khi disaster:</p>
+<pre class="flow-diagram"><code class="language-text">Staging Data
+↓
+Launch Recovery
+↓
+Production EC2 + EBS</code></pre>
+<p>→ Không cần chạy production EC2 mạnh 24/7, nên giảm chi phí.</p>
+<blockquote class="caution"><p><strong>Staging = nơi giữ replica để recovery, không phục vụ user.</strong></p><p><strong>DRS giữ bản sao server ở AWS; có sự cố mới bật EC2 production để phục hồi.</strong></p></blockquote>
+<h3 class="subheading">4. RPO và RTO</h3>
+<p><strong>Source minh họa:</strong> <strong>Continuous replication → RPO mức seconds</strong></p>
+<p><strong>Failover → RTO mức minutes</strong></p>
+<p class="lead-in">Nhưng thực tế phụ thuộc:</p>
+<ul data-spread="false"><li>network bandwidth</li><li>replication backlog</li><li>workload</li><li>thời gian launch/test application</li></ul>
+<p class="lead-in">Nếu source ghi dữ liệu nhanh hơn tốc độ replicate:</p>
+<pre class="flow-diagram"><code class="language-text">Replication Backlog ↑
+↓
+RPO thực tế xấu hơn</code></pre>
+<h3 class="subheading">5. Failover và Failback</h3>
+<h4 class="minor-heading">5.1. Failover</h4>
+<p class="lead-in">Khi source site gặp disaster:</p>
+<pre class="flow-diagram"><code class="language-text">Source ❌
+↓
+DRS Recovery Point
+↓
+Launch EC2/EBS
+↓
+Check Application
+↓
+Switch Traffic</code></pre>
+<h4 class="minor-heading">5.2. Failback</h4>
+<p class="lead-in">Khi site nguồn hoạt động lại:</p>
+<pre class="flow-diagram"><code class="language-text">AWS Recovery Environment
+↓
+Failback
+↓
+Original Site</code></pre>
+<blockquote class="insight"><p><strong>DRS hỗ trợ cả failover sang AWS và failback về source.</strong></p></blockquote>
+<h3 class="subheading">6. Database và Application</h3>
+<p class="lead-in">DRS replicate disk block nên có thể bảo vệ server chạy:</p>
+<ul data-spread="false"><li>Oracle</li><li>MySQL</li><li>SQL Server</li><li>SAP</li><li>enterprise applications</li></ul>
+<p><strong>DRS không tự convert database engine.</strong></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram"><code class="language-text">Oracle Source
+↓ DRS
+EC2 Recovery
+↓
+vẫn cần Oracle-compatible environment</code></pre>
+<h3 class="subheading">7. Ransomware Recovery</h3>
+<p>Continuous replication: ≠ luôn luôn có bản sạch.</p>
+<p class="lead-in">Nếu ransomware sửa dữ liệu:</p>
+<pre class="flow-diagram"><code class="language-text">Source bị mã hóa ❌
+↓ replication
+Latest Copy cũng có thể bị mã hóa ❌</code></pre>
+<p><strong>Khi recovery phải chọn:</strong> <strong>recovery point trước thời điểm ransomware xảy ra</strong></p>
+<p class="lead-in">Vẫn nên có:</p>
+<ul data-spread="false"><li>backup retention</li><li>isolated backup</li><li>recovery point history</li><li>recovery testing</li></ul>
+<blockquote class="insight"><p><strong>Replication ≠ Backup.</strong></p></blockquote>
+<h3 class="subheading">8. Recovery Environment vẫn cần cấu hình đúng</h3>
+<p class="lead-in">Recovery EC2 cần đúng:</p>
+<ul data-spread="false"><li>subnet</li><li>Security Group</li><li>instance size</li><li>dependencies</li><li>IAM permissions</li><li>KMS permissions</li></ul>
+<p class="lead-in">Sau khi launch phải kiểm tra:</p>
+<pre class="flow-diagram"><code class="language-text">EC2 Start
+↓
+Application Start
+↓
+DB Consistency
+↓
+Network Connectivity
+↓
+Switch Traffic</code></pre>
+<p><strong>Có server recovery:</strong> <strong>chưa có nghĩa application đã sẵn sàng phục vụ user.</strong></p>
+<h3 class="subheading">9. DRS vs Application Migration Service</h3>
+<p class="lead-in">Hai service có flow khá giống:</p>
+<pre class="flow-diagram"><code class="language-text">Source
+↓ Agent
+Staging
+↓
+EC2 Target</code></pre>
+<p class="lead-in">Nhưng mục đích khác nhau:</p>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th>Service</th><th>Mục đích</th></tr><tr><td><strong>Elastic Disaster Recovery (DRS)</strong></td><td>DR, failover khi disaster, có thể failback</td></tr><tr><td><strong>Application Migration Service (MGN)</strong></td><td>Migration workload sang AWS</td></tr></tbody></table></div>
+<p><strong>Nhớ:</strong> <strong>DRS</strong> = bảo vệ lâu dài + recovery khi sự cố</p>
+<p><strong>MGN</strong> = migrate workload sang AWS</p>
+<h3 class="subheading usage-heading">10. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<h4 class="minor-heading">10.1. On-Prem DR</h4>
+<pre class="flow-diagram"><code class="language-text">On-Prem SAP / DB Server
+↓ continuous replication
+AWS Staging
+↓ disaster
+Recovery EC2</code></pre>
+<h4 class="minor-heading">10.2. Cloud-to-AWS DR</h4>
+<pre class="flow-diagram"><code class="language-text">Other Cloud
+↓ DRS
+AWS</code></pre>
+<h4 class="minor-heading">10.3. Ransomware Recovery</h4>
+<pre class="flow-diagram"><code class="language-text">Latest Data ❌
+↓
+Choose Clean Recovery Point
+↓
+Launch Recovery EC2
+↓
+Validate</code></pre>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>DRS liên tục replicate servers để phục hồi khi disaster; khác AWS Backup là bảo vệ bản sao theo chính sách.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS DMS &amp; SCT: database migrations">
+<summary><span class="t-title">AWS DMS &amp; SCT: database migrations</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> <strong>ục đích:</strong> Migrate database sang AWS với <strong>downtime thấp</strong>.</p>
+<p class="compact-line"><code>DMS = chuyển DATA · SCT = chuyển SCHEMA/CODE khi đổi engine</code></p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Oracle
+↓ SCT: convert schema
+↓ DMS: migrate data
+RDS MySQL</code></pre>
+<h3 class="subheading">1. AWS Database Migration Service (DMS)</h3>
+<p>DMS chuyển dữ liệu giữa databases.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source DB
+↓
+DMS Replication Instance
+↓
+Target DB</code></pre>
+<p class="lead-in">Thành phần chính của <strong>DMS Provisioned</strong>:</p>
+<ul><li>Source Endpoint</li><li>Target Endpoint</li><li>Replication Task</li><li>Replication Instance</li></ul>
+<p class="lead-in">Có thể migrate:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">On-Prem ↔ AWS
+AWS → AWS</code></pre>
+<p>nếu source/target được hỗ trợ.</p>
+<h4 class="minor-heading">DMS Provisioned và DMS Serverless</h4>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Cách triển khai</th><th>Quản lý capacity</th></tr></thead><tbody><tr><td>DMS Provisioned</td><td>Bạn chọn Replication Instance (CPU/RAM) và chủ động đổi instance class khi cần thay capacity.</td></tr><tr><td>DMS Serverless</td><td>AWS tự provision và điều chỉnh năng lực replication theo workload; không cần tự quản lý Replication Instance.</td></tr></tbody></table></div>
+<p>Serverless dùng source/target endpoints và <strong>replication configuration</strong>; bạn đặt giới hạn capacity bằng DCU và vẫn phải cấu hình network, DB credentials, migration settings. Endpoint/tính năng phải được Serverless hỗ trợ. </p>
+<h3 class="subheading">2. Full Load + CDC</h3>
+<h4 class="minor-heading">2.1. Full Load</h4>
+<p class="lead-in">Copy dữ liệu hiện có:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source
+↓
+Existing Data
+↓
+Target</code></pre>
+<h4 class="minor-heading">2.2. CDC — Change Data Capture</h4>
+<p class="lead-in">Sau Full Load, tiếp tục replicate:</p>
+<ul><li>INSERT</li><li>UPDATE</li><li>DELETE</li></ul>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source vẫn chạy
+↓
+Full Load
+↓
+Target có dữ liệu ban đầu
+↓
+CDC
+↓
+Target bắt kịp Source
+↓
+Cutover</code></pre>
+<blockquote class="insight"><p class="definition-inline"><strong>Full Load = data ban đầu.</strong> <strong>CDC = các thay đổi mới.</strong></p></blockquote>
+<p>→ giúp giảm downtime.</p>
+<h3 class="subheading">3. Homogeneous vs Heterogeneous</h3>
+<h4 class="minor-heading">3.1. Homogeneous</h4>
+<p class="lead-in">Cùng database engine:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">PostgreSQL
+↓ DMS
+RDS PostgreSQL</code></pre>
+<p>→ thường chỉ cần <strong>DMS</strong>.</p>
+<h4 class="minor-heading">3.2. Heterogeneous</h4>
+<p class="lead-in">Đổi engine:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Oracle
+↓
+MySQL</code></pre>
+<p class="lead-in">Cần:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">SCT → convert schema
+DMS → migrate data</code></pre>
+<blockquote class="insight"><p><strong>Same engine → DMS</strong><br/><strong>Different engine → SCT + DMS</strong></p></blockquote>
+<h3 class="subheading">4. AWS SCT</h3>
+<p><strong>SCT</strong> convert schema/database code khi đổi engine.</p>
+<p class="lead-in">Có thể convert:</p>
+<ul><li>tables</li><li>views</li><li>schema</li><li>stored procedures/code khi tương thích</li></ul>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Oracle Schema
+↓ SCT
+MySQL Schema</code></pre>
+<p>Một số engine-specific code có thể phải <strong>manual fix</strong>.</p>
+<h3 class="subheading">5. Migration Flow</h3>
+<p class="lead-in">Ví dụ <strong>Oracle On-Prem → RDS MySQL</strong>:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Oracle
+├─ SCT → Convert Schema
+│
+└─ DMS
+    ↓
+Full Load + CDC
+    ↓
+RDS MySQL</code></pre>
+<p><strong>Trước cutover cần đảm bảo:</strong> <strong>CDC đã bắt kịp</strong> + data/schema hợp lệ</p>
+<h3 class="subheading">6. DMS Multi-AZ</h3>
+<p>Multi-AZ cung cấp <strong>HA cho DMS Replication Instance</strong>.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Primary Replication Instance
+↓ fail
+Standby Instance</code></pre>
+<blockquote class="insight"><p class="definition-inline">Multi-AZ = HA ≠ tăng gấp đôi throughput ≠ làm Source/Target DB thành Multi-AZ</p></blockquote>
+<h3 class="subheading">7. Network &amp; Security</h3>
+<p class="compact-line"><strong>DMS phải kết nối được cả:</strong> <code>Source DB · ↕ · DMS · ↕ · Target DB</code></p>
+<p class="lead-in">Có thể cần:</p>
+<ul><li>VPN / Direct Connect</li><li>Route Table</li><li>Security Group</li><li>DB port</li><li>DB credentials</li></ul>
+<blockquote class="insight"><p>IAM permission quản lý DMS ≠ quyền truy cập database.</p></blockquote>
+<h3 class="subheading">8. RDS → Aurora</h3>
+<p class="lead-in">Có thể dùng:</p>
+<h4 class="minor-heading">8.1. Snapshot</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">RDS Snapshot
+↓
+Aurora</code></pre>
+<p>Đơn giản nhưng không replicate writes mới.</p>
+<h4 class="minor-heading">8.2. Aurora Read Replica</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">RDS
+↓ replication
+Aurora Replica
+↓
+Promote</code></pre>
+<h4 class="minor-heading">8.3. DMS</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">RDS
+↓ Full Load + CDC
+Aurora</code></pre>
+<p>→ phù hợp khi muốn <strong>downtime thấp</strong>.</p>
+<h3 class="subheading">9. DMS Targets khác</h3>
+<p>DMS không chỉ DB → DB.</p>
+<p class="lead-in">Có thể target:</p>
+<ul><li>S3</li><li>Redshift</li><li>DynamoDB</li><li>OpenSearch</li><li>Kinesis</li><li>Kafka</li><li>DocumentDB</li></ul>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Database
+↓ DMS
+S3 / Redshift</code></pre>
+<h3 class="subheading">10. External DB → Aurora</h3>
+<p class="lead-in">Nếu source vẫn hoạt động và cần đồng bộ changes:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">External DB
+↓
+DMS + CDC
+↓
+Aurora</code></pre>
+<p class="lead-in">MySQL cũng có thể migrate bằng backup/import như:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">XtraBackup / mysqldump
+↓
+Aurora MySQL</code></pre>
+<h3 class="subheading usage-heading">11. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul>
+<li>Oracle on-premises → RDS MySQL: SCT chuyển schema, DMS full load + CDC chuyển data; cutover sau khi target bắt kịp.</li>
+<li>RDS MySQL/PostgreSQL → Aurora: chọn snapshot khi chấp nhận restore từ recovery point, replica khi muốn bắt kịp writes trước promote.</li>
+<li>External MySQL → Aurora bằng Percona XtraBackup/S3 cho initial load lớn; dùng DMS khi cần migration trong lúc databases còn hoạt động.</li>
+<li>Replicate operational database tới S3, Redshift hoặc streaming target cho analytics khi cặp endpoint và data shape phù hợp.</li>
+</ul>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>DMS chuyển dữ liệu với Full Load + CDC để giảm downtime; SCT hỗ trợ chuyển schema/engine khi cần.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Backup &amp; Backup Vault Lock">
+<summary><span class="t-title">AWS Backup &amp; Backup Vault Lock</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Quản lý và tự động hóa backup cho nhiều AWS services bằng một chính sách tập trung.</p>
+<pre class="flow-diagram"><code class="language-text">Resources → Backup Plan → Backup Jobs → Backup Vault → Recovery Points</code></pre>
+<h3 class="subheading">1. AWS Backup hỗ trợ gì?</h3>
+<ul><li><strong>Scheduled/on-demand backup:</strong> backup theo lịch hoặc chạy ngay; chọn resource bằng ID hoặc tag.</li>
+<li><strong>Retention và lifecycle:</strong> quy định giữ backup bao lâu, khi nào chuyển cold storage nếu resource hỗ trợ.</li>
+<li>Resource thường gặp: EC2/EBS, RDS/Aurora, S3, DynamoDB, EFS, FSx, DocumentDB/Neptune. Khả năng PITR, cold storage và copy khác nhau theo service.</li></ul>
+<h3 class="subheading">2. Plan, Vault và Recovery Point</h3>
+<ul><li><strong>Backup Plan = chính sách.</strong> Cấu hình frequency, backup window, lifecycle, retention và resource assignment.</li>
+<li><strong>Backup Vault = nơi quản lý bản backup.</strong> <strong>Recovery Point = bản có thể dùng để restore.</strong></li>
+<li>Backup thường xuyên hơn tạo recovery points gần nhau hơn, giúp giảm RPO; vẫn cần test restore để kiểm tra RTO và khả năng phục hồi.</li></ul>
+<pre class="flow-diagram"><code class="language-text">Plan: mỗi 12 giờ · giữ 30 ngày · áp dụng tag Backup=Daily
+↓
+Resources được chọn → Recovery Points trong Vault</code></pre>
+<h3 class="subheading">3. Copy sang Region hoặc account khác</h3>
+<ul><li><strong>Cross-Region:</strong> copy backup sang Region khác để phục hồi khi Region nguồn gặp sự cố.</li>
+<li><strong>Cross-account:</strong> copy sang backup account để tăng isolation khi production account bị compromise.</li>
+<li>Cần đúng vault policy, IAM/service role và KMS permissions; kiểm tra resource có hỗ trợ kiểu copy đó.</li></ul>
+<h3 class="subheading">4. PITR</h3>
+<p><strong>Point-In-Time Recovery = restore về thời điểm cụ thể</strong> trong khoảng được hỗ trợ. Chỉ áp dụng cho supported services, không tự có cho mọi resource.</p>
+<pre class="flow-diagram"><code class="language-text">10:36: dữ liệu còn tốt
+↓
+10:37: lỗi xảy ra
+↓
+PITR về 10:36 nếu nằm trong recovery window</code></pre>
+<h3 class="subheading">5. Backup Vault Lock</h3>
+<p><strong>WORM = Write Once Read Many.</strong> Vault Lock bảo vệ recovery points khỏi xóa hoặc thay retention trái chính sách.</p>
+<ul><li><strong>Governance mode:</strong> người có permission phù hợp vẫn có thể thay đổi/gỡ lock.</li>
+<li><strong>Compliance mode:</strong> sau grace period, lock không thể thay đổi/gỡ; kể cả root không bypass retention.</li>
+<li><strong>Lock không chứng minh backup sạch.</strong> Dữ liệu đã bị ransomware phá hoại vẫn có thể được backup và lock; cần nhiều recovery points, retention phù hợp và restore testing.</li></ul>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>Gắn tag cho EC2/EBS/RDS để một plan quản lý backup toàn bộ môi trường.</li>
+<li>DR: giữ bản copy ở Region khác; tăng isolation bằng backup account riêng.</li>
+<li>Compliance/ransomware: Vault Lock giữ bản backup đến hết retention, chọn recovery point trước incident khi restore.</li></ul>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>AWS Backup quản backup policies đa dịch vụ; Backup Vault Lock giúp bảo vệ retention, không thay thế việc kiểm tra restore.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Application Discovery Service &amp; Application Migration Service (MGN)">
+<summary><span class="t-title">AWS Application Discovery Service &amp; Application Migration Service (MGN)</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Khảo sát hệ thống hiện tại → theo dõi migration → <strong>rehost server lên EC2</strong>.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Discovery Service
+↓
+Migration Hub
+↓
+MGN
+↓
+EC2</code></pre>
+<h3 class="subheading">1. Application Discovery Service</h3>
+<p class="purpose"><strong>Mục đích:</strong> Tìm hiểu hệ thống trước khi migrate.</p>
+<p class="lead-in">Thu thập:</p>
+<ul><li>số lượng server</li><li>CPU / RAM / Disk</li><li>utilization</li><li>server dependencies</li></ul>
+<p><strong>Giúp:</strong> <strong>Right-size EC2</strong> + chia migration waves + biết server nào phụ thuộc nhau</p>
+<h4 class="minor-heading">1.1. Agentless</h4>
+<p>Không cài agent trên từng server.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Agentless
+→ inventory + utilization
+→ phù hợp khảo sát nhanh nhiều VM</code></pre>
+<h4 class="minor-heading">1.2. Agent-based</h4>
+<p>Cài <strong>Discovery Agent</strong> trên server.</p>
+<p><strong>Thu thập thêm:</strong> <strong>Processes</strong> + Network connections + Dependencies</p>
+<p class="lead-in">Ví dụ:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Web
+↓
+App
+↓
+DB</code></pre>
+<blockquote class="insight"><p class="definition-inline"><strong>Agentless = tổng quan.</strong> <strong>Agent-based = chi tiết dependency hơn.</strong></p></blockquote>
+<h3 class="subheading">2. Migration Hub</h3>
+<p><strong>Migration Hub = nơi xem và theo dõi migration tập trung.</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Discovery Data
+↓
+Migration Hub
+↓
+Track applications / servers / progress</code></pre>
+<p class="lead-in">Dùng để:</p>
+<ul><li>xem discovery data</li><li>nhóm server thành application</li><li>theo dõi migration progress</li></ul>
+<blockquote class="caution"><p><strong>Migration Hub không phải công cụ trực tiếp migrate server.</strong></p></blockquote>
+<h3 class="subheading">3. Application Migration Service (MGN)</h3>
+<p><strong>MGN = rehost / lift-and-shift server lên EC2.</strong></p>
+<p class="lead-in">Hỗ trợ:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Physical Server
+VM
+Other Cloud
+↓
+AWS EC2</code></pre>
+<p>MGN cài <strong>AWS Replication Agent</strong> trên source.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source Server
+↓
+Replication Agent
+↓
+Continuous Replication
+↓
+Low-cost Staging
+↓
+Test
+↓
+Cutover
+↓
+EC2</code></pre>
+<p>Source vẫn có thể chạy trong lúc replicate → <strong>giảm downtime</strong>.</p>
+<h3 class="subheading">4. Test &amp; Cutover</h3>
+<h4 class="minor-heading">4.1. Test</h4>
+<p class="lead-in">Launch EC2 test để kiểm tra:</p>
+<ul><li>server boot</li><li>application</li><li>network</li><li>dependencies</li></ul>
+<h4 class="minor-heading">4.2. Cutover</h4>
+<p class="lead-in">Khi target đã bắt kịp:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source
+↓
+Final replication
+↓
+Launch Production EC2
+↓
+Validate
+↓
+Switch traffic</code></pre>
+<blockquote class="insight"><p><strong>Minimal downtime ≠ zero downtime.</strong></p></blockquote>
+<h3 class="subheading">5. MGN = Rehost</h3>
+<p class="lead-in">MGN chủ yếu giữ nguyên server:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">On-Prem Server
+↓ MGN
+EC2 Server</code></pre>
+<p class="lead-in">MGN <strong>không tự</strong>:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Oracle → Aurora ❌
+Monolith → Lambda ❌</code></pre>
+<p><strong>Đổi database engine:</strong> <code>DMS + SCT</code></p>
+<h3 class="subheading">6. MGN vs DRS</h3>
+<p class="lead-in">Hai service có flow khá giống:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source
+↓ Agent
+Staging
+↓
+EC2</code></pre>
+<p><strong>Nhưng mục đích khác:</strong> <strong>MGN</strong> = Migration = chuyển server sang AWS</p>
+<p><strong>DRS</strong> = Disaster Recovery = giữ bản replica để recovery khi sự cố</p>
+<h3 class="subheading">7. App2Container và AWS Transform</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Dịch vụ</th><th>Khái niệm</th></tr></thead><tbody><tr><td>AWS App2Container (A2C)</td><td>Công cụ CLI phân tích ứng dụng legacy trên server và dependencies, tạo Docker/container image cùng deployment artifacts cho ECS/EKS; hỗ trợ các ứng dụng tương thích.</td></tr><tr><td>AWS Transform</td><td>Dịch vụ dùng AI agents để phân tích, migrate và hiện đại hóa ứng dụng, code, dependencies và hạ tầng theo workload được hỗ trợ.</td></tr></tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">App2Container
+Legacy Application trên server
+↓ containerize
+Docker Container → ECS / EKS
+
+AWS Transform
+Legacy Application / Infrastructure
+↓ AI agents phân tích + chuyển đổi
+Modernized Solution trên AWS</code></pre>
+<p><strong>A2C tập trung container hóa; Transform có phạm vi modernization rộng hơn.</strong> MGN giữ hướng rehost server lên EC2; không tự biến monolith thành microservices.</p>
+<p><strong>Cập nhật dịch vụ:</strong> App2Container ngừng nhận khách hàng mới từ <strong>07/11/2025</strong>; khách hàng hiện hữu có thể hoàn thành dự án đang triển khai. AWS khuyến nghị Transform cho dự án mới.  · </p>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul>
+<li>Inventory và dependency mapping cho data center trước khi chia migration waves, chọn instance size và thứ tự chuyển application groups.</li>
+<li>Rehost một legacy enterprise app từ VMware/physical servers hoặc cloud khác sang EC2 mà giữ OS/application stack.</li>
+<li>Dùng Migration Hub theo dõi nhiều waves; dùng MGN cho servers và DMS/SCT cho DB engine conversion trong cùng chương trình migration.</li>
+</ul>
+<h3 class="subheading">9. So sánh các lựa chọn</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service</th><th>Nhớ là</th></tr></thead><tbody><tr><td><strong>Discovery Service</strong></td><td>Khảo sát server + dependencies</td></tr><tr><td><strong>Migration Hub</strong></td><td>Theo dõi migration</td></tr><tr><td><strong>MGN</strong></td><td>Rehost server → EC2</td></tr><tr><td><strong>DMS + SCT</strong></td><td>Migrate database</td></tr><tr><td><strong>DRS</strong></td><td>Disaster Recovery</td></tr><tr><td><strong>App2Container</strong></td><td>Legacy application → Docker container</td></tr><tr><td><strong>AWS Transform</strong></td><td>Legacy application / infrastructure → modernized solution bằng AI</td></tr></tbody></table></div>
+<h3 class="subheading">10. Agentless vs Agent-based Discovery &amp; Migration Hub Home Region</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Khái niệm</th><th>Phân biệt</th></tr></thead><tbody>
+<tr><td><strong>Agentless</strong> vs <strong>Agent-based Discovery</strong></td><td>Agentless triển khai nhanh qua VMware vCenter connector (CPU/RAM/disk); Agent-based cài trên từng máy chủ vật lý/VM để thu thập sâu tiến trình và phụ thuộc kết nối mạng (network dependencies)</td></tr>
+<tr><td><strong>Migration Hub Home Region</strong> vs <strong>Destination Region</strong></td><td><strong>Home Region</strong> chỉ là nơi lưu tập trung metadata khám phá và trạng thái tiến độ migration; máy chủ/database thật vẫn di chuyển thẳng tới bất kỳ <strong>Destination Region</strong> đích nào</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Application Discovery giúp khảo sát workload/dependencies; MGN chuyển máy chủ sang AWS bằng replication và cutover.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Hybrid migration: VM Import/Export, bulk transfer &amp; VMware Cloud on AWS">
+<summary><span class="t-title">Hybrid migration: VM Import/Export, bulk transfer &amp; VMware Cloud on AWS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong>  Chọn cách migrate <strong>VM / lượng dữ liệu lớn / VMware workloads</strong> từ On-Prem lên AWS.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">VM image        → VM Import/Export
+Bulk data lớn   → Snowball
+VMware workload → VMware Cloud on AWS</code></pre>
+<h3 class="subheading">1. VM Import/Export</h3>
+<p class="purpose"><strong>Mục đích:</strong> Import VM hiện có thành EC2 hoặc export EC2 VM về On-Prem.</p>
+<h4 class="minor-heading">1.1. Import</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">VM Image
+↓
+S3
+↓
+VM Import/Export
+↓
+AMI
+↓
+EC2</code></pre>
+<p class="lead-in">Có thể dùng để:</p>
+<ul><li>migrate VM lên EC2</li><li>lưu VM images phục vụ recovery/DR</li><li>test workload trên AWS</li></ul>
+<h4 class="minor-heading">1.2. Export</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">EC2
+↓
+Export VM Image
+↓
+On-Prem</code></pre>
+<p>Chỉ hỗ trợ khi <strong>OS / image / licensing / format</strong> phù hợp.</p>
+<blockquote class="insight"><p class="definition-inline"><strong>VM Import/Export = migration theo image.</strong> <strong>MGN = continuous replication của server đang chạy.</strong></p></blockquote>
+<h3 class="subheading">2. Amazon Linux VM Image</h3>
+<p class="lead-in">Amazon Linux có thể chạy On-Prem trên các hypervisor như:</p>
+<ul><li>VMware</li><li>KVM</li><li>VirtualBox</li><li>Hyper-V</li></ul>
+<p class="lead-in">Lưu ý:</p>
+<blockquote class="caution"><p>VM image không phải lúc nào cũng là <code dir="ltr">.iso</code>; format phụ thuộc hypervisor.</p></blockquote>
+<h3 class="subheading">3. Bulk Data Transfer</h3>
+<p class="lead-in">Khi chuyển dataset rất lớn, cần xét:</p>
+<p><strong>Data Size</strong> + Bandwidth + Setup Time</p>
+<p class="lead-in">Ví dụ <strong>200 TB</strong>:</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Cách</th><th>Ý chính</th></tr></thead><tbody><tr><td>Internet/VPN 100 Mbps</td><td>~185 ngày lý tưởng</td></tr><tr><td>Direct Connect 1 Gbps</td><td>~18.5 ngày truyền, chưa tính thời gian setup</td></tr><tr><td>Snowball</td><td>Có thể nhanh hơn cho initial bulk load</td></tr></tbody></table></div>
+<blockquote class="caution"><p>Đây chỉ là ví dụ minh họa, không phải SLA.</p></blockquote>
+<h3 class="subheading">4. Snowball</h3>
+<p><strong>Snowball = chuyển lượng data lớn bằng physical device.</strong></p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">On-Prem Data
+↓
+Copy vào Snowball
+↓
+Ship device
+↓
+AWS import data</code></pre>
+<p class="lead-in">Phù hợp khi:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Dataset rất lớn
++
+WAN chậm
+→ transfer qua network quá lâu</code></pre>
+<p>Snowball chủ yếu giải quyết <strong>initial bulk load</strong>, không phải continuous replication.</p>
+<h3 class="subheading">5. Initial Load + Ongoing Changes</h3>
+<p class="lead-in">Có thể kết hợp:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Initial Data
+↓
+Snowball
+↓
+AWS
+
+Changes mới
+↓
+VPN / Direct Connect
+↓
+DMS hoặc DataSync</code></pre>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Database changes
+→ DMS + CDC
+
+Files / Storage
+→ DataSync</code></pre>
+<p class="lead-in">Sau khi target bắt kịp:</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Source
+↓
+Final sync
+↓
+Cutover
+↓
+AWS</code></pre>
+<h3 class="subheading">6. VMware Cloud on AWS</h3>
+<p class="purpose"><strong>Mục đích:</strong> Chạy VMware workloads trên AWS nhưng vẫn giữ VMware stack.</p>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">On-Prem VMware
+↓
+VMware Cloud on AWS
+├─ vSphere
+├─ vSAN
+└─ NSX
+↓
+AWS Services</code></pre>
+<h4 class="minor-heading">6.1. Thành phần</h4>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Thành phần VMware Stack</th><th>Chức năng</th></tr></thead><tbody>
+<tr><td><strong>vSphere / vCenter</strong></td><td>Chạy hypervisor và quản trị tập trung máy ảo VM</td></tr>
+<tr><td><strong>vSAN</strong></td><td>Lớp lưu trữ phần mềm (Software-defined storage)</td></tr>
+<tr><td><strong>NSX</strong></td><td>Ảo hóa mạng và bảo mật (Networking &amp; Security)</td></tr>
+</tbody></table></div>
+<ul><li>đang dùng VMware lớn</li><li>muốn migrate/mở rộng data center lên AWS</li><li>vẫn muốn dùng vCenter/vSphere</li><li>chưa muốn chuyển workload sang native EC2</li></ul>
+<h3 class="subheading">7. VMware Cloud vs MGN</h3>
+<h4 class="minor-heading">7.1. VMware Cloud</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">VMware On-Prem
+↓
+VMware Cloud on AWS</code></pre>
+<p>→ <strong>giữ VMware environment</strong></p>
+<h4 class="minor-heading">7.2. MGN</h4>
+<pre class="flow-diagram" dir="ltr"><code class="language-text">Server / VM
+↓
+MGN
+↓
+Native EC2</code></pre>
+<p>→ <strong>rehost sang AWS EC2</strong></p>
+<blockquote class="insight"><p class="definition-inline"><strong>VMware Cloud = giữ VMware.</strong> <strong>MGN = chuyển sang native EC2.</strong></p></blockquote>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul>
+<li>Import một supported VM image vào EC2 hoặc giữ repository phục vụ phục hồi mà không cần continuous MGN pipeline.</li>
+<li>Initial load 200 TB bằng Snowball khi chỉ có WAN 100 Mbps, rồi tiếp tục cập nhật qua DMS/DataSync và VPN/DX.</li>
+<li>Mở rộng hoặc migrate vSphere estate lên AWS khi team cần tiếp tục quản trị bằng vCenter/vSphere, đồng thời tích hợp S3, FSx, RDS hay analytics services.</li>
+</ul>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>VM Import/Export xử lý máy ảo; Snow Family xử lý bulk offline transfer; chọn theo loại nguồn và băng thông.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Bảng nhớ nhanh AWS Backup — SAA-C03">
+<summary><span class="t-title">Bảng nhớ nhanh AWS Backup — SAA-C03</span></summary>
+<div class="body">
+<p class="purpose"><strong>Mục đích:</strong> So sánh các cơ chế backup và bảo vệ dữ liệu để chọn đúng cách khôi phục theo dịch vụ, thời điểm và retention.</p>
+<h3 class="subheading">1. Backup dữ liệu gì?</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Service / cơ chế</th><th>Dữ liệu</th><th>Chức năng / khi chọn</th></tr></thead><tbody>
+<tr><td>RDS Automated Backups</td><td>RDS database</td><td>Backup tự động + transaction logs; hỗ trợ PITR tối đa 35 ngày khi bật</td></tr>
+<tr><td>Aurora Automated Backups</td><td>Aurora cluster</td><td>Continuous, incremental backup; PITR tối đa 35 ngày; luôn bật</td></tr>
+<tr><td>RDS / Aurora Manual Snapshot</td><td>Database</td><td>Bản tại một thời điểm, giữ đến khi chủ động xóa</td></tr>
+<tr><td>Amazon Data Lifecycle Manager (DLM)</td><td>EBS volumes / EBS-backed AMIs</td><td>Tạo, giữ và xóa EBS snapshots/AMIs theo lịch</td></tr>
+<tr><td>EBS Snapshot</td><td>EBS volume</td><td>Backup incremental; restore thành EBS volume mới</td></tr>
+<tr><td>AWS Backup</td><td>EBS, RDS, Aurora, EFS, DynamoDB, FSx, S3…</td><td>Quản lý tập trung: schedule, retention, cross-Region/cross-account copy khi resource hỗ trợ</td></tr>
+<tr><td>AWS Backup Continuous Backup</td><td>Tài nguyên hỗ trợ như RDS, Aurora, S3</td><td>PITR trong recovery window được cấu hình; không áp dụng cho mọi resource</td></tr>
+<tr><td>S3 Versioning</td><td>S3 objects</td><td>Giữ nhiều versions; phục hồi khi ghi đè/xóa nhầm nếu version cần dùng vẫn còn</td></tr>
+<tr><td>S3 Replication (SRR/CRR)</td><td>S3 objects</td><td>Sao chép sang bucket cùng Region hoặc khác Region</td></tr>
+<tr><td>S3 Object Lock</td><td>S3 object versions</td><td>WORM: chống xóa/sửa version trong retention; governance có quyền bypass phù hợp</td></tr>
+<tr><td>DynamoDB PITR</td><td>DynamoDB table</td><td>Continuous backup; restore về thời điểm trong tối đa 35 ngày thành table mới</td></tr>
+<tr><td>DynamoDB On-Demand Backup</td><td>DynamoDB table</td><td>Tạo full backup khi cần, giữ đến khi xóa</td></tr>
+<tr><td>EFS Automatic Backup</td><td>EFS file system</td><td>AWS Backup tự backup theo policy đã cấu hình</td></tr>
+</tbody></table></div>
+<p>Replication có thể truyền thay đổi/xóa theo cấu hình, nên vẫn cần backup/version history để quay về trước lỗi. Object Lock bảo vệ versions; không tự tạo một bản backup độc lập.</p>
+<h3 class="subheading">2. Retention và đặc điểm</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Loại backup</th><th>Retention / đặc điểm</th></tr></thead><tbody>
+<tr><td>RDS Automated</td><td>DB instance: 0–35 ngày, 0 là tắt; Multi-AZ DB cluster: 1–35 ngày</td></tr>
+<tr><td>Aurora Automated</td><td>1–35 ngày; không thể tắt automated backups</td></tr>
+<tr><td>DynamoDB PITR</td><td>Recovery window 1–35 ngày, mặc định 35 khi bật</td></tr>
+<tr><td>RDS / Aurora Manual Snapshot</td><td>Giữ đến khi xóa</td></tr>
+<tr><td>EBS Snapshot</td><td>Incremental; giữ đến khi xóa hoặc lifecycle policy xử lý</td></tr>
+<tr><td>AWS Backup Continuous</td><td>PITR tối đa 35 ngày; tùy service và retention đã cấu hình</td></tr>
+<tr><td>AWS Backup Periodic</td><td>Retention theo backup plan; hỗ trợ lưu dài hạn, khả năng cold storage tùy resource</td></tr>
+</tbody></table></div>
+<p>AWS Backup continuous hỗ trợ RDS instances/Aurora phù hợp, nhưng không hỗ trợ RDS Multi-AZ DB clusters. Copy continuous backup sang Region/account khác tạo snapshot copy, không giữ cửa sổ PITR của bản nguồn.</p>
+<p> ·  ·  · </p>
+<h3 class="subheading usage-heading">3. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<ul>
+<li>Xóa nhầm dữ liệu database: PITR về trước lỗi nếu còn trong recovery window.</li>
+<li>Backup EBS hằng ngày và giữ 7 ngày: DLM; nhiều dịch vụ/accounts cần quản lý chung: AWS Backup.</li>
+<li>Lưu bản database nhiều tháng/năm: manual snapshot hoặc periodic backup có retention phù hợp.</li>
+<li>S3 bị ghi đè: khôi phục version cũ; cần chống xóa version theo retention: Object Lock với mode phù hợp.</li>
+</ul>
+<aside class="recap"><span class="recap-label">Nhớ nhanh · SAA-C03</span><p>Nhớ phân biệt backup, replication, archive và DR: mỗi giải pháp có mục đích, thời gian khôi phục và phạm vi khác nhau.</p></aside>
+</div>
+</details>

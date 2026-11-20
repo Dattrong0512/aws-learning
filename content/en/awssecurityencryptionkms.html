@@ -1,0 +1,905 @@
+<details class="topic" data-progress-aliases="" data-track="AWS encryption patterns &amp; KMS">
+<summary><span class="t-title">AWS encryption patterns &amp; KMS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Understand the three places where encryption occurs and how AWS KMS manages encryption keys.</p>
+<ul class="fact-list"><li><strong>In Transit</strong> = encryption during transmission</li><li><strong>At Rest</strong> = encryption at rest</li><li><strong>Client-Side</strong> = the client encrypts itself before sending</li></ul>
+<h3 class="subheading">1. Encryption in Transit</h3>
+<pre class="flow-diagram"><code class="language-text">TLS / SSL
+↓
+HTTPS
+</code></pre>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ encryption
+Internet
+↓
+AWS Service
+↓ decryption
+Data
+</code></pre>
+<p class="compact-line"><strong>Protection from:</strong> <code>Eavesdropping · Man-in-the-Middle</code></p>
+<p>Certificates help clients authenticate endpoints.</p>
+<h3 class="subheading">2. Server-Side Encryption</h3>
+<p>The service automatically encrypts data before saving.</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ HTTPS
+S3 / EBS / RDS
+↓
+Encrypt
+↓
+Ciphertext
+↓
+Storage
+</code></pre>
+<p class="lead-in">When reading:</p>
+<pre class="flow-diagram"><code class="language-text">Storage
+↓
+Decrypt
+↓
+Client
+</code></pre>
+<p>AWS services used <strong>KMS key/data key</strong> to perform encryption.</p>
+<h3 class="subheading">3. Client-Side Encryption</h3>
+<p class="lead-in">The client encrypts itself first:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ Encrypt
+Ciphertext
+↓
+S3 / DynamoDB / Storage
+</code></pre>
+<p><strong>Storage only holds:</strong> <code>Ciphertext</code></p>
+<p>Only the client with the key can decrypt.</p>
+<blockquote class="insight"><p>This is a stronger layer of protection if you want data to remain encrypted even for storage service administrators.</p></blockquote>
+<h3 class="subheading">4. AWS KMS</h3>
+<p><strong>KMS</strong> = manage encryption keys + control key usage + audit key usage</p>
+<p class="compact-line"><strong>KMS integrates with:</strong> <code>S3 · EBS · RDS · SSM · CloudTrail · IAM · ...</code></p>
+<p>The application does not retrieve the plaintext KMS key.</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓ KMS API
+Encrypt/Decrypt
+↓
+KMS performs crypto operations
+</code></pre>
+<h3 class="subheading">5. KMS Key Types</h3>
+<ul class="fact-list"><li><strong>Symmetric</strong> = same key to Encrypt / Decrypt = commonly used AWS service</li><li><strong>Asymmetric</strong> = Public Key + Private Key = Encrypt/Verify with public = Decrypt/Sign with private</li><li><strong>Key types by ownership:</strong> <strong>AWS Owned Key</strong> = Fully managed by AWS</li><li><strong>AWS Managed Key</strong> = AWS managed = alias of the form aws/service-name</li><li><strong>Customer Managed Key</strong> = customer lifecycle management + policy = most detailed control</li></ul>
+<blockquote class="insight"><p><strong>Customer Managed Key</strong> Suitable when you need custom key policy, cross-account, audit or lifecycle control.</p></blockquote>
+<h3 class="subheading">6. Key Policy</h3>
+<p><strong>IAM Policy</strong> ≠ automatically have the right to use KMS Key</p>
+<p><strong>KMS needs:</strong> <code>Key Policy</code></p>
+<p>to determine who can use the key.</p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Key Policy
+↓
+Allow Role A
+↓
+kms:Decrypt
+</code></pre>
+<p>Cross-account also often requires appropriate key policy configuration.</p>
+<h3 class="subheading">7. Rotation</h3>
+<pre class="flow-diagram"><code class="language-text">AWS Managed Keys
+→ AWS self-rotates
+
+Customer Managed Key
+→ automatic rotation can be enabled
+</code></pre>
+<p>Imported key material has different rotation limits.</p>
+<h3 class="subheading">8. KMS Key by Region</h3>
+<p>KMS key is <strong>Regional resource</strong>.</p>
+<p class="compact-line"><code>Region A · KMS Key A · Region B · KMS Key B</code></p>
+<p class="lead-in">When copying encrypted snapshot to another Region:</p>
+<pre class="flow-diagram"><code class="language-text">Decrypt with Key A
+↓
+Encrypt with Key B
+↓
+Snapshot in Region B
+</code></pre>
+<h3 class="subheading">9. Multi-Region Key</h3>
+<p><strong>MRK has:</strong> <strong>Primary Key</strong> + Replica Key</p>
+<p>in different Regions.</p>
+<p class="compact-line"><strong>They have the same:</strong> <code>Key ID · Key Material · Rotation Properties</code></p>
+<p>→ Convenient for client-side encryption that needs to decrypt in many Regions.</p>
+<p><strong>MRK</strong> ≠ Global Resource</p>
+<p>Primary and replicas are still managed by each Region.</p>
+<h3 class="subheading usage-heading">10. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>SSE-KMS for S3/EBS/RDS when needing CloudTrail audit, key policy and revoke access by key.</li><li>Client-side encryption for SSN/PII before replicating via DynamoDB Global Tables or Aurora Global Database.</li><li>Customer managed key and key policy have conditions to share encrypted snapshot/AMI for DR account.</li></ul>
+<h3 class="subheading">11. Compare 3 types of KMS Key, BYOK vs XKS &amp; Default Encryption by Service</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Criteria</th><th>AWS Owned Key</th><th>AWS Managed Key (<code>alias/aws/...</code>)</th><th>Customer Managed Key (CMK)</th></tr></thead><tbody>
+<tr><td>Visible in KMS &amp; CloudTrail?</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Edit Key Policy / Cross-Account Sharing?</td><td>No</td><td>No</td><td><strong>Yes</strong> (full control over rotation, policy, key deletion)</td></tr>
+<tr><td>Locking costs</td><td>Free</td><td>Free key maintenance (API fees may apply)</td><td>Monthly key maintenance fee + API call fee</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Criteria</th><th>BYOK (Import Key Material)</th><th>XKS (External Key Store)</th></tr></thead><tbody>
+<tr><td>Key Material location of KMS Key</td><td>Born outside <strong>import into AWS KMS</strong></td><td><strong>Always outside of AWS</strong> (on HSM on-premises), never import into AWS</td></tr>
+<tr><td>Encryption Enforcement &amp; Network Dependency</td><td>AWS KMS processes itself, no need for constant on-prem connection</td><td>AWS KMS calls out to the external key system via <strong>XKS Proxy</strong> (loss of connection interrupts decryption)</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service group</th><th>List to remember when doing homework</th></tr></thead><tbody>
+<tr><td><strong>Default encryption available</strong></td><td><strong>Amazon S3</strong> (SSE-S3), <strong>DynamoDB</strong> (AWS Owned Key), <strong>SQS</strong> (SSE-SQS on new queue), <strong>Secrets Manager</strong>, <strong>CloudWatch Logs</strong>, <strong>Aurora</strong> (newly created cluster) and <strong>EFS created via Console</strong></td></tr>
+<tr><td><strong>Must be enabled/configured upon creation</strong></td><td><strong>EBS</strong> (unless EBS Encryption by Default is enabled in Region), <strong>Regular RDS</strong>, <strong>SNS Topic</strong>, <strong>Kinesis Data Streams</strong>, <strong>ElastiCache</strong> and <strong>EFS created via CLI/API</strong></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>At rest, in transit and client-side encryption protect at different stages; KMS manages keys and permissions, not secret storage.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="SSM Parameter Store &amp; AWS Secrets Manager">
+<summary><span class="t-title">SSM Parameter Store &amp; AWS Secrets Manager</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Save configuration and secret outside source code.</p>
+<p><strong>Parameter Store</strong> = mainly saves configuration + can save simple secret = hierarchy/path</p>
+<p><strong>Secrets Manager</strong> = secret management = automatic rotation</p>
+<h3 class="subheading">1. SSM Parameter Store</h3>
+<p class="compact-line"><strong>Parameter Store is used to save:</strong> <code>Configuration · Application settings · Simple secrets</code></p>
+<p class="lead-in">For example:</p>
+<p class="compact-line"><code>/app/dev/db-host · /app/dev/db-password · /app/prod/db-host · /app/prod/db-password</code></p>
+<p class="compact-line"><strong>Advantages:</strong> <code>Serverless · Scalable · Durable · Version history · IAM access control</code></p>
+<p class="lead-in">Application gets parameters via API:</p>
+<pre class="flow-diagram"><code class="language-text">Application/Lambda
+↓
+GetParameters
+or
+GetParametersByPath
+↓
+Parameter Store
+↓
+Value</code></pre>
+<h3 class="subheading">2. Parameter Types</h3>
+<p class="lead-in">Secret can be saved as:</p>
+<pre class="flow-diagram"><code class="language-text">SecureString
+↓
+Encrypt using KMS</code></pre>
+<pre class="flow-diagram"><code class="language-text">Application Role
+↓ IAM allowed
+Parameter Store
+↓
+KMS Decrypt
+↓
+Application receives plaintext value</code></pre>
+<p>→ helps avoid hard-coding passwords/secrets in source code.</p>
+<h3 class="subheading">3. Parameter Hierarchy</h3>
+<p class="lead-in">Parameters can be organized by <strong>path</strong>:</p>
+<p class="compact-line"><code>/my-app/dev/db-password · /my-app/prod/db-password</code></p>
+<p><strong>Can be used:</strong> <code>GetParametersByPath</code></p>
+<p>to get parameters in a path.</p>
+<pre class="flow-diagram"><code class="language-text">/my-app/prod/
+↓
+db-host
+db-user
+db-password</code></pre>
+<p class="lead-in">Combining IAM:</p>
+<pre class="flow-diagram"><code class="language-text">Production Lambda
+↓
+read only
+/my-app/prod/*</code></pre>
+<p>→ easy to apply <strong>least privilege</strong>.</p>
+<h3 class="subheading">4. Parameter Store Integrations</h3>
+<ul class="fact-list"><li><strong>Parameter Store integrates with:</strong> <strong>IAM</strong> = control permissions</li><li><strong>KMS</strong> = SecureString encryption</li><li><strong>EventBridge</strong> = notification/event</li><li><strong>CloudFormation</strong> = use parameter in template</li></ul>
+<p class="lead-in">AWS also offers <strong>public parameters</strong>:</p>
+<p><code>/aws/service/ami-amazon-linux-latest/...</code></p>
+<p>→ example used to get the latest Amazon Linux AMI ID.</p>
+<p class="lead-in">You can reference secrets in Secrets Manager via:</p>
+<p><code>/aws/reference/secretsmanager/...</code></p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓ GetParameter
+Parameter Store
+↓ reference
+Secrets Manager
+↓
+Secret</code></pre>
+<p>→ The real secret is still inside <strong>Secrets Manager</strong>, Parameter Store only provides reference for reading.</p>
+<h3 class="subheading">5. Parameter Tiers</h3>
+<p class="compact-line"><strong>There are 2 tiers:</strong> <code>Standard · Advanced</code></p>
+<p class="lead-in">According to the slides:</p>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th></th><th style="text-align: right;">Standard</th><th style="text-align: right;">Advanced</th></tr><tr><td>Parameters/account/Region</td><td style="text-align: right;">10,000</td><td style="text-align: right;">100,000</td></tr><tr><td>Max value</td><td style="text-align: right;">4 KB</td><td style="text-align: right;">8 KB</td></tr><tr><td>Parameter Policies</td><td style="text-align: right;">No</td><td style="text-align: right;">Yes</td></tr><tr><td>Storage fee</td><td style="text-align: right;">Free</td><td style="text-align: right;">There are fees</td></tr></tbody></table></div>
+<blockquote class="insight"><p>Quotas/pricing are subject to change. Check current AWS Service Quotas/Pricing.</p></blockquote>
+<h3 class="subheading">6. Parameter Policies</h3>
+<p><strong>Only available with:</strong> <code>Advanced Parameters</code></p>
+<h4 class="minor-heading">6.1. Expiration</h4>
+<pre class="flow-diagram"><code class="language-text">Parameters
+↓
+to the time of expiration
+↓
+Delete</code></pre>
+<p>→ automatically delete the parameter when it expires.</p>
+<h4 class="minor-heading">6.2. ExpirationNotification</h4>
+<pre class="flow-diagram"><code class="language-text">About to expire
+↓
+EventBridge notification</code></pre>
+<p>→ warning before parameter expires.</p>
+<h4 class="minor-heading">6.3. NoChangeNotification</h4>
+<pre class="flow-diagram"><code class="language-text">Parameters do not change
+in X days
+↓
+EventBridge notification</code></pre>
+<pre class="flow-diagram"><code class="language-text">Password
+↓
+90 days without change
+↓
+Alert</code></pre>
+<p>→ useful for reminding to rotate old secrets.</p>
+<h3 class="subheading">7. AWS Secrets Manager</h3>
+<p class="compact-line"><strong>Secrets Manager specializes in:</strong> <code>Passwords · Database credentials · API secrets</code></p>
+<p><strong>Secrets are:</strong> <code>Encrypt using KMS</code></p>
+<p><strong>Strengths:</strong> <code>Automatic Secret Rotation</code></p>
+<pre class="flow-diagram"><code class="language-text">Secret Manager
+↓
+Rotation
+↓
+Lambda
+↓
+Create a new password
+↓
+Update database
+↓
+Update secrets</code></pre>
+<p class="compact-line"><strong>Has integration with database such as:</strong> <code>RDS · MySQL · PostgreSQL · Aurora</code></p>
+<h3 class="subheading">8. Parameter Store vs Secrets Manager</h3>
+<p><strong>Parameter Store</strong> = config is main + simple secret = hierarchy/path = each update creates a new version</p>
+<p class="lead-in">Suitable for:</p>
+<pre class="flow-diagram"><code class="language-text">Database endpoint
+Feature flags
+Log levels
+App config
+API keys rarely change
+↓
+Parameter Store</code></pre>
+<p><strong>Secrets Manager</strong> = secret is key = manage rotation lifecycle = automatic secret rotation = matches database credentials</p>
+<pre class="flow-diagram"><code class="language-text">Database password
+API credential
+Secrets need to be changed periodically
+↓
+Secret Manager</code></pre>
+<p class="lead-in">Quick select:</p>
+<pre class="flow-diagram"><code class="language-text">Config / secret has changed little
+↓
+Parameter Store
+
+Secret needs to rotate automatically
+↓
+Secret Manager</code></pre>
+<h3 class="subheading">9. Multi-Region Secrets</h3>
+<p class="lead-in">Secrets Manager can replicate secrets:</p>
+<pre class="flow-diagram"><code class="language-text">Region A
+Primary Secret
+↓ replicate
+Region B
+Replica Secret</code></pre>
+<p>The replica is synchronized with the primary.</p>
+<p class="lead-in">Possible:</p>
+<pre class="flow-diagram"><code class="language-text">Replica
+↓
+Promote
+↓
+Standalone Secret</code></pre>
+<p class="compact-line"><strong>→ suitable for:</strong> <code>Multi-Region · Disaster Recovery</code></p>
+<h3 class="subheading">10. Overall flow</h3>
+<pre class="flow-diagram"><code class="language-text">Application Role
+↓
+IAM
+↓
+Parameter Store / Secrets Manager
+↓
+KMS Decrypt
+↓
+Value / Secret
+↓ TLS
+Application</code></pre>
+<h3 class="subheading usage-heading">11. When to use which one?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Configuration
+↓
+Parameter Store</code></pre>
+<pre class="flow-diagram"><code class="language-text">Secret has changed little
+↓
+Parameter Store SecureString</code></pre>
+<pre class="flow-diagram"><code class="language-text">Secret needs automatic rotation
+↓
+Secret Manager</code></pre>
+<pre class="flow-diagram"><code class="language-text">Database credentials
+Need to rotate automatically
+↓
+Secret Manager</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Parameter Store matches config and SecureString; Secrets Manager is strong in managing secrets/rotation; Both need appropriate IAM/KMS permissions.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Certificate Manager (ACM)">
+<summary><span class="t-title">AWS Certificate Manager (ACM)</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Manage TLS certificates for HTTPS without having to handle the certificate lifecycle yourself.</p>
+<p><strong>ACM</strong> = provision certificate + deploy certificate + renew certificate</p>
+<p>→ used for protection <strong>encryption in transit</strong>.</p>
+<h3 class="subheading">1. ACM Certificate</h3>
+<p class="compact-line"><strong>ACM supports:</strong> <code>Public Certificate · Private Certificate</code></p>
+<p><strong>Public certificate issued by ACM:</strong> <strong>Free</strong> + Automatic Renewal</p>
+<p>as long as domain validation remains valid.</p>
+<h3 class="subheading">2. ACM Integrations</h3>
+<p class="compact-line"><strong>ACM integrates with:</strong> <code>ALB / CLB / NLB · CloudFront · API Gateway Custom Domain</code></p>
+<p><strong>Certificate is attached at:</strong> <code>TLS Termination</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ HTTPS
+ALB + ACM Certificate
+↓ TLS terminate
+Application</code></pre>
+<h3 class="subheading">3. Request Certificate</h3>
+<p class="lead-in">When requesting a certificate, declare the domain:</p>
+<p><code>corp.example.com</code></p>
+<p><strong>or wildcard:</strong> <code>*.example.com</code></p>
+<p>Then you must verify domain ownership.</p>
+<p class="compact-line"><strong>There are 2 ways:</strong> <code>DNS Validation · Email Validation</code></p>
+<h4 class="minor-heading">3.1. DNS Validation</h4>
+<pre class="flow-diagram"><code class="language-text">ACM
+↓
+CNAME validation record
+↓
+DNS / Route 53
+↓
+Domain verified</code></pre>
+<p>→ best suited for automation.</p>
+<h4 class="minor-heading">3.2. Email Validation</h4>
+<pre class="flow-diagram"><code class="language-text">ACM
+↓
+Validation email
+↓
+Domain contact
+↓
+Approve</code></pre>
+<p>Verification may take some time.</p>
+<h3 class="subheading">4. Certificate Renewal</h3>
+<p class="lead-in">With certificate issued by ACM:</p>
+<pre class="flow-diagram"><code class="language-text">ACM-issued Certificate
+↓
+Automatic Renewal</code></pre>
+<p class="compact-line"><strong>According to the slides:</strong> <code>Renewal started · ≈ 60 days ago expiry</code></p>
+<p>as long as validation is valid.</p>
+<h3 class="subheading">5. Imported Certificate</h3>
+<p class="lead-in">Certificate import from external CA:</p>
+<pre class="flow-diagram"><code class="language-text">Imported Certificate
+↓
+ACM does not renew itself</code></pre>
+<p class="lead-in">You must:</p>
+<pre class="flow-diagram"><code class="language-text">Renew outside
+↓
+Import the new certificate into ACM</code></pre>
+<p class="lead-in">ACM can send certificate expiry events via:</p>
+<p><code>EventBridge</code></p>
+<p class="compact-line"><code>Daily expiry event · ≈ from 45 days ago expiry</code></p>
+<p class="lead-in">Can be used:</p>
+<pre class="flow-diagram"><code class="language-text">AWS Config
+↓
+acm-certificate-expiration-check</code></pre>
+<p>to detect that the certificate is about to expire.</p>
+<h3 class="subheading">6. ACM with Load Balancer</h3>
+<p class="lead-in">ALB example:</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓ HTTPS
+ALB
+↓ TLS Termination
+ACM Certificate
+↓
+EC2 / Auto Scaling Group</code></pre>
+<p class="compact-line"><strong>Backend can receive:</strong> <code>HTTP · or · HTTPS</code></p>
+<p class="lead-in">Usually configured:</p>
+<pre class="flow-diagram"><code class="language-text">HTTP :80
+↓ Redirect
+HTTPS :443</code></pre>
+<p>→ avoid letting the client continue to use plaintext HTTP.</p>
+<h3 class="subheading">7. ACM Certificate Region</h3>
+<p class="lead-in">Very important point:</p>
+<pre class="flow-diagram"><code class="language-text">CloudFront
++
+Edge-Optimized API Gateway
+↓
+ACM Certificate in us-east-1</code></pre>
+<p class="lead-in">Also:</p>
+<pre class="flow-diagram"><code class="language-text">Regional API Gateway
+↓
+Certificate in the same Region as the API</code></pre>
+<p class="lead-in">With Load Balancer:</p>
+<pre class="flow-diagram"><code class="language-text">ACM Certificate
+↓
+same Region as Load Balancer</code></pre>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>Route 53 DNS validation + ACM + ALB for web app HTTPS and HTTP→HTTPS redirect.</li><li>CloudFront distribution uses public ACM certificates in <code>us-east-1</code>.</li><li>Imported enterprise certificate with EventBridge/Config alert to operate manual renewal.</li></ul>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>ACM issues/manages TLS certificates; CloudFront uses ACM certificates at us-east-1. Public certificates need appropriate validation.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS CloudHSM">
+<summary><span class="t-title">AWS CloudHSM</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Use dedicated hardware HSM when customers need deeper control over keys, users, permissions and key material.</p>
+<p><strong>CloudHSM</strong> = dedicated Hardware Security Module = customer-specific hardware = customer key management + user + permission</p>
+<p class="lead-in">HSM can be understood as:</p>
+<pre class="flow-diagram"><code class="language-text">"hardware safe"
+↓
+hold the cryptographic key
+↓
+Perform Encrypt/Decrypt/Sign
+without giving out the plaintext key</code></pre>
+<h3 class="subheading">1. What is CloudHSM?</h3>
+<p>CloudHSM provides HSM appliances running in AWS.</p>
+<p class="lead-in">Division of responsibilities:</p>
+<pre class="flow-diagram"><code class="language-text">AWS manages
+↓
+HSM hardware
+Physical infrastructure
+Networking infrastructure</code></pre>
+<pre class="flow-diagram"><code class="language-text">Customer management
+↓
+Cryptographic Keys
+HSM Users
+Permissions
+Applications use HSM</code></pre>
+<p>Unlike KMS, customers have more direct control over keys and users within HSM.</p>
+<h4 class="minor-heading">1.1. CloudHSM Client</h4>
+<p>Application does not call HSM directly via KMS API.</p>
+<p class="lead-in">Usually:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓
+CloudHSM Client Software
+↓ SSL/TLS
+CloudHSM Cluster
+↓
+HSM</code></pre>
+<p><code dir="ltr">CloudHSM Client Software</code> is software that helps applications connect and send cryptographic operations to HSM.</p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Application
+↓ requires Encrypt
+CloudHSM Client
+↓
+HSM uses internal keys
+↓
+Ciphertext</code></pre>
+<p>The key material remains in the HSM.</p>
+<h4 class="minor-heading">1.2. HSM Hardware</h4>
+<p>HSM is designed to protect cryptographic keys.</p>
+<p><strong>Tamper-resistant</strong> = prevent physical interference with hardware</p>
+<p><strong>FIPS compliant</strong> = meets cryptographic security standards</p>
+<p><strong>According to the slides:</strong> <code>FIPS 140-2 Level 3</code></p>
+<p class="lead-in">CloudHSM supports crypto operations such as:</p>
+<p class="compact-line"><code>Symmetric Encryption · Asymmetric Encryption · Digital Signing · Hashing</code></p>
+<p class="compact-line"><code>AES · RSA · ECC</code></p>
+<p>CloudHSM does not have a free tier.</p>
+<h3 class="subheading">2. CloudHSM Cluster</h3>
+<p>One <strong>cluster</strong> is a group of many HSMs working together.</p>
+<pre class="flow-diagram"><code class="language-text">CloudHSM Cluster
+├─ HSM in AZ A
+├─ HSM in AZ B
+└─ HSM in AZ C</code></pre>
+<p class="purpose">Purpose:</p>
+<p><strong>High Availability</strong> + Durability</p>
+<p class="lead-in">If an AZ goes down:</p>
+<pre class="flow-diagram"><code class="language-text">AZ A HSM
+↓ error
+
+Application
+↓
+HSM in AZ B / AZ C</code></pre>
+<p><strong>Differences with KMS:</strong> <strong>KMS</strong> = AWS Autonomous High Availability</p>
+<p><strong>CloudHSM</strong> = customer must design cluster and add HSM in multiple AZs</p>
+<h3 class="subheading">3. CloudHSM + KMS Custom Key Store</h3>
+<p>This is a very important concept.</p>
+<p class="lead-in">Normal:</p>
+<pre class="flow-diagram"><code class="language-text">AWS Service
+↓
+KMS
+↓
+KMS manages key material</code></pre>
+<p class="lead-in">But with <strong>KMS Custom Key Store</strong>:</p>
+<pre class="flow-diagram"><code class="language-text">AWS Service
+↓
+KMS API
+↓
+KMS Custom Key Store
+↓
+CloudHSM Cluster
+↓
+Key Material</code></pre>
+<ul class="fact-list"><li><strong>AWS Service</strong> = still call KMS as usual</li><li><strong>KMS</strong> = still manages API, permission, key policy, audit</li><li><strong>CloudHSM</strong> = holds the actual key material</li></ul>
+<pre class="flow-diagram"><code class="language-text">EBS
+↓ need to encrypt volume
+KMS API
+↓
+Custom Key Store
+↓
+CloudHSM
+↓ use key material in HSM
+↓
+crypto operations</code></pre>
+<p class="compact-line"><strong>Thanks to that, services such as:</strong> <code>EBS · S3 · RDS</code></p>
+<p>Can still use integration with KMS.</p>
+<p><strong>Key Material</strong> = is in CloudHSM</p>
+<p>instead of being in the KMS-managed key store.</p>
+<p>CloudTrail can still audit KMS key usage.</p>
+<h3 class="subheading">4. CloudHSM vs KMS</h3>
+<div class="table-wrap"><table class="study-table"><tbody><tr><th></th><th>KMS</th><th>CloudHSM</th></tr><tr><td>Service type</td><td>Managed key service</td><td>Dedicated HSM</td></tr><tr><td>Tenancy</td><td>Multi-tenant managed service</td><td>Single-tenant / dedicated</td></tr><tr><td>Key management</td><td>AWS manages the infrastructure</td><td>Customer manages key/user</td></tr><tr><td>Key material</td><td>KMS protects</td><td>Located in dedicated HSM</td></tr><tr><td>HA</td><td>AWS is self-governed</td><td>Customer deploys multiple HSMs</td></tr><tr><td>API</td><td>KMS API</td><td>CloudHSM Client / crypto libraries</td></tr><tr><td>AWS service integration</td><td>Very easy</td><td>Usually through KMS Custom Key Store</td></tr><tr><td>Operation</td><td>More simple</td><td>More complicated</td></tr><tr><td>Free tier</td><td>Yes</td><td>No</td></tr></tbody></table></div>
+<p><strong>KMS</strong> = managed = simple = AWS takes care of many things</p>
+<p><strong>CloudHSM</strong> = dedicated hardware = more customer control = more operations for the customer</p>
+<h3 class="subheading">5. CloudHSM Placement</h3>
+<p><strong>CloudHSM cluster is deployed in:</strong> <code>VPC</code></p>
+<pre class="flow-diagram"><code class="language-text">VPC
+│
+├─ Application
+│
+└─ CloudHSM Cluster
+    ├─ HSM AZ A
+    └─ HSM AZ B</code></pre>
+<p>Application can connect to HSM via private network.</p>
+<p>If the workload is located in another VPC, network connectivity can be used like:</p>
+<p><code>VPC Peering</code></p>
+<p>to allow the application to access the CloudHSM cluster.</p>
+<h3 class="subheading">6. CloudHSM Integrations</h3>
+<p>CloudHSM <strong>Do not replace KMS itself</strong> for AWS services.</p>
+<p class="lead-in">For example, EBS natively integrates directly with:</p>
+<pre class="flow-diagram"><code class="language-text">EBS
+↓
+KMS</code></pre>
+<p class="lead-in">rather than:</p>
+<pre class="flow-diagram"><code class="language-text">EBS
+↓
+CloudHSM</code></pre>
+<p class="lead-in">If you want EBS to use the key in HSM:</p>
+<pre class="flow-diagram"><code class="language-text">EBS
+↓
+KMS
+↓
+Custom Key Store
+↓
+CloudHSM</code></pre>
+<p class="compact-line"><strong>Permissions still need to be correct:</strong> <code>IAM · KMS Key Policy · Service Permission · CloudHSM configuration</code></p>
+<p>CloudHSM can also be used for workloads that need to directly use HSM, for example:</p>
+<p class="compact-line"><code>Oracle TDE · Database encryption · Digital signing · TLS cryptographic workload</code></p>
+<h3 class="subheading usage-heading">7. When to use CloudHSM?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<p class="lead-in">If you only need regular encryption:</p>
+<pre class="flow-diagram"><code class="language-text">AWS-managed encryption
+↓
+KMS</code></pre>
+<p class="lead-in">If compliance requires:</p>
+<pre class="flow-diagram"><code class="language-text">Dedicated HSM
+↓
+CloudHSM</code></pre>
+<p class="lead-in">If needed:</p>
+<pre class="flow-diagram"><code class="language-text">Customer self-management
+Keys
+Users
+Permissions
+↓
+CloudHSM</code></pre>
+<p class="compact-line"><strong>If you want:</strong> <code>AWS Service · still uses KMS API · but · Key Material · must be in dedicated HSM</code></p>
+<p><strong>then use:</strong> <strong>KMS Custom Key Store</strong> + CloudHSM</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>CloudHSM for dedicated HSM and greater key control; KMS manages keys as a simpler managed service.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS WAF, Shield &amp; Firewall Manager">
+<summary><span class="t-title">AWS WAF, Shield &amp; Firewall Manager</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Protect Internet-facing workloads in 3 layers:</p>
+<ul class="fact-list"><li><strong>WAF</strong> = HTTP request filtering = Layer 7</li><li><strong>Shield</strong> = DDoS protection</li><li><strong>Firewall Manager</strong> = Centralized security policy management for multiple AWS accounts/resources</li></ul>
+<h3 class="subheading">1. AWS WAF</h3>
+<p><strong>AWS WAF protects applications in:</strong> <strong>Layer 7</strong> = HTTP / HTTPS</p>
+<p class="compact-line"><strong>WAF can be attached to:</strong> <code>Application Load Balancer · API Gateway · CloudFront · AppSync · Cognito User Pool</code></p>
+<p><strong>Do not attach directly to:</strong> <code>Network Load Balancer</code></p>
+<p><strong>because:</strong> <strong>NLB</strong> = Layer 4 = TCP / UDP</p>
+<p><strong>WAF</strong> = Layer 7 = HTTP</p>
+<h3 class="subheading">2. Web ACL</h3>
+<p><strong>WAF uses:</strong> <strong>Web ACL</strong> = set of rules to decide Allow / Block request</p>
+<pre class="flow-diagram"><code class="language-text">HTTP Request
+↓
+WAF Web ACL
+↓
+Rules
+↓
+Allow / Block</code></pre>
+<p><strong>Popular rules:</strong> <strong>IP Set</strong> = allow/block IP</p>
+<p class="compact-line"><strong>According to the slides:</strong> <code>IP Set · ≤ 10,000 IP addresses</code></p>
+<p><strong>String Match</strong> = check Header / Body / URI</p>
+<p class="compact-line"><strong>Used to detect patterns such as:</strong> <code>SQL Injection · XSS</code></p>
+<ul class="fact-list"><li><strong>Additionally:</strong> <strong>Size Constraint</strong> = check request size</li><li><strong>Geo Match</strong> = filter by country</li><li><strong>Rate-Based Rule</strong> = limit too many requests from one source</li></ul>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">1 IP
+↓ sending too many requests
+Rate-Based Rule
+↓
+Block</code></pre>
+<h3 class="subheading">3. Web ACL Scope</h3>
+<p><strong>Web ACLs are typically:</strong> <code>Regional</code></p>
+<pre class="flow-diagram"><code class="language-text">ALB
+API Gateway
+↓
+Regional Web ACL</code></pre>
+<p><strong>CloudFront specifically uses:</strong> <code>CloudFront Scope</code></p>
+<h3 class="subheading">4. Rule Group</h3>
+<p><strong>Rule Group</strong> = group multiple WAF rules = reusable</p>
+<pre class="flow-diagram"><code class="language-text">SQLi Rule
+XSS Rule
+Bad IP Rule
+Rate Limit Rule
+↓
+Rule Group
+↓
+multiple Web ACLs</code></pre>
+<p>→ helps reuse security rules.</p>
+<h3 class="subheading">5. AWS Shield</h3>
+<p><strong>AWS Shield protects against:</strong> <code>DDoS Attack</code></p>
+<p><strong>Especially in:</strong> <code>Layer 3 / Layer 4</code></p>
+<p class="compact-line"><code>SYN Flood · UDP Flood · Reflection Attack</code></p>
+<h3 class="subheading">6. Shield Standard</h3>
+<p><strong>Shield Standard</strong> = default enabled = free = baseline DDoS protection</p>
+<p>AWS provides itself to customers.</p>
+<p>Used to reduce common DDoS attacks at the network/transport layer.</p>
+<h3 class="subheading">7. Shield Advanced</h3>
+<p><strong>Shield Advanced</strong> = Advanced DDoS protection</p>
+<p class="compact-line"><strong>Protect resources such as:</strong> <code>EC2 · ELB · CloudFront · Global Accelerator · Route 53</code></p>
+<p class="compact-line"><strong>There are more:</strong> <code>Advanced mitigation · 24/7 DDoS support · Cost protection</code></p>
+<p>→ suitable for workloads with high DDoS risk or requiring specialized support.</p>
+<p><code>≈ $3,000 / Organization / month</code></p>
+<blockquote class="insight"><p>Pricing is subject to change. Check current AWS Pricing.</p></blockquote>
+<h3 class="subheading">8. AWS Firewall Manager</h3>
+<p><strong>Firewall Manager uses:</strong> <code>AWS Organizations</code></p>
+<p>to centrally manage security policy for multiple accounts.</p>
+<pre class="flow-diagram"><code class="language-text">Security Account
+↓
+Firewall Manager Policy
+↓
+OU/Accounts
+├─ Account A
+├─ Account B
+├─ Account C
+└─ New account</code></pre>
+<p><strong>Points to understand:</strong> <strong>Account / OU</strong> = policy scope</p>
+<p><strong>Resource / Service inside</strong> = object subject to policy enforcement</p>
+<p class="lead-in">Policy example:</p>
+<pre class="flow-diagram"><code class="language-text">OU Production
+↓
+every Public ALB
+↓
+must have a standard WAF policy</code></pre>
+<p>Firewall Manager will check for matching resources in those accounts:</p>
+<pre class="flow-diagram"><code class="language-text">Account A → ALB → WAF
+Account B → ALB → WAF
+Account C → ALB → WAF</code></pre>
+<p class="compact-line"><strong>Can manage policies for:</strong> <code>AWS WAF · Shield Advanced · Security Groups · AWS Network Firewall · Route 53 Resolver DNS Firewall</code></p>
+<p>Firewall Manager <strong>Not a new firewall</strong>.</p>
+<p><strong>Firewall Manager</strong> = manage and enforce policy</p>
+<p><strong>WAF / Network Firewall / SG...</strong> = actually protects the resource</p>
+<pre class="flow-diagram"><code class="language-text">New account/resource
+↓
+is within scope policy
+↓
+Firewall Manager
+↓
+enforce baseline policy</code></pre>
+<p>→ useful for the environment <strong>multi-account</strong>, because the security team does not have to configure each account/resource manually.</p>
+<h3 class="subheading">9. WAF vs Shield vs Firewall Manager</h3>
+<ul class="fact-list"><li><strong>WAF</strong> = is the HTTP request valid?</li><li><strong>Shield</strong> = are you experiencing DDoS?</li><li><strong>Firewall Manager</strong> = Are the accounts/resources following the general security policy?</li></ul>
+<p class="lead-in">Quick select:</p>
+<pre class="flow-diagram"><code class="language-text">SQL Injection / XSS
+Bad IP
+Geo blocking
+Rate limit
+↓
+WAF</code></pre>
+<pre class="flow-diagram"><code class="language-text">SYN Flood
+UDP Flood
+DDoS
+↓
+Shield</code></pre>
+<pre class="flow-diagram"><code class="language-text">Multiple AWS accounts
+need the same security policy
+↓
+Firewall Manager</code></pre>
+<h3 class="subheading">10. Fixed IP + WAF</h3>
+<p><strong>If needed:</strong> <strong>Fixed IP</strong> + WAF protection</p>
+<p class="lead-in">can use:</p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+Global Accelerator
+↓ fixed Anycast IP
+ALB
+↓
+Regional WAF
+↓
+Application</code></pre>
+<p><strong>Points to remember:</strong> <strong>Global Accelerator</strong> = provides fixed Anycast IP</p>
+<p><strong>WAF</strong> ≠ attach directly to Global Accelerator</p>
+<p><strong>WAF attached to:</strong> <code>ALB</code></p>
+<p>behind.</p>
+<h3 class="subheading">11. WAF and NLB</h3>
+<p class="lead-in">WAF does not protect NLB directly:</p>
+<pre class="flow-diagram"><code class="language-text">NLB
+= Layer 4
+↓
+WAF does not attach</code></pre>
+<p><strong>If Layer 7 filtering is needed:</strong> <strong>ALB / CloudFront / API Gateway</strong> + WAF</p>
+<h3 class="subheading">12. DDoS-Resilient Architecture</h3>
+<p class="compact-line"><strong>Can combine:</strong> <code>Route 53 · CloudFront · Global Accelerator · ELB · Auto Scaling Multi-AZ · WAF · Shield</code></p>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+CloudFront
+↓
+WAF
+↓
+ALB
+↓
+Auto Scaling
+↓
+EC2</code></pre>
+<p class="lead-in">CloudFront helps:</p>
+<pre class="flow-diagram"><code class="language-text">Cache content
+↓
+Reduce requests to the backend</code></pre>
+<p class="lead-in">WAF helps:</p>
+<pre class="flow-diagram"><code class="language-text">Managed Rules
+Rate-Based Rules
+↓
+Filter malicious HTTP traffic</code></pre>
+<p><strong>Shield helps:</strong> <code>DDoS mitigation</code></p>
+<p><strong>SG/NACL continues to protect:</strong> <code>Network Layer</code></p>
+<h3 class="subheading">13. API Gateway Protection</h3>
+<p class="lead-in">API Gateway has additional controls such as:</p>
+<p class="compact-line"><code>Burst / Throttling Limit · API Key · Header Filtering</code></p>
+<p>→ helps reduce attack surface.</p>
+<p><strong>API Gateway controls</strong> ≠ replace WAF ≠ replace authorization</p>
+<p>They are additional layers of protection.</p>
+<h3 class="subheading">14. Overall flow</h3>
+<pre class="flow-diagram"><code class="language-text">User
+↓
+CloudFront / Global Accelerator
+↓
+WAF Web ACL
+↓
+ALB / API Gateway
+↓
+Auto Scaling Workload</code></pre>
+<p class="lead-in">In which:</p>
+<pre class="flow-diagram"><code class="language-text">WAF
+= filter HTTP requests
+
+Shield
+= reduces DDoS
+
+Firewall Manager
+= select account/OU as scope
+↓
+enforce security policy
+Up the resources inside</code></pre>
+<h3 class="subheading usage-heading">15. When to use which one?</h3>
+<p class="usecase-inline"><strong>Use cases:</strong></p>
+<pre class="flow-diagram"><code class="language-text">Block SQLi / XSS / bad IP
+↓
+WAF</code></pre>
+<pre class="flow-diagram"><code class="language-text">Rate limit web/API
+↓
+WAF</code></pre>
+<pre class="flow-diagram"><code class="language-text">Baseline DDoS protection
+↓
+Shield Standard</code></pre>
+<pre class="flow-diagram"><code class="language-text">Advanced DDoS protection
++ expert support
+↓
+Shield Advanced</code></pre>
+<pre class="flow-diagram"><code class="language-text">Central security policy
+for multiple AWS accounts/resources
+↓
+Firewall Manager</code></pre>
+<h3 class="subheading">16. Details of AWS WAF Rate-Based Rule</h3>
+<p><strong>WAF Rate-Based Rule</strong> Counts the number of requests from each source IP (or composite key) in a sliding window <strong>5 minutes</strong> and automatically <code>Block</code> Temporarily exceed the IP threshold right at CloudFront, ALB or API Gateway without writing a Lambda to process logs.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>WAF filters HTTP requests at Layer 7; Anti-DDoS Shield; Firewall Manager centrally manages policies across multiple accounts/resources.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon GuardDuty, Inspector &amp; Macie">
+<summary><span class="t-title">Amazon GuardDuty, Inspector &amp; Macie</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Distinguish between 3 types of security finding:</p>
+<h3 class="subheading" data-pm-slice="1 2 []">1. Amazon GuardDuty, Inspector &amp; Macie</h3>
+<ul class="fact-list"><li><strong>GuardDuty</strong> = detect threats / unusual behavior</li><li><strong>Inspector</strong> = find vulnerability + network exposure</li><li><strong>Macie</strong> = find sensitive data / PII in S3</li></ul>
+<h3 class="subheading">2. Amazon GuardDuty</h3>
+<p><strong>GuardDuty is:</strong> <code>Managed Threat Detection</code></p>
+<p class="compact-line"><code>Machine Learning · Anomaly Detection · Threat Intelligence</code></p>
+<p>to detect suspicious behavior.</p>
+<p class="compact-line"><strong>Main data source:</strong> <code>CloudTrail · VPC Flow Logs · DNS Logs</code></p>
+<p class="compact-line"><strong>Detection example:</strong> <code>Unusual API calls · Suspicious network traffic · Malicious IP · Cryptocurrency mining · Suspicious DNS activity</code></p>
+<p class="lead-in">There is additional protection for some services such as:</p>
+<p class="compact-line"><code>EKS · RDS / Aurora · EBS Malware · Lambda · S3</code></p>
+<p>No need to install agents on the workload.</p>
+<pre class="flow-diagram"><code class="language-text">AWS Logs / Activity
+↓
+GuardDuty
+↓
+Finding
+↓
+EventBridge / Security Hub
+↓
+SNS / Lambda / Workflow</code></pre>
+<p><strong>GuardDuty</strong> = detect threat ≠ self-remediation</p>
+<h3 class="subheading">3. Amazon Inspector</h3>
+<p><strong>Inspector is used to find:</strong> <strong>Known Vulnerabilities</strong> + Network Reachability</p>
+<p class="compact-line"><strong>Support:</strong> <code>EC2 · ECR Container Images · Lambda</code></p>
+<h4 class="minor-heading">3.1. EC2</h4>
+<pre class="flow-diagram"><code class="language-text">EC2
+↓
+Inspector
+↓
+scan OS / packages
+↓
+compare CVE database</code></pre>
+<p class="compact-line"><strong>Can detect:</strong> <code>Outdated package · Known CVE · Unintended network exposure</code></p>
+<h4 class="minor-heading">3.2. ECR</h4>
+<pre class="flow-diagram"><code class="language-text">Container Image
+↓
+Inspector
+↓
+CVE Finding</code></pre>
+<h4 class="minor-heading">3.3. Lambda</h4>
+<pre class="flow-diagram"><code class="language-text">Lambda Code / Dependencies
+↓
+Inspector
+↓
+Vulnerability Finding</code></pre>
+<p><strong>Inspector creates:</strong> <strong>Finding</strong> + Risk Score</p>
+<p>to prioritize remediation.</p>
+<p><strong>Inspector</strong> = find vulnerabilities ≠ patch / redeploy yourself</p>
+<h3 class="subheading">4. Amazon Macie</h3>
+<p class="compact-line"><strong>Macie specializes in finding:</strong> <code>Sensitive Data · PII</code></p>
+<p><strong>in:</strong> <code>Amazon S3</code></p>
+<p class="compact-line"><code>Machine Learning · Pattern Matching</code></p>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">S3 Bucket
+↓
+Macie Scan
+↓
+PII / Sensitive Data Finding</code></pre>
+<p class="compact-line"><strong>Can detect data such as:</strong> <code>Name · Email · Phone · ID / sensitive information</code></p>
+<p>Macie: <strong>= discover sensitive data</strong> ≠ self-correct Bucket Policy / IAM / encryption</p>
+<p class="compact-line"><strong>After finding, the team can:</strong> <code>Block Public Access · Fix Bucket Policy · Enable Encryption · Delete unnecessary data</code></p>
+<h3 class="subheading">5. GuardDuty vs Inspector vs Macie</h3>
+<ul class="fact-list"><li><strong>GuardDuty</strong> = Is the system under attack / compromise?</li><li><strong>Inspector</strong> = Does the workload have vulnerabilities?</li><li><strong>Macie</strong> = Does S3 contain sensitive data / PII?</li></ul>
+<p class="lead-in">Quick select:</p>
+<pre class="flow-diagram"><code class="language-text">Suspicious API / traffic / crypto mining
+↓
+GuardDuty</code></pre>
+<pre class="flow-diagram"><code class="language-text">CVE / vulnerable package / network exposure
+↓
+Inspector</code></pre>
+<pre class="flow-diagram"><code class="language-text">PII / sensitive data in S3
+↓
+Macie</code></pre>
+<h3 class="subheading">6. Amazon Security Lake</h3>
+<p><strong>Amazon Security Lake</strong> automatically collect, standardize, and centralize security data <strong>Amazon S3 in your account</strong> to analyze, investigate incidents, and collate data from multiple sources.</p>
+<pre class="flow-diagram"><code class="language-text">Security logs / events
+AWS + on-premises + third-party sources
+↓
+Amazon Security Lake
+↓ OCSF + Apache Parquet standardization
+Amazon S3
+↓
+Athena / analytics tools / SIEM</code></pre>
+<p>Security Lake automatically normalizes integrated AWS sources; custom sources must send data as requested by OCSF/Parquet. This is a secure data centralized platform; GuardDuty, Inspector, and Macie provide corresponding detection types.  · </p>
+<h3 class="subheading usage-heading">7. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<ul><li>EventBridge route GuardDuty cryptocurrency finding to SNS on-call and Lambda isolates instances according to runbook.</li><li>Inspector detected CVE in ECR image before/concurrent deployment; team patch image and redeploy immutable container.</li><li>Macie scans the S3 data lake for mistakenly saved PII, then applies S3 Block Public Access, least-privilege policy, and SSE-KMS.</li><li>Security Lake pools CloudTrail, VPC Flow Logs, and other security sources into S3 for incident investigation using Athena or SIEM.</li></ul>
+<h3 class="subheading">8. GuardDuty RDS Protection &amp; Two Amazon Inspector Testing Groups</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Features / Scan modes</th><th>Object &amp; Detection Mechanism</th></tr></thead><tbody>
+<tr><td><strong>GuardDuty RDS Protection</strong></td><td>Analyze login and data access behavior on Aurora/RDS to detect potential threats without degrading DB performance</td></tr>
+<tr><td><strong>Inspector — Known Vulnerabilities (CVE)</strong></td><td>Continuous automatic scanning for OS/packages vulnerabilities on EC2, container images in ECR and dependencies/code of AWS Lambda</td></tr>
+<tr><td><strong>Inspector — Network Reachability</strong></td><td>Detect network lines and ports that are too open to EC2 from outside the VPC without needing to install a separate agent for network testing</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>GuardDuty detects threats; Inspector finds vulnerabilities; Macie identifies sensitive data in S3.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Security Hub, Amazon Detective &amp; AWS Audit Manager">
+<summary><span class="t-title">AWS Security Hub, Amazon Detective &amp; AWS Audit Manager</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Centralize security alerts, investigate the root cause of incidents, and automatically collect compliance audit evidence.</p>
+<h3 class="subheading">1. Table distinguishing three services</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Service</th><th>Question resolved</th><th>Main mechanism</th></tr></thead><tbody>
+<tr><td><strong>AWS Security Hub</strong></td><td>What risks and violations of standards are there in the overall environment that need to be prioritized for handling?</td><td>Collect standardized findings (ASFF) from GuardDuty, Inspector, Macie, Firewall Manager, Config and score automatically according to the standard set <strong>CIS, PCI-DSS, AWS FSBP</strong></td></tr>
+<tr><td><strong>Amazon Detective</strong></td><td>Where did the newly discovered security incident come from and what is the scope of its impact?</td><td>Build automatic link graphs from CloudTrail, VPC Flow Logs, EKS audit logs and GuardDuty findings to <strong>Root Cause Analysis</strong></td></tr>
+<tr><td><strong>AWS Audit Manager</strong></td><td>How to export compliance evidence to auditors without having to collect it manually?</td><td>Continuously <strong>Evidence gathering (Evidence)</strong> from CloudTrail, Config, Security Hub and map to controls of PCI-DSS, HIPAA, GDPR, SOC 2 into <strong>Assessment Report</strong></td></tr>
+</tbody></table></div>
+<h3 class="subheading">2. Actual coordination flow</h3>
+<pre class="flow-diagram"><code class="language-text">GuardDuty/Inspector/Macie detect anomalies
+  ├─► AWS Security Hub → Aggregate, score compliance &amp; trigger response via EventBridge
+  ├─► Amazon Detective → Tracing behavioral graphs to find the root cause (Root Cause)
+  └─► AWS Audit Manager → Consolidate API history/configuration/findings into an audit evidence report</code></pre>
+</div>
+</details>

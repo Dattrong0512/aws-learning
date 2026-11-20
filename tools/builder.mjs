@@ -1,30 +1,10 @@
-/**
- * AWS Learning – Local Content Builder
- * ------------------------------------
- * Companion server for the "🖼️ Nhập ảnh" feature in public/index.html.
- *
- * A Cloudflare Worker cannot spawn a terminal, so this small Node server does it:
- *   1. Receives pasted lecture images + the chosen page from the browser.
- *   2. Saves the images to tools/inbox/<page>-<timestamp>/.
- *   3. Writes a tailored prompt.
- *   4. Spawns the selected Claude or Codex CLI in a new terminal window to read the
- *      images and add study toggles to that page in public/index.html.
- *   5. When the selected agent finishes successfully, runs `npx wrangler deploy` in the same
- *      window so the new content is published to Cloudflare automatically.
- *
- * Run from the project root:   node tools/builder.mjs
- * Then open the site locally (wrangler dev, http://localhost:8788) and double-click
- * the "🖼️ Nhập ảnh" icon.
- *
- * No npm dependencies — Node built-ins only.
- */
-
+// Optional local authoring server; the public website never calls it.
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { createStudyPrompt } from "./build-study-prompt.mjs";
+import { createStudyBatches } from "./build-study-prompt.mjs";
 
 // Port: 4545 was too popular (it's a common default for other dev tools, so it kept
 // colliding). 47450 sits in the IANA dynamic/private range and is not a registered
@@ -37,7 +17,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX = join(ROOT, "tools", "inbox");
 const AGENTS = {
   claude: { label: "Claude", model: "claude-opus-4-8" },
-  codex: { label: "Codex", model: "gpt-5.6-terra", reasoningEffort: "high" },
+  codex: { label: "Codex", model: "gpt-5.5", reasoningEffort: "high" },
 };
 
 const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg", "image/webp": "webp", "image/gif": "gif" };
@@ -82,7 +62,8 @@ const server = createServer(async (req, res) => {
   // `service` lets the page tell OUR builder apart from whatever else may answer
   // on a probed port.
   if (req.method === "GET" && url.pathname === "/health")
-    return sendJson(res, 200, { ok: true, service: "aws-learning-builder", port: PORT, root: ROOT });
+    return sendJson(res, 200, { ok: true, service: "aws-learning-builder", port: PORT, root: ROOT,
+      model: AGENTS.codex.model, reasoningEffort: AGENTS.codex.reasoningEffort });
 
   if (req.method === "POST" && url.pathname === "/build") {
     let body;
@@ -95,23 +76,27 @@ const server = createServer(async (req, res) => {
     // Codex is the safe default even if an older page sends no `agent` field.
     const agentId = body.agent === "claude" ? "claude" : "codex";
     const agent = AGENTS[agentId];
+    if (!/^[a-z][a-z0-9-]*$/.test(sectionHash)) return sendJson(res, 400, { ok: false, error: "Invalid section ID" });
     if (!images.length) return sendJson(res, 400, { ok: false, error: "No images" });
     if (!section) return sendJson(res, 400, { ok: false, error: "No page selected" });
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const dir = join(INBOX, `${sectionHash}-${stamp}`);
     mkdirSync(dir, { recursive: true });
-    const indexPath = join(ROOT, "public", "index.html");
-    const backupPath = join(dir, "index.before.html");
-    copyFileSync(indexPath, backupPath);
+    const contentPath = join(ROOT, "content");
+    const backupPath = join(dir, "content.before");
+    cpSync(contentPath, backupPath, { recursive: true });
 
     const files = saveImages(dir, images);
     if (!files.length) return sendJson(res, 400, { ok: false, error: "No valid images decoded" });
     if (note) writeFileSync(join(dir, "note.txt"), note); // kept next to the images for the record
 
-    const prompt = createStudyPrompt({ section, sectionHash, isNew, dir, files, note });
-    const promptPath = join(dir, "prompt.md");
-    writeFileSync(promptPath, prompt);
+    const batches = createStudyBatches({ section, sectionHash, isNew, dir, files, note });
+    const promptPaths = batches.map((batch, i) => {
+      const path = join(dir, batches.length === 1 ? "prompt.md" : `prompt-${i + 1}.md`);
+      writeFileSync(path, batch.prompt);
+      return path;
+    });
 
     // Launch the selected agent in a NEW visible PowerShell window so the user can watch it work.
     //
@@ -126,20 +111,33 @@ const server = createServer(async (req, res) => {
     const q = (p) => p.replace(/'/g, "''");
     const psScript = [
       `$ErrorActionPreference = 'Continue'`,
+      `$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)`,
       `Set-Location -LiteralPath '${q(ROOT)}'`,
-      `Write-Host '🤖 ${agent.label} (${agent.model}) is reading ${files.length} image(s) for page: ${section}...' -ForegroundColor Cyan`,
+      `Write-Host '🤖 ${agent.label} (${agent.model}) is reading ${files.length} image(s) in ${batches.length} batch(es) for page: ${q(section)}...' -ForegroundColor Cyan`,
       `Write-Host '   (Watch below — ${agent.label} streams each step live: reading images, editing files.)' -ForegroundColor DarkGray`,
       `Write-Host ''`,
       // --verbose: stream every turn (tool calls, edits, text) live so you watch it
       // work instead of staring at a blank window until the final summary.
       // --output-format=stream-json is machine JSON; text + --verbose stays readable.
-      agentId === "claude"
-        ? `Get-Content -Raw -LiteralPath '${q(promptPath)}' | claude -p --verbose --model ${agent.model} --permission-mode acceptEdits 2>&1 | Tee-Object -FilePath '${q(logPath)}'`
+      `$agentExit = 0`,
+      ...batches.flatMap((batch, i) => [
+        `if ($agentExit -eq 0) {`,
+        `  Write-Host 'Batch ${i + 1}/${batches.length}: ${batch.files.length} image(s)' -ForegroundColor Cyan`,
+        `  $LASTEXITCODE = 1`,
+        agentId === "claude"
+        ? `  Get-Content -Raw -Encoding UTF8 -LiteralPath '${q(promptPaths[i])}' | claude -p --verbose --model ${agent.model} --permission-mode acceptEdits 2>&1 | Tee-Object -FilePath '${q(logPath)}' -Append`
         // The Codex Windows workspace sandbox cannot spawn PowerShell in this OneDrive
         // workspace (CreateProcess access denied). Full access is required for the
-        // local CLI to read images and write the explicitly scoped index.html import.
-        : `Get-Content -Raw -LiteralPath '${q(promptPath)}' | codex --ask-for-approval never exec --model ${agent.model} -c model_reasoning_effort=\"${agent.reasoningEffort}\" --sandbox danger-full-access ${files.map((file) => `--image '${q(join(dir, file))}'`).join(" ")} - 2>&1 | Tee-Object -FilePath '${q(logPath)}'`,
-      `$agentExit = $LASTEXITCODE`,
+        // local CLI to read images and write the explicitly scoped content import.
+        : `  Get-Content -Raw -Encoding UTF8 -LiteralPath '${q(promptPaths[i])}' | codex --ask-for-approval never exec --model ${agent.model} -c model_reasoning_effort=\"${agent.reasoningEffort}\" --sandbox danger-full-access ${batch.files.map((file) => `--image '${q(join(dir, file))}'`).join(" ")} - 2>&1 | Tee-Object -FilePath '${q(logPath)}' -Append`,
+        `  $agentExit = $LASTEXITCODE`,
+        `  if ($agentExit -eq 0) {`,
+        `    node tools/build-site.mjs 2>&1 | Tee-Object -FilePath '${q(logPath)}' -Append`,
+        `    $agentExit = $LASTEXITCODE`,
+        `    if ($agentExit -eq 0) { node tools/validate-import.mjs 2>&1 | Tee-Object -FilePath '${q(logPath)}' -Append; $agentExit = $LASTEXITCODE }`,
+        `  }`,
+        `}`,
+      ]),
       `$validationExit = 1`,
       `if ($agentExit -eq 0) {`,
       `  Write-Host ''`,
@@ -149,38 +147,20 @@ const server = createServer(async (req, res) => {
       `}`,
       `if ($agentExit -ne 0 -or $validationExit -ne 0) {`,
       `  Write-Host ''`,
-      `  Copy-Item -LiteralPath '${q(backupPath)}' -Destination '${q(indexPath)}' -Force`,
-      `  Write-Host ('⚠ Import failed or produced invalid HTML — original index.html restored; deploy skipped. Agent exit=' + $agentExit + ', validation exit=' + $validationExit + '. Check ${agentId}-log.txt.') -ForegroundColor Yellow`,
+      `  Copy-Item -Path '${q(backupPath)}/*' -Destination '${q(contentPath)}' -Recurse -Force`,
+      `  node tools/build-site.mjs | Out-Null`,
+      `  Write-Host ('Import failed — original content modules restored. Agent exit=' + $agentExit + ', validation exit=' + $validationExit + '. Check ${agentId}-log.txt.') -ForegroundColor Yellow`,
       `} else {`,
       `  Write-Host ''`,
-      `  Write-Host '🚀 Deploying to Cloudflare (npx wrangler deploy)...' -ForegroundColor Cyan`,
-      `  npx wrangler deploy 2>&1 | Tee-Object -FilePath '${q(logPath)}' -Append`,
-      `  if ($LASTEXITCODE -ne 0) {`,
-      `    Write-Host '⚠ Deploy failed — content was imported locally but NOT published. Run "npx wrangler deploy" manually.' -ForegroundColor Yellow`,
-      `  } else {`,
-      // Clear this section's saved KV snapshot so the freshly-imported source HTML
-      // wins. Without this, a section that was ever edited live keeps serving its
-      // old snapshot and the new toggles never appear ("content didn't change").
-      // wrangler dev --remote on :8788 shares the same remote KV, so one call fixes
-      // both local and production. Best-effort — never blocks the deploy.
-      `    Write-Host ''`,
-      `    Write-Host '🧹 Clearing saved page snapshot so the new content shows...' -ForegroundColor Cyan`,
-      `    try {`,
-      `      Invoke-RestMethod -Method Post -Uri 'http://localhost:8788/api/content' -ContentType 'application/json' -Body '{"sections":{"${sectionHash}":null}}' -TimeoutSec 15 | Out-Null`,
-      `      Write-Host '   ✓ Snapshot cleared.' -ForegroundColor DarkGray`,
-      `    } catch {`,
-      `      Write-Host '   (Could not reach http://localhost:8788 to clear the snapshot. If the new content does not appear, open the site with the servers running and try importing again.)' -ForegroundColor Yellow`,
-      `    }`,
-      `    Write-Host ''`,
-      `    Write-Host '✅ Done. Content imported and deployed. Reload the site once so /api/sync registers the new toggles.' -ForegroundColor Green`,
-      `  }`,
+      `  Write-Host '✅ Done. Content imported locally. Reload the site to see it.' -ForegroundColor Green`,
+      `  Write-Host '   Run "Deploy AWS Learning.cmd" only when you want to update the public/phone version.' -ForegroundColor DarkGray`,
       `}`,
     ].join("\r\n");
     writeFileSync(runPath, "﻿" + psScript); // BOM so PowerShell reads emoji as UTF-8
 
     if (process.env.BUILDER_DRYRUN) {
       console.log(`▶ [dry-run] ${section}: ${files.length} image(s) → ${dir}`);
-      return sendJson(res, 200, { ok: true, count: files.length, inbox: dir, dryRun: true });
+      return sendJson(res, 200, { ok: true, count: files.length, batchCount: batches.length, inbox: dir, dryRun: true });
     }
 
     try {
@@ -195,7 +175,7 @@ const server = createServer(async (req, res) => {
     }
 
     console.log(`▶ ${agent.label} · ${section}: ${files.length} image(s) → ${dir}`);
-    return sendJson(res, 200, { ok: true, count: files.length, inbox: dir, agent: agent.label, model: agent.model });
+    return sendJson(res, 200, { ok: true, count: files.length, batchCount: batches.length, inbox: dir, agent: agent.label, model: agent.model });
   }
 
   sendJson(res, 404, { ok: false, error: "Not found" });
@@ -208,7 +188,8 @@ async function isOurBuilder(port) {
   try {
     const r = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(1500) });
     const d = await r.json();
-    return d && d.service === "aws-learning-builder";
+    return d && d.service === "aws-learning-builder" && d.model === AGENTS.codex.model
+      && d.reasoningEffort === AGENTS.codex.reasoningEffort;
   } catch {
     return false;
   }
@@ -218,7 +199,7 @@ function listenOn(index) {
   if (index >= PORTS.length) {
     console.error(`\n  ⚠  All builder ports are in use: ${PORTS.join(", ")}.`);
     console.error(`     Start one with a port of your own:  BUILDER_PORT=48000 node tools/builder.mjs`);
-    console.error(`     (and set BUILDER_PORTS in public/index.html to match).\n`);
+    console.error(`     Set BUILDER_PORT to choose another port.\n`);
     process.exit(1);
   }
 

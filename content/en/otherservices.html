@@ -1,0 +1,351 @@
+<details class="topic" data-progress-aliases="" data-track="AWS CloudFormation">
+<summary><span class="t-title">AWS CloudFormation</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Write AWS infrastructure into code to create/update resources automatically, instead of manually configuring on Console.</p><pre class="flow-diagram"><code class="language-text">YAML / JSON Template
+↓
+CloudFormation
+↓
+Stack
+↓
+AWS Resources</code></pre><h3 class="subheading">Templates and Stack</h3><p class="definition-inline"><strong>Template</strong> = YAML/JSON file describing the infrastructure to create.</p><p class="lead-in">For example:</p><p class="keyword-row">VPC  ·  EC2  ·  ALB  ·  RDS</p><p class="definition-inline"><strong>Stack</strong> = real resources created by CloudFormation from templates.</p><p><strong>The same template can be used for:</strong> Dev  ·  Test  ·  Prod</p><p class="lead-in">Common parts:</p><ul data-spread="false"><li><p><strong>Resources</strong> = resource to create</p></li><li><p><strong>Parameters</strong> = input</p></li><li><p><strong>Outputs</strong> = output, for example endpoint</p></li><li><p><strong>Conditions</strong> = condition whether to create a resource or not</p></li></ul><div></div><h3 class="subheading">Change Set and Rollback</h3><p class="lead-in definition-inline"><strong>Change Set</strong> = CloudFormation preview will:</p><p class="keyword-row">Add  ·  Modify  ·  Delete  ·  Replace</p><p>any resource before updating.</p><p class="definition-inline"><strong>Rollback</strong> = if update fails, CloudFormation tries to return the stack to the previous state.</p><blockquote class="caution"><p>Rollback is not a data backup.</p></blockquote><p><strong>DeletionPolicy</strong></p><ul data-spread="false"><li><p><code dir="ltr">Retain</code> = delete stack but keep resource</p></li><li><p><code dir="ltr">Snapshot</code> = create a snapshot before deletion if the resource supports it</p></li></ul><div></div><h3 class="subheading">StackSets</h3><p class="lead-in">= deploy the same CloudFormation template to:</p><p class="keyword-row">Multiple AWS Accounts · + · Multiple Regions</p><p>Suitable for AWS Organizations / multi-account.</p><div></div><h3 class="subheading">Drift Detection</h3><p class="definition-inline"><strong>Drift</strong> = The real resource is edited differently from the template.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Templates:
+SG permit 443
+
+Someone edit Console:
+SG allow 22
+
+→ Drift</code></pre><p><strong>Drift Detection</strong> help detect that difference.</p><div></div><h3 class="subheading">Infrastructure Composer and Service Role</h3><p class="definition-inline"><strong>Infrastructure Composer</strong> = intuitive interface for designing CloudFormation templates.</p><p class="lead-in definition-inline"><strong>Service Role</strong> = IAM Role that CloudFormation uses to:</p><p class="keyword-row">Create  ·  Update  ·  Delete</p><p>AWS resources.</p><div></div><h3 class="subheading quick-heading">Remember quickly</h3><ul class="fact-list"><li><strong>CloudFormation</strong> = Infrastructure as Code</li><li><strong>Template</strong> = YAML/JSON blueprint</li><li><strong>Stack</strong> = resources are created from template</li><li><strong>Change Set</strong> = preview changes</li><li><strong>Rollback</strong> = update error → return to previous state</li><li><strong>StackSets</strong> = deploy multiple accounts/Region</li><li><strong>Drift Detection</strong> = detected that the resource was edited differently from the template</li></ul><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">Template → CloudFormation → Stack → AWS Resources</code></p></blockquote>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon SES &amp; Amazon Pinpoint">
+<summary><span class="t-title">Amazon SES &amp; Amazon Pinpoint</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong></p><ul><li><strong>SES</strong> = send/receive email for application  </li><li><strong>Pinpoint</strong> = in old documents, used to divide customer groups and run campaigns</li></ul><div><pre class="flow-diagram" dir="ltr"><code class="language-text">SES
+= Email service
+
+Pinpoint
+= Customer segment + Campaign</code></pre></div><h3 class="subheading">Amazon SES</h3><p><strong>SES = Simple Email Service</strong></p><p class="lead-in">Used to send email applications such as:</p><ul><li>registration confirmation</li><li>reset password</li><li>invoice</li><li>newsletter</li></ul><p class="lead-in">Flow:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Application / Lambda
+↓
+SES API / SMTP
+↓
+Email
+↓
+User</code></pre></div><p>SES helps eliminate the need to operate the mail server yourself.</p><blockquote class="caution"><p><strong>SES, not Gmail/Outlook, has an inbox interface for users.</strong></p></blockquote><h3 class="subheading">Verified Identity and Sandbox</h3><p class="lead-in">If you want to send email using SES, you must verify:</p><ul><li>email address</li><li>or domains</li></ul><p class="definition-inline"><strong>Sandbox</strong> = initial limit mode.</p><p class="lead-in">In the sandbox, you can usually only send to:</p><ul><li>Verified email/domain</li><li>mailbox simulator</li></ul><p class="lead-in">When available <strong>Production Access</strong>:</p><ul><li>No need to verify recipient</li><li>still have to verify the sender</li></ul><blockquote class="insight"><p><strong>Sender always needs Verified Identity.</strong></p></blockquote><h3 class="subheading">Amazon Pinpoint</h3><p class="lead-in definition-inline"><strong>In old documentation:</strong> <strong>Pinpoint</strong> = used to:</p><ul><li>divide customer groups (<strong>segments</strong>)</li><li>create campaign (<strong>campaigns</strong>)</li><li>create customer journeys</li><li>engagement tracking</li></ul><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">The customer has not yet made a purchase
+↓
+Segment
+↓
+Discount campaign
+↓
+Email/SMS/Push</code></pre></div><p class="lead-in">Different:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">SES
+= send email
+
+Pinpoint
+= select customer group + run campaign</code></pre></div><p>Pinpoints in this document are mainly important to remember to distinguish roles from SES.</p><h3 class="subheading quick-heading">Remember quickly</h3><ul class="fact-list"><li><strong>SES</strong> = send/receive email for application</li><li><strong>Verified Identity</strong> = verify sender email/domain</li><li><strong>Sandbox</strong> = Production Access pre-limited mode</li><li><strong>Pinpoint</strong> = customer segment + campaign + engagement</li></ul><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">SES = send email</code>, <code dir="ltr">Pinpoint = choose who to send and run the campaign</code>.</p></blockquote>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Systems Manager">
+<summary><span class="t-title">AWS Systems Manager</span></summary>
+<div class="body">
+<p class="purpose" data-pm-slice="1 2 []"><strong>Purpose:</strong> Remotely administer EC2 and external AWS servers without having to manually SSH each machine.</p><pre class="flow-diagram"><code class="language-text">Systems Manager
+↓
+SSM Agent + IAM + Network
+↓
+Managed Nodes
+↓
+Session / Command / Patch / Automation</code></pre><h3 class="subheading">1. Conditions for machine management</h3><p class="lead-in">Machine needs:</p><ul data-spread="false"><li><p><strong>SSM Agent</strong></p></li><li><p>IAM permission is appropriate</p></li><li><p>Connect to Systems Manager</p></li></ul><p>EC2 private subnet is still usable, you can pass <strong>VPC Endpoint</strong>.</p><blockquote class="caution"><p>No need to public IP or open port <code dir="ltr">22</code> to use Systems Manager only.</p></blockquote><div></div><h3 class="subheading">2. Session Manager</h3><p>= into the EC2/server shell from Console or CLI.</p><pre class="flow-diagram"><code class="language-text">Admin
+↓
+Session Manager
+↓
+Private EC2</code></pre><p class="lead-in">Advantages:</p><ul data-spread="false"><li><p>no need for SSH key</p></li><li><p>No need for Bastion Host</p></li><li><p>No need to open inbound port <code dir="ltr">22</code></p></li></ul><blockquote class="caution"><p><strong>Session Manager = secure access to the machine without direct SSH.</strong></p></blockquote><div></div><h3 class="subheading">3. Run Command</h3><p>= run remote commands on one or more machines.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">100 EC2
+↓
+Run Command
+↓
+restart service</code></pre><p class="lead-in">Used for:</p><ul data-spread="false"><li><p>run script</p></li><li><p>restart service</p></li><li><p>install software</p></li></ul><blockquote class="insight"><p><strong>Run Command = run the same command on multiple machines.</strong></p></blockquote><div></div><h3 class="subheading">4. Patch Manager</h3><p>= check and install <strong>operating system patch</strong>.</p><pre class="flow-diagram"><code class="language-text">EC2
+↓ Scan
+Patch Manager
+↓
+Detect missing patch
+↓ Install
+Install patches</code></pre><p class="definition-inline"><strong>Patch Baseline</strong> = specifies which patches are accepted.</p><blockquote class="insight"><p><strong>Patch Manager = If your device is missing a patch, check and install that patch.</strong></p></blockquote><div></div><h3 class="subheading">5. Maintenance Windows</h3><p>= regulations <strong>When can maintenance be run?</strong>.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Sunday
+02:00 - 04:00
+↓
+Patch / Restart / Run Command</code></pre><p class="lead-in">Distinguish:</p><pre class="flow-diagram"><code class="language-text">Patch Manager
+= Which patch should I install?
+
+Maintenance Window
+= when to install</code></pre><blockquote class="insight"><p><strong>Maintenance Window = maintenance schedule.</strong></p></blockquote><div></div><h3 class="subheading">6. Automation</h3><p><strong>Automation Runbook</strong> is a multi-step automation script <strong>AWS Systems Manager Automation</strong> execute in a specified sequence/flow to manage AWS resources.</p><p>Instead of the admin manually manipulating each step, the runbook runs the entire process itself; can call AWS API, run script, wait or request approval.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Create AMI
+↓
+Stop EC2
+↓
+Update Config
+↓
+Start EC2
+↓
+Verify</code></pre><blockquote class="insight"><p><strong>Automation = automating a multi-step process.</strong></p></blockquote><div></div><h3 class="subheading">7. State Manager</h3><p>= hold on <strong>desired configuration</strong>.</p><p class="lead-in">For example, if you want every EC2 to always have a CloudWatch Agent:</p><pre class="flow-diagram"><code class="language-text">Desired:
+CloudWatch Agent must be installed
+
+Actual:
+EC2 does not have an Agent yet
+
+↓
+State Manager
+
+→ return the device to the desired state</code></pre><blockquote class="insight"><p><strong>State Manager = ensures the machine's configuration is always as desired.</strong></p></blockquote><h3 class="subheading">8. Operating conditions</h3><p>Automation's Execution role must have permissions for each target service; Not every step requires SSM Agent on the device. Session Manager can logs to S3/CloudWatch Logs when configured, but SSH tunnel/port forwarding content is not logged this way.</p><p>Run Command supports concurrency limits/error thresholds; Patch Manager is not used to upgrade major OS versions. </p><h3 class="subheading usage-heading">9. Use cases</h3><p class="usecase-inline"><strong>Use cases:</strong> Runbook creates AMI, updates configuration, and verifies EC2; Maintenance Window selects running hours; The State Manager keeps the CloudWatch Agent installed.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Systems Manager manages fleet operations: Run Command executes commands; Patch Manager patches the machine; Session Manager access without opening SSH.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Cost Explorer, Budgets &amp; Cost Anomaly Detection">
+<summary><span class="t-title">AWS Cost Explorer, Budgets &amp; Cost Anomaly Detection</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Track expenses, set budgets, and detect unusual spending.</p><pre class="flow-diagram"><code class="language-text">Cost Explorer
+= Where was the money spent?
+
+Budgets
+= Is the set limit exceeded?
+
+Cost Anomaly Detection
+= Are the costs unusual?</code></pre><div></div><h3 class="subheading">1. Cost Explorer</h3><p class="definition-inline"><strong>Cost Explorer</strong> = view and analyze AWS costs.</p><p class="lead-in">You can filter/group by:</p><ul data-spread="false"><li><p>Service</p></li><li><p>Account</p></li><li><p>Region</p></li><li><p>Tags</p></li></ul><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Bill increased
+↓
+Cost Explorer
+↓
+EC2 increase?
+Data Transfer increased?
+S3 increased?</code></pre><p>Yes <strong>Forecast</strong> to predict future costs based on previous data.</p><blockquote class="insight"><p><strong>Cost Explorer = cost analysis and trends.</strong></p></blockquote><div></div><h3 class="subheading">2. Savings Plans Recommendations</h3><p class="lead-in">Cost Explorer can analyze usage and:</p><p><strong>Suggested Savings Plans</strong></p><p>to reduce costs if the workload is stable.</p><p class="lead-in">Yes:</p><ul data-spread="false"><li><p><strong>Coverage</strong> = how much usage is covered by Savings Plan</p></li><li><p><strong>Utilization</strong> = how much of the committed portion is used</p></li></ul><blockquote class="caution"><p>This is just <strong>recommendation</strong>, do not purchase the Savings Plan yourself.</p></blockquote><div></div><h3 class="subheading">3. AWS Budgets</h3><p class="definition-inline"><strong>Budgets</strong> = set cost/usage thresholds and alert when they are near or exceeded.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Monthly Budget = $500
+
+Forecast &gt; $500
+↓
+Send Alert</code></pre><p class="lead-in">You can alert according to:</p><ul data-spread="false"><li><p>Actual cost</p></li><li><p>Forecast cost</p></li></ul><p class="lead-in">Note:</p><blockquote class="caution"><p><strong>Budgets don't automatically block costs just because you create them.</strong></p></blockquote><p>Configurable <strong>Budget Actions</strong> to perform some action when a threshold is reached.</p><div></div><h3 class="subheading">4. Cost Anomaly Detection</h3><p class="definition-inline"><strong>Cost Anomaly Detection</strong> = use machine learning to detect unusual cost increases.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Normal Data Transfer = $20/day
+
+Today = $150/day
+↓
+Anomaly Detection
+↓
+Alert</code></pre><p class="lead-in">Other Budget:</p><pre class="flow-diagram"><code class="language-text">Budget
+= exceeds the threshold I set?
+
+Anomaly Detection
+= unusually different from the normal pattern?</code></pre><blockquote class="insight"><p>Abnormalities can be detected even when the total cost has not exceeded the budget.</p></blockquote><div></div>
+<h3 class="subheading">5. AWS Compute Optimizer</h3>
+<p><strong>AWS Compute Optimizer</strong> Analyze configuration and utilization metrics to recommend rightsizing, avoid resource overprovisioning, or improve performance. Need to opt in and have enough metrics data.</p>
+<pre class="flow-diagram"><code class="language-text">EC2 m5.2xlarge is rarely used
+↓ CPU / memory if available / network / IOPS / throughput
+Compute Optimizer
+↓ Illustrative recommendation: m5.large if it meets the workload
+Review peak load and application requirements
+↓
+Change configuration to reduce costs</code></pre>
+<p>An average CPU of 10% is not enough to confirm that a specific instance type should be changed. Compute Optimizer <strong>mainly giving suggestions, do not default to self-resize EC2/EBS</strong>.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Resource</th><th>Recommended</th></tr></thead><tbody>
+<tr><td>EC2</td><td>Instance type/size is appropriate</td></tr>
+<tr><td>Auto Scaling Group</td><td>Rightsizing compute by ASG</td></tr>
+<tr><td>EBS</td><td>Volume type, IOPS, throughput</td></tr>
+<tr><td>Lambda</td><td>Memory is suitable</td></tr>
+<tr><td>ECS Fargate</td><td>CPU and memory</td></tr>
+<tr><td>RDS / Aurora</td><td>Configure the database appropriately</td></tr>
+<tr><td>DynamoDB, NAT Gateway, ElastiCache</td><td>Optimized according to the capabilities and conditions of each supported resource</td></tr>
+</tbody></table></div>
+<p>EC2 memory metrics must be provided via an agent or supported source. </p>
+<h3 class="subheading">6. Compare tools</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Service</th><th>Function</th></tr></thead><tbody>
+<tr><td>CloudWatch</td><td>Collect metrics/logs, monitor performance and alarms</td></tr>
+<tr><td>Compute Optimizer</td><td>Analyze metrics/configuration and recommend resource optimization</td></tr>
+<tr><td>Cost Explorer</td><td>Analyze costs/usage and trends</td></tr>
+<tr><td>Budgets</td><td>Actual/forecast alerts according to set thresholds</td></tr>
+<tr><td>Cost Anomaly Detection</td><td>Detect costs that are unusual compared to the pattern</td></tr>
+<tr><td>Data Lifecycle Manager</td><td>Automatically manage scheduled EBS snapshots / EBS-backed AMIs</td></tr>
+</tbody></table></div>
+<p>Billing data has latency. Forecasts are forecasts, not guaranteed prices; See upcoming needs before purchasing Savings Plans. Budget Actions need their own IAM role/permissions; Permission to view invoices does not automatically grant permission to stop EC2.</p>
+<h3 class="subheading usage-heading">7. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> If the bill increases, use Cost Explorer to find the service/account causing the increase; If you want to warn about budget overruns, use Budgets; If you want to rightsize EC2/EBS according to usage, see Compute Optimizer and check your workload before applying.</p>
+<h3 class="subheading">8. Cost Management Ecosystem, Budgets Actions, Savings Plans &amp; Reserved Capacity</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Billing &amp; Cost Tools</th><th>Specialized roles</th></tr></thead><tbody>
+<tr><td><strong>Cost and Usage Report (CUR) / AWS Data Exports</strong></td><td>Export the most detailed cost &amp; usage reports (by hour/resource/tag) to S3 for analysis <strong>Athena</strong> or <strong>QuickSight</strong></td></tr>
+<tr><td><strong>Cost Allocation Tags</strong> &amp; <strong>Cost Categories</strong></td><td>Tags label cost allocation by project/department; Cost Categories group costs according to a set of logical rules</td></tr>
+<tr><td><strong>AWS Pricing Calculator</strong></td><td>Estimate architectural costs <strong>before deployment</strong></td></tr>
+<tr><td><strong>AWS Billing Conductor</strong></td><td>Create custom price lists (proforma billing, plus separate markup/discounts) for service <strong>Chargeback / Showback</strong> internally without changing the original AWS invoice collected at the Management Account</td></tr>
+<tr><td><strong>Cost Optimization Hub</strong></td><td>Centralize, de-duplicate and prioritize all savings proposals (idle, rightsizing, RI/SP) across multiple Accounts/Regions</td></tr>
+<tr><td><strong>Instance Scheduler on AWS</strong></td><td>The available CloudFormation solution automatically turns on/off EC2 and RDS according to the tagging schedule (for example, only running Dev/Test environment office hours)</td></tr>
+</tbody></table></div>
+<p class="definition"><strong>AWS Budgets Actions:</strong> Goes beyond standard email alerts — when a budget threshold is reached, it will automatically (or wait for approval) be executed <strong>Apply IAM Policy</strong>, <strong>Apply SCP</strong>, or <strong>Stop EC2 / RDS Instances</strong> specify.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>4 Types of AWS Savings Plans</th><th>Flexible range</th><th>Term</th></tr></thead><tbody>
+<tr><td><strong>Compute Savings Plans</strong></td><td>Most flexible: self-applied throughout <strong>EC2, AWS Fargate, and AWS Lambda</strong> (Can change Region, instance family, OS, tenancy)</td><td>1 or 3 years</td></tr>
+<tr><td><strong>EC2 Instance Savings Plans</strong></td><td>Deeper drop on EC2 but fixed one <strong>Instance Family + Region</strong> (can still change AZ, size, OS)</td><td>1 or 3 years</td></tr>
+<tr><td><strong>SageMaker AI Savings Plans</strong></td><td>Applies to eligible SageMaker AI compute components</td><td>1 or 3 years</td></tr>
+<tr><td><strong>Database Savings Plans</strong></td><td>Hourly commitments for qualified DB services (Aurora Serverless v2, next generation RDS/Aurora support, DynamoDB, ElastiCache, OpenSearch, DMS…)</td><td>1 year</td></tr>
+</tbody></table></div>
+<p><strong>Reserved Instances / Reserved Capacity (1 or 3 years):</strong> Apply separately for each service such as EC2 RI, RDS/Aurora Reserved DB Instances, DynamoDB Reserved Capacity (RCU/WCU), ElastiCache/MemoryDB/Redshift Reserved Nodes and Redshift Serverless Reservations (RPU). In Organizations, Consolidated Billing shares <strong>Discount offers</strong> RI/SP between member accounts but does not share Zonal RI capacity reservation rights under this billing mechanism.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Cost Explorer analyzes costs; Budgets tracks preset thresholds; Cost Anomaly Detection detects unusual costs.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Outposts">
+<summary><span class="t-title">AWS Outposts</span></summary>
+<div class="body">
+<p class="purpose" data-pm-slice="1 2 []"><strong>Purpose:</strong> Bringing AWS infrastructure to the business's datacenter to run workloads on-site but still using the familiar management method of AWS.</p><pre class="flow-diagram"><code class="language-text">AWS Region
+↕ Service Link
+AWS Outposts at Datacenter
+↓
+Local Workloads</code></pre><div></div><h3 class="subheading">What is AWS Outposts?</h3><p class="definition-inline"><strong>Outposts</strong> = AWS hardware is set <strong>right at your datacenter</strong>.</p><p>Can run some supported AWS resources on-prem.</p><p class="lead-in">Suitable when needed:</p><ul data-spread="false"><li><p><strong>low latency</strong> with local system</p></li><li><p>Process/save data at specific location</p></li><li><p>still want to use AWS tools/API</p></li></ul><blockquote class="caution"><p>Not all AWS services can run on Outposts.</p></blockquote><div></div><h3 class="subheading">Connect to AWS Region</h3><p class="lead-in">Outposts still connect back <strong>AWS Region cha</strong> via:</p><p><strong>Service Link</strong></p><pre class="flow-diagram"><code class="language-text">Outposts
+↓ Service Link
+AWS Region</code></pre><p>Service Link is used for traffic management and connection to AWS Region.</p><blockquote class="caution"><p><strong>Outposts is not a standalone AWS cloud that is completely offline.</strong></p></blockquote><div></div><h3 class="subheading">Responsibility</h3><p class="definition-inline"><strong>AWS</strong> = Outposts infrastructure management.</p><p class="lead-in definition-inline"><strong>Enterprise</strong> = prepare:</p><ul data-spread="false"><li><p>datacenter</p></li><li><p>electricity</p></li><li><p>cooling</p></li><li><p>network</p></li><li><p>application/data</p></li></ul><p>IAM, Security Group and encryption still need normal configuration.</p><div></div><h3 class="subheading">Outposts vs Direct Connect vs Storage Gateway</h3><div class="table-wrap"><table class="study-table"><tbody><tr><th>Service</th><th>What to use?</th></tr><tr><td><strong>Outposts</strong></td><td>Run AWS compute/resources right at the datacenter</td></tr><tr><td><strong>Direct Connect</strong></td><td>Private network line from on-prem to AWS</td></tr><tr><td><strong>Storage Gateway</strong></td><td>Connect on-prem storage to AWS storage</td></tr></tbody></table></div><p class="lead-in">Remember:</p><pre class="flow-diagram"><code class="language-text">Outposts
+= AWS runs at On-Prem
+
+Direct Connect
+= On-Prem connection ↔ AWS
+
+Storage Gateway
+= connect Storage On-Prem ↔ AWS</code></pre><div></div><h3 class="subheading quick-heading">Remember quickly</h3><ul class="fact-list"><li><strong>AWS Outposts</strong> = bring AWS infrastructure to datacenter</li><li><strong>Main use case</strong> = low latency + requires data/local processing</li><li><strong>Service Link</strong> = connect Outposts to AWS Region</li><li><strong>Outposts ≠ Direct Connect</strong> = Outposts have on-premises compute; DX is just a network line</li></ul><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">Outposts = AWS infrastructure runs right in your datacenter</code>.</p></blockquote>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Batch">
+<summary><span class="t-title">AWS Batch</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Run large batch jobs without having to manage the server/scheduler yourself.</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Job Definition
+↓
+Submit Job
+↓
+Job Queue
+↓
+Scheduler
+↓
+Compute Environment
+↓
+Container Job</code></pre></div><h3 class="subheading">Main ingredients</h3><p class="lead-in definition-inline"><strong>Job Definition</strong> = configure how the job will run:</p><ul><li>Container image</li><li>Command</li><li>CPU / RAM</li><li>IAM Role</li></ul><ul class="fact-list"><li><strong>Job</strong> = a particular run.</li><li><strong>Job Queue</strong> = queue contains jobs that have not yet run.</li><li><strong>Compute Environment</strong> = resources used to run the job, usually:</li></ul><ul><li>EC2</li><li>Fargate</li><li>EC2 Spot if the job can withstand interruption</li></ul><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">1000 images need to be processed
+↓
+Submit 1000 Jobs
+↓
+Job Queue
+↓
+AWS Batch provides compute on its own
+↓
+Containers handled
+↓
+Output → S3</code></pre></div><blockquote class="insight"><p><strong>AWS Batch = Queue + Scheduler + Compute for batch jobs.</strong></p></blockquote><h3 class="subheading">Batch vs Lambda vs Fargate</h3><ul class="fact-list"><li><strong>AWS Batch</strong> = coordinate multiple batch jobs, suitable for heavy/long-running jobs.</li><li><strong>Lambda</strong> = event-driven function, suitable for short tasks; Maximum normal lambda <strong>15 minutes</strong>.</li><li><strong>Fargate</strong> = where containers run without server management; can do <strong>compute under AWS Batch</strong>.</li></ul><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Batch
+= job management / queue / scheduling
+
+Fargate
+= provides compute for the container to run</code></pre></div><h3 class="subheading">IAM</h3><p class="definition-inline"><strong>Job Role</strong> = permissions of the code inside the container.</p><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Batch Job
+↓ Job Role
+S3 Read / Write</code></pre></div><p>Permission to submit Batch job <strong>does not mean the container itself has access to S3</strong>.</p><h3 class="subheading quick-heading">Remember quickly</h3><ul class="fact-list"><li><strong>AWS Batch</strong> = run and coordinate batch jobs</li><li><strong>Job Definition</strong> = how job runs</li><li><strong>Job Queue</strong> = job is waiting</li><li><strong>Compute Environment</strong> = EC2/Fargate is used to run jobs</li><li><strong>Spot</strong> = saves jobs that can withstand interruptions</li></ul><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">Job Definition → Queue → Compute → Container runs</code>.</p></blockquote>
+<h3 class="subheading">Multi-Node Parallel (MNP) &amp; Batch Scheduling Policy vs EventBridge Scheduler</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Mechanism on AWS Batch</th><th>Functions &amp; Limitations to remember</th></tr></thead><tbody>
+<tr><td><strong>Multi-Node Parallel (MNP)</strong></td><td>Allows a large HPC/ML job to run simultaneously on multiple EC2 nodes coordinating via MPI (main node coordinates child nodes); <strong>Not supported on Fargate</strong></td></tr>
+<tr><td><strong>AWS Batch Scheduling Policy</strong></td><td>Fair-share and prioritize resources among job groups in the Job Queue (<strong>no</strong> cron timer)</td></tr>
+<tr><td><strong>Amazon EventBridge Scheduler</strong></td><td>Decision <strong>time</strong> Trigger a job to run periodically (e.g. every day at 8:00 a.m. send the job to AWS Batch or ECS)</td></tr>
+</tbody></table></div>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon AppFlow">
+<summary><span class="t-title">Amazon AppFlow</span></summary>
+<div class="body">
+<p class="purpose" data-pm-slice="1 2 []"><strong>Purpose:</strong> Transfer data between SaaS applications and AWS services without writing a lot of integration code yourself.</p><pre class="flow-diagram"><code class="language-text">SaaS / AWS Source
+↓
+AppFlow
+↓ filter / map / transform
+Destination</code></pre><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Salesforce
+↓
+AppFlow
+↓
+S3 / Redshift</code></pre><div></div><h3 class="subheading">Source and Destination</h3><p>AppFlow uses <strong>connector</strong> to connect source/destination.</p><p class="lead-in">Possible:</p><ul data-spread="false"><li><p>map fields</p></li><li><p>filter data</p></li><li><p>validation</p></li><li><p>transform is simple</p></li></ul><p>Not all connectors support all transmission directions.</p><blockquote class="insight"><p><strong>AppFlow = managed data flow between SaaS ↔ AWS.</strong></p></blockquote><div></div><h3 class="subheading">When does Flow run?</h3><ul class="fact-list"><li><strong>On Demand</strong> = runs when the user calls</li><li><strong>Schedule</strong> = run periodically</li><li><strong>Event</strong> = runs when source has change event and connector support</li></ul><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Salesforce update
+↓
+AppFlow
+↓
+S3</code></pre><p class="lead-in">Scheduled flows can:</p><ul data-spread="false"><li><p>Full = get all data</p></li><li><p>Incremental = only get new/changed data</p></li></ul><div></div><h3 class="subheading">Security</h3><p class="lead-in">AppFlow supports:</p><ul data-spread="false"><li><p>encryption in transit</p></li><li><p>encryption at rest</p></li><li><p>IAM</p></li><li><p>KMS</p></li><li><p>SaaS credentials / OAuth</p></li></ul><p>If destination is S3/Redshift, appropriate permissions are still needed.</p><p>PrivateLink only applies when the connector supports it.</p><div></div><h3 class="subheading">AppFlow vs Glue vs DMS</h3><ul class="fact-list"><li><strong>AppFlow</strong> = Simple SaaS integration</li><li><strong>Glue</strong> = ETL / transform data is more complicated</li><li><strong>DMS</strong> = migrate/replicate database</li></ul><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">Salesforce
+↓ AppFlow
+S3
+↓ Glue
+Transform Data</code></pre><div></div><h3 class="subheading quick-heading">Remember quickly</h3><ul class="fact-list"><li><strong>AppFlow</strong> = SaaS ↔ AWS data transfer</li><li><strong>Trigger</strong> = On Demand / Schedule / Event</li><li><strong>Incremental</strong> = only get new/changed data</li><li><strong>Glue</strong> = deeper processing/ETL</li><li><strong>DMS</strong> = database migration/replication</li></ul><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">AppFlow = connects SaaS to AWS to transfer data using managed flows.</code></p></blockquote>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Amplify">
+<summary><span class="t-title">AWS Amplify</span></summary>
+<div class="body">
+<p class="purpose" data-pm-slice="1 2 []"><strong>Purpose:</strong> Help developers build and deploy web/mobile apps faster, including frontend hosting and AWS backend connection.</p><pre class="flow-diagram"><code class="language-text">Git Repository
+↓
+Amplify Build / Deploy
+↓
+Hosted Frontend
+↓
+Auth / Data / Storage / Functions</code></pre><div></div><h3 class="subheading">Amplify Hosting</h3><p class="definition-inline"><strong>Amplify Hosting</strong> = build + deploy frontend from Git.</p><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">GitHub
+↓ push code
+Amplify
+↓
+Build + Deploy
+↓
+Website</code></pre><p class="lead-in">Support:</p><ul data-spread="false"><li><p>CI/CD</p></li><li><p>HTTPS</p></li><li><p>Custom Domain</p></li><li><p>CDN</p></li><li><p>deploy according to branch</p></li></ul><p class="lead-in">For example:</p><pre class="flow-diagram"><code class="language-text">main
+= Production
+
+develop
+= Test</code></pre><blockquote class="insight"><p><strong>Amplify Hosting = frontend hosting + managed CI/CD.</strong></p></blockquote><div></div><h3 class="subheading">Backend</h3><p class="lead-in">Amplify helps connect AWS backends such as:</p><div class="table-wrap"><table class="study-table"><thead><tr><th>Amplify feature array</th><th>AWS Services is behind</th></tr></thead><tbody>
+<tr><td><strong>Auth</strong> (User login)</td><td>Amazon Cognito</td></tr>
+<tr><td><strong>Data / API</strong> (Save &amp; query)</td><td>AWS AppSync / Amazon DynamoDB</td></tr>
+<tr><td><strong>Storage</strong> (Save file/media)</td><td>Amazon S3</td></tr>
+<tr><td><strong>Functions</strong> (Backend logic)</td><td>AWS Lambda</td></tr>
+</tbody></table></div><p class="lead-in">Flow:</p><pre class="flow-diagram"><code class="language-text">Frontend
+↓
+Amplify
+↓
+Cognito / AppSync / DynamoDB / S3 / Lambda</code></pre><blockquote class="caution"><p>Amplify is not a single server; it helps connect back-end AWS services.</p></blockquote><div></div><h3 class="subheading">Amplify vs S3 + CloudFront</h3><div class="table-wrap"><table class="study-table"><thead><tr><th>Solution</th><th>Support range</th></tr></thead><tbody>
+<tr><td><strong>AWS Amplify</strong></td><td>Built-in Git CI/CD frontend hosting (for each branch) + quick connection to serverless backend ecosystem for web/mobile app</td></tr>
+<tr><td><strong>S3 + CloudFront</strong></td><td>Pure static hosting and CDN delivery; Need to assemble your own CI/CD pipeline and backend layer</td></tr>
+</tbody></table></div><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">Amplify = frontend hosting + CI/CD + AWS backend connection for web/mobile app.</code></p></blockquote>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="Amazon EventBridge Scheduler">
+<summary><span class="t-title">Amazon EventBridge Scheduler</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Run tasks according to time/schedule without needing to maintain the cron server yourself.</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Rate / Cron / One-time
+↓
+EventBridge Scheduler
+↓
+Execution Role
+↓
+Target</code></pre></div><h3 class="subheading">Schedule types</h3><p class="definition-inline"><strong>Rate</strong> = repeats after a period of time.</p><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">rate(5 minutes)</code></pre></div><p class="definition-inline"><strong>Cron</strong> = run on a specific schedule.</p><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Every day 08:00</code></pre></div><p class="definition-inline"><strong>One-time</strong> = runs exactly once at the set time.</p><blockquote class="insight"><p><strong>Rate = every time</strong>, <strong>Cron = any time according to the schedule</strong>, <strong>One-time = runs once</strong>.</p></blockquote><h3 class="subheading">Target and Execution Role</h3><p class="lead-in">Scheduler can call:</p><ul><li>Lambda</li><li>SQS</li><li>Step Functions</li><li>many other AWS APIs</li></ul><p class="lead-in">Flow:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">It's time
+↓
+Scheduler assumes Execution Role
+↓
+Call Target</code></pre></div><p class="lead-in"><strong>Execution Role</strong> Must have appropriate permissions such as:</p><ul><li>invoke Lambda</li><li>send message SQS</li><li>start Step Functions</li></ul><h3 class="subheading">Retry and DLQ</h3><p class="lead-in">If calling target fails:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Scheduler
+↓
+Retry
+↓ still fails
+SQS DLQ</code></pre></div><p class="definition-inline"><strong>Retry</strong> = try again.</p><p class="definition-inline"><strong>DLQ</strong> = holds the failure event for later processing.</p><p>Target should handle it <strong>idempotent</strong> because retry can be duplicated.</p><h3 class="subheading">Scheduler vs EventBridge Event Bus</h3><p class="definition-inline"><strong>Scheduler</strong> = trigger according <strong>time</strong></p><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">Every night 01:00
+↓
+Run Lambda</code></pre></div><p class="definition-inline"><strong>EventBridge Event Bus</strong> = trigger according <strong>event</strong></p><p class="lead-in">For example:</p><div><pre class="flow-diagram" dir="ltr"><code class="language-text">EC2 state changed
+↓
+EventBridge Rule
+↓
+Lambda</code></pre></div><h3 class="subheading quick-heading">Remember quickly</h3><p class="definition-inline"><strong>EventBridge Scheduler</strong> = cron/rate/one-time managed service</p><p class="definition-inline"><strong>Rate</strong> = repeat at interval</p><p class="definition-inline"><strong>Cron</strong> = specific calendar</p><ul class="fact-list"><li><strong>One-time</strong> = run once</li><li><strong>Execution Role</strong> = permission for Scheduler to call target</li><li><strong>Retry + DLQ</strong> = handle delivery errors</li></ul><blockquote class="insight"><p><strong>Memory sentence:</strong> <code dir="ltr">Scheduler = run by the hour</code>, <code dir="ltr">Event Bus = runs according to events</code>.</p></blockquote>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS AppConfig">
+<summary><span class="t-title">AWS AppConfig</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Implement secure application configuration changes and feature flags with validation and automatic rollback without the need to build/deploy code again.</p>
+<h3 class="subheading">1. Protection layers during configuration rollout</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Component</th><th>Protection function</th></tr></thead><tbody>
+<tr><td><strong>Validators</strong></td><td>Check syntax/semantics using JSON Schema or Lambda function <strong>before</strong> Enables configuration release</td></tr>
+<tr><td><strong>Deployment Strategy &amp; Bake Time</strong></td><td>Release slowly at a rate (<code>Linear</code>, <code>Canary</code>) and then keep the follow-up period (<code>Bake Time</code>) after reaching 100%</td></tr>
+<tr><td><strong>CloudWatch Alarm + Auto Rollback</strong></td><td>Automatically stops and returns to the previous stable configuration as soon as CloudWatch Alarm reports an increase in error rate/latency</td></tr>
+</tbody></table></div>
+<h3 class="subheading">2. Distinguish SSM Parameter Store vs AWS AppConfig</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Criteria</th><th>SSM Parameter Store</th><th>AWS AppConfig</th></tr></thead><tbody>
+<tr><td>Main purpose</td><td>Stores configuration key-value pairs and secret strings (<code>SecureString</code>)</td><td>Dynamic configuration distribution &amp; <strong>feature flags</strong> Controlled operational risks</td></tr>
+<tr><td>Validation, Gradual Rollout &amp; Auto Rollback</td><td>There is no built-in canary/auto-rollback mechanism according to CloudWatch Alarm</td><td><strong>Full support</strong> schema/Lambda validation, canary/linear rollout, and automatic rollback</td></tr>
+</tbody></table></div>
+</div>
+</details>
+<details class="topic" data-progress-aliases="" data-track="AWS Service Catalog, License Manager &amp; AWS Managed Services (AMS)">
+<summary><span class="t-title">AWS Service Catalog, License Manager &amp; AWS Managed Services (AMS)</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Standardize the self-provisioning of approved infrastructure, software licensing control, and outsourcing the operation of multi-account enterprise environments.</p>
+<h3 class="subheading">1. AWS Service Catalog &amp; AWS License Manager</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Administration service</th><th>Mechanism of action &amp; Distinguishing point</th></tr></thead><tbody>
+<tr><td><strong>AWS Service Catalog</strong></td><td>Manage approved infrastructure portfolio (<strong>Product</strong> written in CloudFormation compiled in <strong>Portfolio</strong> attach IAM permissions and launch constraints) for groups to create themselves <strong>Provisioned Product</strong> compliant with security standards/tags without needing permission to create raw resources or write your own IaC</td></tr>
+<tr><td><strong>AWS License Manager</strong></td><td>Centralized management of commercial licenses (Oracle, Windows/SQL Server, SAP...) on both AWS and On-premises via <strong>License Configuration</strong> count and block exceeding the limit <code>vCPU</code>, <code>Cores</code>, <code>Sockets</code> or <code>Instances</code> (integrates EC2 Launch, Dedicated Hosts, Organizations)</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Platform Admin defines CloudFormation Template → puts it into Service Catalog Portfolio → Developer selects allowed Products → creates standard-compliant AWS Resources</code></pre>
+<h3 class="subheading">2. AWS Managed Services (AMS)</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>AMS Model/Component</th><th>Operating range</th></tr></thead><tbody>
+<tr><td><strong>AMS Accelerate</strong></td><td>Add 24/7 monitoring, incident detection, patching and backup on existing environments; The customer team still directly changes the infrastructure</td></tr>
+<tr><td><strong>AMS Advanced &amp; MALZ</strong></td><td>Operate strictly on Multi-Account Landing Zone (<code>MALZ</code>); Infrastructure changes go through the process <strong>RFC (Request for Change)</strong> or approved self-service</td></tr>
+</tbody></table></div>
+</div>
+</details>

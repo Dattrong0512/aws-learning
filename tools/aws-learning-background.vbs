@@ -1,6 +1,6 @@
 ' ==========================================================================
 '  AWS Learning - silent background launcher (NO terminal windows)
-'  Starts: (1) the local content builder  (2) wrangler dev (remote KV binding)
+'  Builds the handbook, then starts wrangler dev (remote KV binding)
 '  Both run fully hidden. Nothing pops up. Run at login by the Startup
 '  shortcut created via "Enable Auto-Start.cmd".
 '  To stop the servers later, run "Stop AWS Learning.cmd".
@@ -24,7 +24,7 @@ logDir = fso.BuildPath(projDir, "tools\logs")
 If Not fso.FolderExists(logDir) Then fso.CreateFolder(logDir)
 
 ' Window style 0 = hidden, False = do not wait (fire and forget).
-sh.Run "cmd /c node tools\builder.mjs > tools\logs\builder.log 2>&1", 0, False
+If sh.Run("cmd /c node tools\build-site.mjs > tools\logs\build.log 2>&1", 0, True) <> 0 Then WScript.Quit 1
 ' Plain `wrangler dev` on purpose - NOT `--remote`. The KV binding in wrangler.jsonc
 ' carries "remote": true, so the Worker runs locally (fast, no preview session) while
 ' SR still reads/writes the REAL production namespace - progress keeps syncing between

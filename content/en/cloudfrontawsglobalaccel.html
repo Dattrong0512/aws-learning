@@ -1,0 +1,165 @@
+<details class="topic" data-progress-aliases="CloudFront – Origins|CloudFront – VPC Origin cho private ALB NLB EC2|Amazon CloudFront" data-track="Amazon CloudFront: CDN &amp; origins">
+<summary><span class="t-title">Amazon CloudFront: CDN &amp; origins</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Deliver web/files via edge near users to reduce latency and backend load.</p>
+<h3 class="subheading">1. Cache at the edge</h3>
+<pre class="flow-diagram"><code class="language-text">Viewer → edge location
+          ├─ cache hit → return content
+          └─ cache miss → origin → cache when policy allows → return content</code></pre>
+<p class="definition"><strong>Origin:</strong> where the original content is located.</p>
+<p>Distribution has one or more origins; cache behavior determines origin and policy for each URL path.</p>
+<p>CloudFront serves both static and dynamic HTTP(S), not just static files. Uncache requests can still use network and connection optimization.</p>
+<p><strong>CloudFront and origin do not need to be in the same AZ.</strong> CloudFront is a global service running in edge locations; origin can be in an AWS Region or on-premises. VPC origin must use supported Region and resources. </p>
+<h3 class="subheading">2. Origins</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Origin / mechanism</th><th>Function</th><th>For example</th></tr></thead><tbody>
+<tr><td>S3 Origin</td><td>Get content from S3 bucket</td><td>HTML, CSS, JS, images</td></tr>
+<tr><td>Custom Origin</td><td>Get content from HTTP/HTTPS server</td><td>Public ALB, EC2, web server on-premises</td></tr>
+<tr><td>VPC Origin</td><td>Private connections to VPC resources are supported</td><td>Internal ALB, NLB, EC2</td></tr>
+<tr><td>Origin Group</td><td>Primary + secondary origins group for failover</td><td>Primary ALB fails → Secondary S3 serves the backup site</td></tr>
+</tbody></table></div>
+<p><strong>Origin Group is a backup group, not a type of server.</strong> Failover according to configured connection error/status codes, GET/HEAD/OPTIONS only; OPTIONS must also be enabled in cached HTTP methods. Do not use this mechanism to failover POST yourself. </p>
+<p>VPC origin helps origin to be private, but must still meet SG/network requirements and supported features.</p>
+<p>Public custom origins need to limit users from bypassing CloudFront if edge protection is required.</p>
+<h3 class="subheading">3. Cache Behaviors select origin</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Path pattern</th><th>Origin</th><th>Request example</th></tr></thead><tbody>
+<tr><td>/images/*</td><td>S3</td><td>/images/logo.png</td></tr>
+<tr><td>/api/*</td><td>ALB</td><td>/api/orders</td></tr>
+<tr><td>Default (*)</td><td>On-premises server</td><td>/home</td></tr>
+</tbody></table></div>
+<p>CloudFront reviews behaviors <strong>in the configured order</strong> and use the first matching behavior; Do not choose the most specific pattern yourself. If individual behavior does not match, use <strong>Default Cache Behavior (*)</strong>. </p>
+<h3 class="subheading">4. Private S3 and OAC</h3>
+<p>OAC signs request from CloudFront, bucket policy for distribution is read; No need to open a public bucket. Object SSE-KMS also needs a suitable KMS key policy.</p>
+<p>S3 REST bucket origin is different from S3 website endpoint. The website endpoint is a custom HTTP origin, not using OAC in the way of a private bucket origin.</p>
+<h3 class="subheading">5. TLS and edge protection</h3>
+<p>Custom domains need a certificate with the correct name.</p>
+<p>ACM certificate for viewer → CloudFront must be in us-east-1; certificate for origin is a separate leg. <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html" rel="noopener noreferrer" target="_blank">AWS CloudFront certificate requirements</a>.</p>
+<p>WAF filters application requests; Shield helps protect against DDoS; signed URL/cookie controls viewer access to private content.</p>
+<p>OAC grants CloudFront permission to read S3, without authenticating each user.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Global website/photo/video: CloudFront + S3. Private app needs edge delivery: VPC origin is suitable. HTTP(S) API: behavior/cache policy according to content and security requirements.</p>
+<h3 class="subheading">7. CloudFront Video Streaming (VOD vs Live) &amp; Custom Domain HTTPS</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Streaming type</th><th>Standard architecture on AWS</th><th>Cache mechanism on CloudFront</th></tr></thead><tbody>
+<tr><td><strong>Video On-Demand (VOD)</strong></td><td><code>S3 (Origin) → CloudFront → Users</code></td><td>Directly cache static video files/segments stored on S3</td></tr>
+<tr><td><strong>Live Streaming</strong></td><td><code>Camera → Elemental MediaLive (encode) → MediaPackage (segments/playlist) → CloudFront</code></td><td>CloudFront does not encode but <strong>cache each created segment immediately</strong> (manifest keeps TTL short)</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Custom Domain HTTPS on CloudFront:
+1. Apply for Public Certificate in ACM at Region us-east-1
+2. Declare Alternate Domain Name (CNAME) on CloudFront + attach ACM certificate
+3. Create Route 53 A/AAAA Alias pointing the domain name to CloudFront Distribution</code></pre>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>CloudFront is a user-friendly CDN cache, distributed from origins. S3 origin and custom origin have different origin protection policies.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="CloudFront – Geo Restriction|CloudFront – Cache Invalidation" data-track="CloudFront caching, delivery controls &amp; geo restriction">
+<summary><span class="t-title">CloudFront caching, delivery controls &amp; geo restriction</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Cache the right content, update it at the right time and limit who can receive the content.</p>
+<p class="lead-in">Cache stream:</p>
+<pre class="flow-diagram"><code class="language-text">Viewer requests
+↓ Cache keys
+CloudFront edge
+├─ hit → cached response
+└─ miss → origin → response / cache according to policy</code></pre>
+<h3 class="subheading">1. Cache key</h3>
+<p>Cache key determines which requests share the same response. Path is the main part; You can add query strings, headers/cookies as different content.</p>
+<p>Putting too many variables in the key reduces cache hits.</p>
+<p>Leaving out variables that actually change the content may return erroneous data; Individual responses according to users need safe or non-cache policies.</p>
+<h3 class="subheading">2. Cache policy and origin request policy</h3>
+<p>Cache policy determines key/TTL. Origin request policy transfers additional information to origin even though it is not in the key.</p>
+<p>Forward header/cookie does not by itself guarantee a unique response. Check cache behavior with origin's Cache-Control, especially minimum TTL and sensitive data.</p>
+<h3 class="subheading">3. TTL, file version and invalidation</h3>
+<pre class="flow-diagram"><code class="language-text">TTL regulates cache time.
+Origin changes the file without automatically making every edge get a new version immediately.
+Use a version name like app.abc123.js for assets that don't change; HTML can have short TTL
+more.</code></pre>
+<p>Invalidation removes path from cache before TTL: /index.html, /images/* or /*.</p>
+<p>Wildcard path helps delete many objects but invalidation still has quota/cost; It is not a mechanism to backup or repair the original file.</p>
+<h3 class="subheading">4. Signed URL and signed cookie</h3>
+<pre class="flow-diagram"><code class="language-text">Signed URL matches a specific file; signed cookie merges multiple files such as videos
+many segments.
+Both control the duration/conditions of private content access via CloudFront.</code></pre>
+<p>Block direct access to the origin if you want every user to pass this check. S3 pre-signed URL is another mechanism, granting requests directly to S3 with signer permissions.</p>
+<h3 class="subheading">5. Geo restriction</h3>
+<pre class="flow-diagram"><code class="language-text">Allowlist/blocklist by country in distribution based on Geo-IP.
+VPN/proxy may affect location identification; do not change
+authentication/authorization by user.</code></pre>
+<h3 class="subheading">6. Price Class</h3>
+<p><strong>Price Class</strong> Choose a group of edge locations serving distribution to balance costs and latency.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Price Class</th><th>Scope</th><th>Target</th></tr></thead><tbody>
+<tr><td>100</td><td>America, Canada, Europe, Israel</td><td>Limited to lower cost areas</td></tr>
+<tr><td>200</td><td>Class 100 + many regions in Asia, Africa, Middle East; There is Vietnam</td><td>Balance cost and coverage</td></tr>
+<tr><td>All</td><td>All CloudFront edge locations</td><td>Largest global coverage</td></tr>
+</tbody></table></div>
+<p>For example, customers in Vietnam: Class 100 does not include edge in Vietnam, so you may have to go further; Class 200 includes Vietnam so latency can be reduced; All opens the entire edge network. Actual costs depend on traffic and service area. </p>
+<p><strong>Price Class does not block users by location.</strong> People outside the range can still access it; If you want to restrict countries, use Geo Restriction/WAF.</p>
+<h3 class="subheading">7. Viewer Protocol Policy</h3>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Policy</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>HTTP and HTTPS</td><td>Allows both protocols</td></tr>
+<tr><td>Redirect HTTP to HTTPS</td><td>Convert HTTP viewer to HTTPS; HTTP/1.0 requests using write methods may be rejected</td></tr>
+<tr><td>HTTPS Only</td><td>Only for HTTPS; HTTP returns 403</td></tr>
+</tbody></table></div>
+<p>Policy applies to the leg <strong>viewer → CloudFront</strong>; The CloudFront → origin route has its own protocol policy. </p>
+<h3 class="subheading usage-heading">8. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  JS/CSS versioned: Long TTL. Quickly changed HTML: invalidation. Paid content per file: signed URL; multiple video segments: signed cookie. The content varies by query: the cache key contains the necessary query.</p>
+<h3 class="subheading">9. Automatic Compression (Gzip/Brotli) &amp; 4 Viewer/Origin Events hook points</h3>
+<p class="definition"><strong>Automatic Compression:</strong> when the browser sends <code>Accept-Encoding: br, gzip</code>, CloudFront automatically compresses eligible files using <strong>Brotli/Gzip</strong> at Edge, compressed and paid cache <code>Content-Encoding</code>.</p>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Event Hook</th><th>Running time</th><th>Supported by</th></tr></thead><tbody>
+<tr><td><code>Viewer Request</code> / <code>Viewer Response</code></td><td>Every request from the user to Edge and before returning (even when Cache HIT)</td><td><strong>CloudFront Functions</strong> &amp; <strong>Lambda@Edge</strong></td></tr>
+<tr><td><code>Origin Request</code> / <code>Origin Response</code></td><td>Only runs when Cache MISS and Edge must call Origin</td><td>Only <strong>Lambda@Edge</strong></td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Cache key/TTL affects hit ratio; Behaviors and origin request policies control what content/headers/cookies are sent and cached.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="AWS Global Accelerator – Bài toán độ trễ Internet|Unicast IP và Anycast IP|AWS Global Accelerator – Cách hoạt động và endpoint" data-track="AWS Global Accelerator">
+<summary><span class="t-title">AWS Global Accelerator</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Bring TCP/UDP traffic into the AWS network near the client, keep the IP stable and transfer it to a healthy endpoint.</p>
+<h3 class="subheading">1. Anycast and network line</h3>
+<pre class="flow-diagram"><code class="language-text">Anycast
+= multiple network points broadcast the same IP; The client goes to the appropriate edge and then traffic
+follow the AWS backbone to the endpoint.</code></pre>
+<pre class="flow-diagram"><code class="language-text">Client → static Anycast IP → AWS edge → AWS backbone → regional endpoint</code></pre>
+<p>Global Accelerator IPv4 typically provides two static IPv4; dual-stack adds IPv6. IP stays stable when changing backend, useful for firewall allowlist.</p>
+<h3 class="subheading">2. Endpoints and health</h3>
+<pre class="flow-diagram"><code class="language-text">Endpoint group by Region contains ALB, NLB, EC2 or EIP according to the supported configuration.
+Health controls where traffic is received; Endpoint weight and traffic dial adjustable
+distribution.</code></pre>
+<pre class="flow-diagram"><code class="language-text">Traffic dial changes the rate of traffic entering a Region; endpoint weight divided in
+group. group.
+When there is an error, the service changes network routing without having to wait for the client to run out of DNS cache
+get a new IP.</code></pre>
+<h3 class="subheading">3. No cache</h3>
+<pre class="flow-diagram"><code class="language-text">Global Accelerator accelerates the network, does not cache HTTP objects.
+New content is still coming to the app; TLS, authentication and request control remain
+needed at the endpoint/application.</code></pre>
+<p>Do not confuse the Global Accelerator's static IP with the AZ static IP of an NLB: Accelerator sends global traffic to regional endpoints.</p>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  UDP game, VoIP, global TCP app; Multi-Region APIs need stable IP allowlists and quick transitions from faulty endpoints. Website needs to cache images/videos near the user: consider CloudFront.</p>
+<h3 class="subheading">5. Target Endpoint types supported by Global Accelerator</h3>
+<p>Global Accelerator routes to all <strong>Internet-facing ALB/NLB</strong>, <strong>Internal ALB/NLB</strong>, <strong>EC2 Instances</strong> and <strong>Elastic IP</strong> in one or more Regions without exposing the internal network structure.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Global Accelerator uses static anycast IP and the global AWS network to improve access to regional endpoints; Does not cache content like CloudFront.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="CloudFront so với S3 Cross-Region Replication|CloudFront và AWS Global Accelerator – Chọn dịch vụ|CloudFront, Global Accelerator và S3 CRR – Chọn kiến trúc" data-track="CloudFront vs Global Accelerator vs S3 CRR">
+<summary><span class="t-title">CloudFront vs Global Accelerator vs S3 CRR</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Distinguish between content acceleration, network acceleration and persistent data replication.</p>
+<p class="lead-in">Three mechanisms:</p>
+<pre class="flow-diagram"><code class="language-text">CloudFront = HTTP(S) delivery + cache
+Global Accelerator = TCP/UDP acceleration, no cache
+S3 CRR = copy object to another Region</code></pre>
+<h3 class="subheading">1. Comparison table</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Mechanism</th><th>What to do?</th><th>When choosing</th></tr></thead><tbody><tr><td>CloudFront</td><td>CDN for HTTP(S), caches at the edge and passes requests to the origin</td><td>Web/API, photos, videos, signed content</td></tr><tr><td>Global Accelerator</td><td>TCP/UDP over AWS backbone with static Anycast IP, no cache</td><td>Global app, IP allowlist, network failover</td></tr><tr><td>S3 CRR</td><td>Replicate object to bucket in another Region, asynchronously</td><td>DR, compliance, data must have a regional copy</td></tr></tbody></table></div>
+<h3 class="subheading">2. Cache is different from replica</h3>
+<p>CloudFront cache may evict or run out of TTL; origin is still the data source.</p>
+<p>CRR creates a real object in the destination bucket, requires Versioning and permission; The app that wants to read the target version must access the correct bucket/endpoint.</p>
+<p>Do not use CloudFront cache instead of backup/DR for S3. CRR does not automatically distribute HTTP to the edge or automatically move all clients to a backup bucket.</p>
+<h3 class="subheading">3. CloudFront is different from Accelerator</h3>
+<pre class="flow-diagram"><code class="language-text">CloudFront understands HTTP and has cache behavior, signed URL/cookie, geo restriction.
+Global Accelerator handles TCP/UDP and static IP routes; no key cache/TTL
+like CDN.</code></pre>
+<p>HTTP app can also use Accelerator when a fixed IP/network failover is needed. Choose according to the main requirement, not just based on the word “global”.</p>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong>  Photo website: CloudFront. Multi-Region UDP Game: Global Accelerator. Object needs another Region copy: CRR. It's possible to have CRR for DR and CloudFront for delivery, but you still have to configure origin/failover accordingly.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>CloudFront optimizes HTTP content caching; Global Accelerator optimizes network path/TCP-UDP; S3 CRR copies data between Regions.</p></aside>
+</div>
+</details>

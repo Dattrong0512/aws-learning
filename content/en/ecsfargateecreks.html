@@ -1,0 +1,313 @@
+<details class="topic" data-progress-aliases="ECS – Auto Scaling service và capacity EC2" data-track="Amazon ECS – Orchestration, tasks và services">
+<summary><span class="t-title">Amazon ECS – Orchestration, tasks, and services</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon ECS is AWS's container orchestration service. You declare the container you need to run, its quantity and resources; ECS takes care of deploying, monitoring and replacing tasks when they fail.</p>
+<pre class="flow-diagram"><code class="language-text">Container Image
+↓
+ECS
+↓
+EC2 or Fargate</code></pre>
+<h3 class="subheading">1. 3 main concepts</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>ECS concept</th><th>Nature</th></tr></thead><tbody>
+<tr><td><strong>Task Definition</strong></td><td>The blueprint declares the container image, CPU/RAM, ports, environment variables and IAM Roles</td></tr>
+<tr><td><strong>Task</strong></td><td>An actual running instance is instantiated from the Task Definition</td></tr>
+<tr><td><strong>Service</strong></td><td>The dispatcher maintains the correct quantity <code>desiredCount</code> Tasks are always running and attached to the Load Balancer</td></tr>
+</tbody></table></div>
+<p class="lead-in">For example:</p>
+<pre class="flow-diagram"><code class="language-text">Service desiredCount = 3
+↓
+Task 1
+Task 2
+Task 3</code></pre>
+<p>A Task dies → ECS creates a new Task to replace it.</p>
+<h3 class="subheading">2. ECS Cluster</h3>
+<p>Cluster is <strong>Logical group contains Service, Task and compute capacity</strong>.</p>
+<pre class="flow-diagram"><code class="language-text">ECS Cluster
+├── Service A
+│   ├── Task
+│   └── Task
+└── Service B
+    └── Task</code></pre>
+<blockquote class="caution"><p>Cluster is not a server.</p></blockquote>
+<h3 class="subheading">3. EC2 vs Fargate</h3>
+<p><strong>ECS + EC2</strong> = EC2 administrator = instance type + patch + ASG + capacity</p>
+<p><strong>ECS + Fargate</strong> = AWS manages the server = you only choose CPU/RAM for the Task</p>
+<p class="lead-in">Remember:</p>
+<pre class="flow-diagram"><code class="language-text">EC2
+→ more controls
+→ suitable for stable workload / need to optimize cost
+
+Fargate
+→ less infrastructure management
+→ suitable for fluctuating workloads</code></pre>
+<h4 class="minor-heading">ECS Anywhere and External launch type</h4>
+<p><strong>ECS Anywhere</strong> Allows registering servers/VMs on-premises or outside of AWS to the ECS cluster to manage containers using ECS.</p>
+<p><strong>External launch type</strong> (<code>EXTERNAL</code>) used to run ECS tasks/services on these external instances; You still manage the server, OS and capacity.</p>
+<pre class="flow-diagram"><code class="language-text">Server/VM outside of AWS
+↓ install ECS Agent + SSM Agent, register cluster
+ECS Cluster
+↓ launch type: EXTERNAL
+Container Tasks on servers outside of AWS</code></pre>
+<p>For example, container management processes data at the factory from the ECS while the data remains on-premises. </p>
+<h3 class="subheading">4. Container flow</h3>
+<pre class="flow-diagram"><code class="language-text">ECR Image
+↓
+Task Definition
+↓
+ECS Service / Run Task
+↓
+EC2 or Fargate
+↓
+Containers run</code></pre>
+<p><code dir="ltr">Service</code> Used for apps to run continuously.</p>
+<p><code dir="ltr">Run Task</code> Used for jobs that run once.</p>
+<h3 class="subheading">5. IAM Roles</h3>
+<p class="lead-in">These two roles are easy to confuse:</p>
+<pre class="flow-diagram"><code class="language-text">Task Execution Role
+= ECS is used to start Task
+→ pull image from ECR
+→ send CloudWatch Logs
+→ get Secret</code></pre>
+<pre class="flow-diagram"><code class="language-text">Task Role
+= code inside the usage container
+→ read S3
+→ call DynamoDB
+→ send SQS</code></pre>
+<p><strong>If you run ECS on EC2, you also have:</strong> <strong>Container Instance Role</strong> = ECS Agent permissions on EC2</p>
+<blockquote class="insight"><p><strong>Execution Role = ECS used. Task Role = application used.</strong></p></blockquote>
+<h3 class="subheading">6. Load Balancer</h3>
+<ul><li><strong>awsvpc:</strong> Each task has its own ENI and SG; Available for EC2 tasks and required for Fargate. EC2 bridge/host mode uses the instance's networking.</li><li>Service registers task to target group. EC2 bridge mode can use dynamic host port mapping; awsvpc uses target type IP. .</li></ul>
+<p><strong>ECS Service is usually placed as follows:</strong> <strong>ALB</strong> = HTTP / HTTPS = path / host routing</p>
+<p><strong>NLB</strong> = TCP / UDP = high performance</p>
+<pre class="flow-diagram"><code class="language-text">Client
+↓
+ALB
+├── /users  → User Service
+└── /orders → Order Service</code></pre>
+<h3 class="subheading">7. Auto Scaling</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Scaling mechanism on ECS</th><th>How it works</th></tr></thead><tbody>
+<tr><td><strong>Service Auto Scaling</strong></td><td>Application Auto Scaling increases/decreases <code>desiredCount</code> by min/max (Target Tracking by CPU, RAM, <code>ALBRequestCountPerTarget</code>; Step Scaling; Scheduled Scaling)</td></tr>
+<tr><td><strong>Cluster Auto Scaling (EC2)</strong></td><td>Capacity Provider connects ECS Cluster with ASG to automatically add EC2 when Pending Tasks lack space (need to attach capacity provider strategy)</td></tr>
+<tr><td><strong>targetCapacity</strong></td><td>Set 100% to take full advantage of EC2 or lower to leave headroom; ASG still needs a valid min/max</td></tr>
+<tr><td><strong>ECS on Fargate</strong></td><td>AWS takes care of the entire underlying compute infrastructure; You only configure Service Auto Scaling for the number of Tasks</td></tr>
+</tbody></table></div>
+<h3 class="subheading">8. Storage</h3>
+<p class="lead-in">If multiple Tasks need to share the same file:</p>
+<pre class="flow-diagram"><code class="language-text">ECS Tasks
+↓
+Amazon EFS
+↓
+Shared Persistent Storage</code></pre>
+<p>S3: <strong>= Object Storage</strong> = accessible via SDK/API</p>
+<p>Not a regular shared filesystem.</p>
+<h3 class="subheading usage-heading">9. Use Cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<pre class="flow-diagram"><code class="language-text">ALB
+↓
+ECS
+↓
+Web API / Microservices</code></pre>
+<pre class="flow-diagram"><code class="language-text">SQS
+↓
+ECS Worker
+↓
+Background Job</code></pre>
+<pre class="flow-diagram"><code class="language-text">ECS Tasks
+↓
+EFS
+↓
+Shared Files</code></pre>
+<h3 class="subheading">10. ECS Compute Modes, Task Placement Strategies &amp; Scheduled Tasks</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>ECS Compute mode</th><th>Who manages the Server?</th><th>Distinguishing point</th></tr></thead><tbody>
+<tr><td><strong>ECS on Fargate</strong></td><td>AWS completely</td><td>Serverless per Task (vCPU/RAM), no EC2 management</td></tr>
+<tr><td><strong>ECS Managed Instances</strong></td><td>AWS operates EC2</td><td>AWS takes care of provisioning/patching/scaling EC2 but supports choosing specialized machine models &amp; GPUs</td></tr>
+<tr><td><strong>ECS on EC2</strong></td><td>You manage yourself</td><td>Full control over AMI, host OS, Capacity Provider attached to ASG</td></tr>
+<tr><td><strong>ECS Anywhere</strong></td><td>You (machine outside of AWS)</td><td>Register server/VM On-premises to ECS Cluster via <code>EXTERNAL</code> launch type</td></tr>
+</tbody></table></div>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>Task Placement Strategy (ECS on EC2)</th><th>How to arrange Tasks</th><th>Target</th></tr></thead><tbody>
+<tr><td><code>spread</code></td><td>Spread Tasks evenly across Availability Zones or EC2 instances</td><td>High Availability</td></tr>
+<tr><td><code>binpack</code></td><td>Tightly place Tasks into the fewest EC2 instances according to CPU or Memory</td><td>Optimize costs, easily recover idle machines</td></tr>
+<tr><td><code>random</code></td><td>Randomly select EC2 that meets the resource conditions</td><td>Simple allocation without priority</td></tr>
+</tbody></table></div>
+<p><strong>ECS Scheduled Task:</strong> run the container periodically according to cron/rate using <strong>Amazon EventBridge Scheduler</strong> call <code>RunTask</code>.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>ECS Task Definition describes the container; Task is the run version; Service maintains task number. Task Role for app, Execution Role for ECS agent/Fargate.</p></aside>
+</div>
+</details>
+<details class="topic" data-track="AWS Fargate">
+<summary><span class="t-title">AWS Fargate</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> AWS Fargate is serverless compute for containers — used with ECS or EKS. You declare the CPU/RAM of task/pod; AWS provision, patch and operate the entire platform server.</p>
+<p class="lead-in">Container run flow:</p>
+<pre class="flow-diagram"><code class="language-text">Container image + CPU/RAM
+↓ ECS Task / EKS Pod
+Fargate
+↓
+AWS operates compute</code></pre>
+<h3 class="subheading">1. What is Fargate not?</h3>
+<blockquote class="caution">🧠 Fargate <strong>Do not replace ECS/EKS</strong>. ECS/EKS is <strong>orchestration</strong>; Fargate just is <strong>launch/compute type</strong> — how you run the container, not the orchestration system.</blockquote>
+<h3 class="subheading">2. Fargate vs EC2 launch type</h3>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Criteria</th><th>Fargate</th><th>EC2</th></tr>
+<tr><td>Server management</td><td>AWS takes care of everything</td><td>You manage</td></tr>
+<tr><td>Charge unit</td><td>CPU/RAM of task</td><td>Instance hours</td></tr>
+<tr><td>Infrastructure control</td><td>Low (no SSH)</td><td>High (SSH, custom)</td></tr>
+<tr><td>Appropriate workload</td><td>Small, irregular, serverless</td><td>Large, stable, cost-optimized</td></tr>
+</tbody></table></div>
+<h3 class="subheading">3. What does Fargate still need?</h3>
+<p>VPC + Subnet — each task has its own ENI. Security Group — controls traffic in/out of tasks. IAM role — task execution role + task role. Image — from ECR or other registry. Logs — CloudWatch Logs (via execution role).</p>
+<h3 class="subheading">4. Fargate + EFS</h3>
+<p>Fargate task can be mounted <strong>Amazon EFS</strong> to have <strong>persistent shared storage</strong> for serverless containers — multiple multi-AZ tasks read/write the same file system.</p>
+<h3 class="subheading">5. Limits to remember</h3>
+<p><span><strong>CPU/RAM must be a supported pair.</strong> For example, task 4 vCPU uses 8–30 GB of RAM; This is not Fargate's maximum level. .</span></p>
+<p>Cannot SSH into the underlying infrastructure.</p>
+<p>Some workloads need host-level control (eg custom kernel, GPU) → must use EC2 launch type.</p>
+<h3 class="subheading usage-heading">6. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<pre class="flow-diagram"><code class="language-text">APIs/microservices run on ECS that the team wants to focus on containers, no
+Manage EC2 nodes.
+Job on demand: run tasks when there is work; Use EFS if many tasks need it
+persistent shared files.</code></pre>
+<h3 class="subheading">7. Principles for calculating Compute fees on Fargate</h3>
+<p>Fargate only charges for compute <strong>vCPU and Memory allocated during the time the Task/Pod actually runs</strong> (don't pay for idle EC2); Expanded storage, data transfer and Load Balancer are charged separately.</p>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>Fargate runs containers without needing to manage EC2 hosts; Still have to configure CPU/RAM, network, IAM and scaling of workload.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="ECR – Kho image, pull và bảo mật" data-track="Amazon ECR">
+<summary><span class="t-title">Amazon ECR</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon ECR (Elastic Container Registry) is a private Docker/OCI image registry managed by AWS — where container images for ECS, Fargate, or EKS are stored.</p>
+<h3 class="subheading">1. Typical usage flow</h3>
+<pre class="flow-diagram"><code class="language-text">CI build image → push ECR (tag/digest) → ECS/EKS pull → container runs</code></pre>
+<h3 class="subheading">2. Main point</h3>
+<p>Image is referenced by <strong>tag</strong> (vd <code>:latest</code>) or <strong>digest</strong> (sha256 — immutable, more secure).</p>
+<p><strong>Task execution role</strong> (ECS/Fargate) needs permissions <code>ecr:GetAuthorizationToken</code> + <code>ecr:BatchGetImage</code> to pull images.</p>
+<p><strong>Repository policy</strong> Together with IAM, you can control who can push/pull, especially with cross-accounts. Pull errors can also be due to missing NAT routes or ECR VPC endpoints.</p>
+<p><strong>Image scanning</strong> Vulnerability scanning (basic scan or Enhanced Scanning with Inspector).</p>
+<p><strong>Lifecycle policy</strong> manually clean up old images (e.g. keep the 5 newest images, delete the rest) — save costs.</p>
+<p>Can replicate images to another Region/account; production should pin immutable tag or digest instead of dependency <code>:latest</code>.</p>
+<p>Encrypt at rest: AWS managed key or <strong>KMS CMK</strong>.</p>
+<h3 class="subheading">3. Security</h3>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Class</th><th>Mechanism</th></tr>
+<tr><td>Control plane</td><td>IAM (create/edit/delete repository)</td></tr>
+<tr><td>Data plane</td><td>Repository policy + IAM (push/pull)</td></tr>
+<tr><td>At rest</td><td>SSE with AWS managed key or KMS CMK</td></tr>
+<tr><td>In transit</td><td>TLS (HTTPS)</td></tr>
+</tbody></table></div>
+<h3 class="subheading usage-heading">4. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<p>CI build/push image into ECR; ECS/EKS pulls according to digest to deploy the correct version.</p>
+<p>Repository cross-account with IAM/repository policy; Scan for vulnerabilities and use lifecycle policy to clean up old images.</p>
+<h3 class="subheading">5. ECR Basic Scanning vs Enhanced Scanning</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>ECR scan mode</th><th>Scanning Range &amp; Timing</th></tr></thead><tbody>
+<tr><td><strong>Basic Scanning</strong></td><td>Scan for basic OS packages vulnerabilities when pushing images or upon manual request</td></tr>
+<tr><td><strong>Enhanced Scanning</strong></td><td>Integration <strong>Amazon Inspector</strong> to continuously and automatically scan both OS packages and programming language libraries as soon as new CVEs appear</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>ECR saves container images; ECS/EKS/Fargate uses images to run workloads. Distinguish between repository image and runtime container.</p></aside>
+</div>
+</details>
+<details class="topic" data-progress-aliases="EKS – Kiến trúc Kubernetes đa AZ|EKS – Node groups và persistent volumes" data-track="Amazon EKS">
+<summary><span class="t-title">Amazon EKS</span></summary>
+<div class="body">
+<p class="purpose"><strong>Purpose:</strong> Amazon EKS (Elastic Kubernetes Service) is a Kubernetes control plane managed by AWS — for teams that need Kubernetes APIs, ecosystem (Helm, operators), and portability.</p>
+<h3 class="subheading">1. Architecture</h3>
+<pre class="flow-diagram"><code class="language-text">AWS-managed control plane (API server · etcd · scheduler)
+↓
+Workload: EC2 node groups or Fargate pods</code></pre>
+<h3 class="subheading">2. Three ways to run workloads on EKS</h3>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Way</th><th>Description</th><th>When to use</th></tr>
+<tr><td><strong>Managed node groups</strong></td><td>AWS manages your ASG+ node (EC2) for you</td><td>Default, simplest</td></tr>
+<tr><td><strong>Self-managed nodes</strong></td><td>You create/manage EC2 nodes yourself</td><td>Needs maximum control</td></tr>
+<tr><td><strong>Fargate profiles</strong></td><td>Pod runs on Fargate (serverless)</td><td>Don't want to manage the node</td></tr>
+</tbody></table></div>
+<h3 class="subheading">3. IAM and Kubernetes RBAC</h3>
+<blockquote class="caution">🧠 <strong>IAM access does not automatically grant Kubernetes permissions.</strong> IAM allows you to call the EKS API (create cluster, describe…); but the permissions in the cluster (get pods, deploy...) are due <strong>Kubernetes RBAC</strong> decide. Need to map IAM principal → Kubernetes role.</blockquote>
+<h3 class="subheading">4. EKS vs ECS</h3>
+<div class="table-wrap"><table class="study-table">
+<tbody><tr><th>Criteria</th><th>EKS</th><th>ECS</th></tr>
+<tr><td>Platform</td><td>Kubernetes (open-source, portable)</td><td>AWS-native, proprietary</td></tr>
+<tr><td>Complexity</td><td>Higher (learn Kubernetes)</td><td>Lower, easy to start</td></tr>
+<tr><td>Ecosystem</td><td>Helm, operators, tooling K8s</td><td>Limited to AWS</td></tr>
+<tr><td>Portability</td><td>Can run on-prem / other clouds</td><td>Mainly AWS; ECS Anywhere supports on-premises</td></tr>
+<tr><td>When to choose</td><td>Standardized K8s, need portability</td><td>Want simple AWS-native</td></tr>
+</tbody></table></div>
+<p> run tasks on external instances; Kubernetes is still the choice when needing the Kubernetes ecosystem.</p>
+<h3 class="subheading">5. Fargate + EKS</h3>
+<p>Fargate can be used with EKS <strong>Fargate profile</strong> (select namespace/label → pod running on Fargate).</p>
+<p>EKS is still the control plane layer; Workload must be compatible with Fargate capabilities (eg cannot run daemonset on Fargate).</p>
+<h3 class="subheading">6. Node groups, networking &amp; persistent storage</h3>
+<h3>1. EKS Node Management</h3><ul><li><p>Managed Node Group: AWS manages the EC2 Nodes and Auto Scaling Group (ASG) lifecycle.</p></li><li><p>Self-Managed Nodes: Self-manage EC2 Nodes, suitable when deep customization is needed.</p></li><li><p>Multi-AZ: Distribute Nodes in Private Subnets in multiple AZs to increase HA.</p></li><li><p>ALB/NLB: Allows application access from outside.</p></li><li><p>NAT Gateway / VPC Endpoints: Let Nodes/Pods access the Internet or AWS Services when needed.</p></li></ul><h3>2. EKS Storage</h3><p>Kubernetes uses PVC (PersistentVolumeClaim) to request storage.</p><div><pre dir="ltr"><code>Pod → PVC → StorageClass → CSI Driver
+                            |
+                            v
+                      AWS Storage
+                      (EBS / EFS / FSx)</code></pre></div><div><table><tbody><tr><th><p>Storage</p></th><th><p>When to use?</p></th></tr><tr><td><p>EBS</p></td><td><p>Block Storage, attached to EC2 Node in the same AZ</p></td></tr><tr><td><p>EFS</p></td><td><p>Shared File System multi-AZ, multiple Pods can access at the same time</p></td></tr><tr><td><p>FSx</p></td><td><p>HPC, high performance or specialized filesystem</p></td></tr></tbody></table></div><h3>EKS Fargate Limitations</h3><ul><li><p>Does not support EBS Volume: Use EFS if you need Persistent Shared Storage.</p></li><li><p>Does not support DaemonSet: Does not run workloads that require direct management of the host.</p></li><li><p>No need to manage EC2 Nodes: AWS Fargate provides compute.</p></li></ul><h3>Quickly remember SAA-C03</h3><ul><li><p>Managed Node Group → AWS manages EC2 Nodes.</p></li><li><p>EKS EC2 + EBS → Persistent Block Storage.</p></li><li><p>EKS Fargate + EFS → Persistent Shared Storage.</p></li><li><p>HPC + EKS EC2 → FSx for Lustre.</p></li><li><p>Fargate → No EBS, no DaemonSet.</p></li></ul>
+<h3 class="subheading">7. Kubernetes resources and permissions for Pods</h3>
+<div style="overflow-x:auto" tabindex="0"><div class="table-wrap"><table class="study-table"><thead><tr><th>Demand</th><th>Service / concept</th><th>Function</th></tr></thead><tbody>
+<tr><td>Run Kubernetes on AWS</td><td>Amazon EKS</td><td>AWS manages the Kubernetes control plane</td></tr>
+<tr><td>Compute runs Pods</td><td>Worker Nodes (EC2/Fargate)</td><td>EC2 nodes or serverless Fargate are where the workload actually runs</td></tr>
+<tr><td>Maintain 3 Pod replicas</td><td>Deployment</td><td>Maintain desired replicas, create replacement Pods when Pods fail</td></tr>
+<tr><td>Stable networking to Pods</td><td>Kubernetes Service</td><td>Stable network address even if Pods are replaced or IP changed</td></tr>
+<tr><td>Organize Kubernetes resources</td><td>Namespace</td><td>Group Pods, Services, Deployments by team/environment</td></tr>
+<tr><td>Identity for Kubernetes Pods</td><td>Service Account</td><td>The identity of the Pod when calling the Kubernetes API; RBAC combination</td></tr>
+<tr><td>Non-sensitive configuration</td><td>ConfigMap</td><td>Save URLs, environment variables, log levels outside the image</td></tr>
+<tr><td>Sensitive application data</td><td>Kubernetes Secret / AWS Secrets Manager</td><td>Passwords, API keys, tokens; Secrets Manager supports rotation when configured</td></tr>
+<tr><td>Kubernetes API permissions</td><td>RBAC</td><td>Regulate who can view/create/edit/delete Kubernetes resources</td></tr>
+<tr><td>AWS permissions per Pod + OIDC</td><td>IRSA</td><td>Service Account ↔ IAM role via IAM OIDC provider + STS; grant temporary credentials</td></tr>
+<tr><td>AWS permissions per Pod + EKS Agent</td><td>EKS Pod Identity</td><td>Service Account ↔ IAM role via Pod Identity Agent + EKS Auth; No need for IAM OIDC provider</td></tr>
+<tr><td>IAM permissions for EC2 worker node</td><td>EC2 Instance Profile</td><td>Attach the IAM role node to the EC2 worker node's AWS tasks</td></tr>
+</tbody></table></div><div class="table-wrap"><table class="study-table"><tbody><tr><th><p>Demand</p></th><th><p>Select</p></th></tr><tr><td><p>AWS Service needs permission to manage resources for you</p></td><td><p>Service-Linked Role</p></td></tr><tr><td><p>EKS Pods need AWS permissions, using OIDC</p></td><td><p>IRSA</p></td></tr><tr><td><p>EKS Pods require AWS permissions, simple configuration, do not use OIDC Provider</p></td><td><p>EKS Pod Identity</p></td></tr><tr><td><p>EKS runs Pods on Fargate, requiring its own IAM Role</p></td><td><p>IRSA</p></td></tr><tr><td><p>ECS Application needs to access S3</p></td><td><p>ECS Task Role</p></td></tr></tbody></table></div></div>
+<p><strong>RBAC authorization in Kubernetes; The IAM role grants permissions to AWS.</strong> Node roles do not replace individual Pod rights. Restrict Pod access to IMDS to avoid obtaining node credentials.</p>
+<p><strong>EKS Pod Identity</strong> Pods supported on Linux EC2 nodes, Fargate not supported; Fargate Pods can use IRSA. Base64 in a Kubernetes Secret is not encryption; Still need to control access and avoid putting secrets in image/Git.  · </p>
+<h3 class="subheading">8. Two flows grant the IAM role to the Pod</h3>
+<h4 class="minor-heading">IRSA — OIDC + STS</h4>
+<pre class="flow-diagram"><code class="language-text">Pod uses Kubernetes Service Account
+↓ SA annotation: eks.amazonaws.com/role-arn
+Kubernetes issues projected OIDC Token to Pod
+↓ AWS SDK in Pod calls AssumeRoleWithWebIdentity
+AWS STS
+├── Authenticate OIDC Token via IAM OIDC provider
+└── Check IAM Role Trust Policy (issuer, sub, audit)
+↓
+STS returns Temporary Credentials to Pod
+↓
+Pod calls S3/DynamoDB according to IAM Permission Policy</code></pre>
+<p><strong>Configuration:</strong> IAM OIDC provider for cluster + IAM role with Trust/Permission Policy + Service Account annotation. Trust policy properly limits namespace/Service Account; Use the AWS SDK that supports IRSA.</p>
+<h4 class="minor-heading">EKS Pod Identity — Agent + EKS Auth</h4>
+<pre class="flow-diagram"><code class="language-text">Pod A uses Service Account: training-sa, namespace: ml
+↓
+Kubernetes grants projected Pod Identity Token (JWT)
+↓ AWS SDK sends token to Agent on node
+Pod Identity Agent
+↓ EKS Auth: AssumeRoleForPodIdentity
+EKS Auth API
+├── Token authentication
+├── Check Pod Identity Association
+└── Map cluster + ml + training-sa → S3ReadRole
+↓ EKS calls STS AssumeRole; The role trust policy must allow it
+Temporary Credentials
+↓ EKS Auth → Agent → Pod
+Pod calls S3 according to IAM Permission Policy</code></pre>
+<p><strong>Configuration:</strong> Pod Identity Agent (or integrated EKS Auto Mode) + association between cluster/namespace/Service Account and IAM role. Role trust <code>pods.eks.amazonaws.com</code> with <code>sts:AssumeRole</code>, <code>sts:TagSession</code>; node role needed <code>eks-auth:AssumeRoleForPodIdentity</code>. Use an SDK that supports container credential providers.</p>
+<div class="table-wrap" style="overflow-x:auto" tabindex="0"><table class="study-table"><thead><tr><th>Criteria</th><th>IRSA</th><th>EKS Pod Identity</th></tr></thead><tbody><tr><td>Role link</td><td>Service Account annotation</td><td>Pod Identity Association</td></tr><tr><td>Authentication</td><td>IAM OIDC provider + STS</td><td>Agent + EKS Auth; No need for IAM OIDC provider</td></tr><tr><td>STS</td><td>Pod SDK calls AssumeRoleWithWebIdentity</td><td>EKS calls AssumeRole</td></tr><tr><td>Credentials</td><td>STS → Pod</td><td>EKS Auth → Agent → Pod</td></tr></tbody></table></div>
+<p>Trust policy decides <strong>Who gets to assume the role?</strong>; permission policy decides <strong>What can roles do?</strong>.  · </p>
+<h3 class="subheading usage-heading">9. Use cases</h3>
+<p class="usecase-inline"><strong>Use cases:</strong> </p>
+<p>The team already has Kubernetes manifests/Helm charts and needs to keep the Kubernetes API/tooling when moving to AWS.</p>
+<p>Stateful pods on EC2 nodes using EBS; multiple pods sharing files or Fargate pods using EFS when appropriate.</p>
+<h3 class="subheading">10. Five EKS Compute modes, Autoscaling Streams &amp; Three easily confused Endpoints</h3>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>EKS Scaling/Compute component</th><th>Exact role</th></tr></thead><tbody>
+<tr><td><strong>Kubernetes Metrics Server</strong></td><td>Collect actual CPU/RAM of Pods/Nodes assigned to HPA (do not create/delete Pods yourself)</td></tr>
+<tr><td><strong>HPA</strong> vs <strong>VPA</strong></td><td><strong>Horizontal Pod Autoscaler (HPA)</strong> increase/decrease number of Pods; <strong>Vertical Pod Autoscaler (VPA)</strong> Adjust CPU/RAM requests of each Pod</td></tr>
+<tr><td><strong>Cluster Autoscaler</strong> vs <strong>Karpenter</strong></td><td>Cluster Autoscaler increases/decreases nodes via <strong>ASG</strong>; <strong>Karpenter</strong> Direct allocation of EC2 optimizes Pending Pods configuration without being tied to a fixed ASG</td></tr>
+<tr><td><strong>EKS Auto Mode</strong></td><td>AWS automatically manages compute, autoscaling, networking, and core add-ons</td></tr>
+</tbody></table></div>
+<pre class="flow-diagram"><code class="language-text">Load increases → Metrics Server → HPA increases the number of Pods → Lack of space (Pending Pods) → Karpenter / Cluster Autoscaler adds EC2 Nodes</code></pre>
+<div class="table-wrap"><table class="study-table"><thead><tr><th>The three Endpoints around EKS are easy to confuse</th><th>Function</th></tr></thead><tbody>
+<tr><td><strong>EKS Interface VPC Endpoint</strong></td><td>Call the AWS EKS Management API (eg <code>DescribeCluster</code>) qua PrivateLink</td></tr>
+<tr><td><strong>Kubernetes Private API Endpoint / Kubernetes Public API Endpoint</strong></td><td>Worker Nodes &amp; <code>kubectl</code> communicate with Control Plane (turn on Private Endpoint for pure internal connection; if only enable Kubernetes Public API Endpoint, the private node needs NAT Gateway to join)</td></tr>
+<tr><td><strong>ECR Interface Endpoints + S3 Gateway Endpoint</strong></td><td>Worker Nodes in private subnets without the Internet can still pull container images and image layers from S3</td></tr>
+</tbody></table></div>
+<aside class="recap"><span class="recap-label">Quick review · SAA-C03</span><p>EKS manages the Kubernetes control plane; Workloads can run on node groups or Fargate. IAM and Kubernetes RBAC are two separate permission layers.</p></aside>
+</div>
+</details>
