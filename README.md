@@ -4,8 +4,8 @@ A bilingual study guide for the AWS Certified Solutions Architect – Associate
 (SAA-C03) exam, with 22 sections and 124 topics. The website includes concise
 study notes, service comparisons, topic navigation, and content search.
 
-Each topic covers an overview, purpose, how it works, a practical example, and
-comparisons. Each major service page ends with **Exam Tips — SAA-C03**.
+Each topic covers the concept, purpose, how it works, a practical example, and
+comparisons. Each major service page ends with a short, plain-language summary.
 
 ## Languages
 
