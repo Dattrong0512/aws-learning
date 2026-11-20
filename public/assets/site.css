@@ -1130,6 +1130,10 @@
     line-height: 1.62;
     color: #115E59;
   }
+  .exam-tips { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .exam-tips h3 { margin: 0 0 12px; font-size: 20px; color: var(--text); }
+  .exam-tips ul { margin: 0; padding-left: 22px; }
+  .exam-tips li { margin: 8px 0; font-size: 15px; line-height: 1.65; }
   hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
 
   /* ---- Responsive Breakpoints ---- */
