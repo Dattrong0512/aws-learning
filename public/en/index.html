@@ -10,6 +10,10 @@
 <body>
 <header class="top">
 <div class="topbar">
+<button aria-controls="tocPanel" aria-expanded="false" hidden="" id="tocBtn" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"></line><line x1="8" x2="21" y1="12" y2="12"></line><line x1="8" x2="21" y1="18" y2="18"></line><line x1="3" x2="3.01" y1="6" y2="6"></line><line x1="3" x2="3.01" y1="12" y2="12"></line><line x1="3" x2="3.01" y1="18" y2="18"></line></svg>
+<span>Contents</span>
+</button>
 <button aria-label="Go to AWS SAA-C03 home" class="brand-btn" id="homeBtn" type="button">
 <span>AWS SAA-C03</span>
 </button>
@@ -17,26 +21,23 @@
 <a aria-current="page" href="/en/">Home</a>
 </nav>
 <nav aria-label="Language" class="language-switch"><a data-language="vi" href="/" lang="vi">Tiếng Việt</a><a data-language="en" href="/en/" lang="en">English</a></nav><div class="topbar-spacer"></div>
-<button aria-controls="tocPanel" aria-expanded="false" hidden="" id="tocBtn" type="button">
-<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"></line><line x1="8" x2="21" y1="12" y2="12"></line><line x1="8" x2="21" y1="18" y2="18"></line><line x1="3" x2="3.01" y1="6" y2="6"></line><line x1="3" x2="3.01" y1="12" y2="12"></line><line x1="3" x2="3.01" y1="18" y2="18"></line></svg>
-<span>Contents</span>
-</button>
-<button aria-label="Search" id="searchBtn" title="Search all sections (Ctrl+F)" type="button">
+<button aria-label="Search" id="searchBtn" title="Search all services (Ctrl+F)" type="button">
 <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
 <span>Search the handbook…</span>
 <kbd>Ctrl F</kbd>
 </button>
+<a class="github-link" href="https://github.com/Dattrong0512/aws-learning" target="_blank" rel="noopener noreferrer" aria-label="GitHub — AWS Learning" title="GitHub"><img src="/assets/icons/GitHub.svg" alt="" width="20" height="20"/></a>
 </div>
 </header>
 <button aria-label="Back to the current topic heading" hidden="" id="toggleJump" type="button">↑ Current topic</button>
 <aside aria-label="Page contents" hidden="" id="tocPanel">
-<div class="toc-head"><strong>Section contents</strong><button aria-label="Close contents" data-action="close-toc" type="button">✕</button></div>
+<div class="toc-head"><strong>Service contents</strong><button aria-label="Close contents" data-action="close-toc" type="button">✕</button></div>
 <p id="tocPage"></p>
 <nav aria-label="Sections on this page" id="tocEntries"></nav>
 </aside>
 <aside aria-label="Search" hidden="" id="searchPanel">
 <div class="search-toolbar">
-<div class="search-head"><strong>Search all sections</strong><button aria-label="Close search" data-action="close-search" type="button">✕</button></div>
+<div class="search-head"><strong>Search all services</strong><button aria-label="Close search" data-action="close-search" type="button">✕</button></div>
 <div class="search-input-wrap">
 <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
 <input aria-controls="searchResults" aria-label="Search terms" autocomplete="off" id="searchInput" placeholder="Find services, concepts, comparisons…" type="search"/>
@@ -45,7 +46,7 @@
 <div class="search-controls-row">
 <div class="search-filters">
 <label for="searchPage">Scope:</label>
-<select id="searchPage"><option value="">All sections</option><option value="current">Current section</option></select>
+<select id="searchPage"><option value="">All services</option><option value="current">Current service</option></select>
 </div>
 <div class="search-summary">
 <p aria-live="polite" id="searchCount" role="status"></p>
@@ -64,7 +65,7 @@
 </div>
 <section class="section" id="sec-iam">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_AWS-Identity-and-Access-Management_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="IAM">IAM</span></h2>
@@ -254,7 +255,7 @@ CLI / SDK → credentials → AWS API</code></pre>
 
 <section class="section" id="sec-iamadvanced">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_AWS-Organizations_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="IAM - Advanced">IAM - Advanced</span></h2>
@@ -864,7 +865,7 @@ Employee → IdP (authenticate with LDAP) → return SAML Assertion → send to 
 
 <section class="section" id="sec-ec2">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-EC2_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="EC2">EC2</span></h2>
@@ -1061,7 +1062,7 @@ Lifecycle policies = automatically change class according to inactive time</code
 
 <section class="section" id="sec-ebs">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-Elastic-Block-Store_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="EBS">EBS &amp; EFS</span></h2>
@@ -1230,7 +1231,7 @@ other data sources.</code></pre>
 
 <section class="section" id="sec-alb">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Elastic-Load-Balancing_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="ALB &amp; ASG">ALB, ASG &amp; Beanstalk</span></h2>
@@ -1470,7 +1471,7 @@ Blue/Green Deployment → Create a new environment in parallel and then transfer
 
 <section class="section" id="sec-rdsauroraelasticcache">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-RDS_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="RDS + Aurora + ElasticCache">RDS, Aurora &amp; ElastiCache</span></h2>
@@ -1707,7 +1708,7 @@ Select TTL and invalidation to avoid returning old data for too long.</code></pr
 
 <section class="section" id="sec-databases">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch-Category_Databases_64.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Databases">Purpose-Built Databases</span></h2>
@@ -1985,7 +1986,7 @@ Time-window Analytics</code></pre>
 
 <section class="section" id="sec-route53">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-Route-53_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Route 53">Route 53 &amp; Hybrid DNS</span></h2>
@@ -2131,7 +2132,7 @@ paragraph.</code></pre>
 
 <section class="section" id="sec-s3">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-Simple-Storage-Service_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="S3">Amazon S3</span></h2>
@@ -2775,7 +2776,7 @@ bucket guardrail.</code></pre>
 
 <section class="section" id="sec-cloudfrontawsglobalaccel">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-CloudFront_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Cloud Front &amp; AWS Global Accelerator">CloudFront &amp; Global Accelerator</span></h2>
@@ -2951,7 +2952,7 @@ like CDN.</code></pre>
 
 <section class="section" id="sec-awsstorageextras">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch-Category_Storage_64.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="AWS Storage Extras">AWS Storage Extras</span></h2>
@@ -3110,7 +3111,7 @@ replace each other.</code></pre>
 
 <section class="section" id="sec-sqssnskinesisactivemq">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch-Category_Application-Integration_64.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="SQS, SNS, Kinesis, Active MQ">SQS, SNS, Kinesis &amp; Amazon MQ</span></h2>
@@ -3910,7 +3911,7 @@ SQS/SNS as appropriate.</code></pre>
 
 <section class="section" id="sec-ecsfargateecreks">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-Elastic-Container-Service_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="ECS, Fargate, ECR &amp; EKS">ECS, Fargate, ECR &amp; EKS</span></h2>
@@ -4234,7 +4235,7 @@ Pod calls S3 according to IAM Permission Policy</code></pre>
 
 <section class="section" id="sec-severlessoverview">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_AWS-Lambda_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Severless Overview">Serverless Overview</span></h2>
@@ -5359,7 +5360,7 @@ Viewer</code></pre>
 
 <section class="section" id="sec-dataanalytics">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch-Category_Analytics_64.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Data &amp; Analytics">Data &amp; Analytics</span></h2>
@@ -6792,7 +6793,7 @@ BI</code></pre>
 
 <section class="section" id="sec-machinelearning">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch-Category_Artificial-Intelligence_64.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Machine Learning">Machine Learning &amp; AI</span></h2>
@@ -7308,7 +7309,7 @@ Product Recommendation</code></pre>
 
 <section class="section" id="sec-awsmonitoringauditcloudw">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-CloudWatch_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Aws Monitoring &amp; Audit: CloudWatch, CloudTrail &amp; Config">Monitoring, Audit &amp; Observability</span></h2>
@@ -8048,7 +8049,7 @@ Security / Management Account (AWS Config Aggregator)
 
 <section class="section" id="sec-awssecurityencryptionkms">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_AWS-Key-Management-Service_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="AWS Security &amp; Encryption: KMS, SSM Parameter Store, Shield, WAF">Security, Encryption &amp; Threat Detection</span></h2>
@@ -8964,7 +8965,7 @@ Athena / analytics tools / SIEM</code></pre>
 
 <section class="section" id="sec-networkingvpc">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_Amazon-Virtual-Private-Cloud_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Networking - VPC">Networking &amp; Hybrid VPC</span></h2>
@@ -9355,7 +9356,7 @@ Site-to-Site: On-Premises A ↔ DX Location A ══(Direct Connect SiteLink)═
 
 <section class="section" id="sec-disasterrecoverymigratio">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_AWS-Elastic-Disaster-Recovery_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Disaster Recovery &amp; Migrations">Disaster Recovery &amp; Migrations</span></h2>
@@ -10144,7 +10145,7 @@ Native EC2</code></pre>
 
 <section class="section" id="sec-whitepaperandarchitectur">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch_AWS-Well-Architected-Tool_48.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="White Paper and Architectures">Well-Architected &amp; Trusted Advisor</span></h2>
@@ -10257,7 +10258,7 @@ Remediation workflow</code></pre>
 
 <section class="section" id="sec-otherservices">
   <div class="sec-toolbar">
-    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All sections</span></button>
+    <button class="back" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All services</span></button>
     <div class="sec-actions"><button class="expand-btn" type="button">Expand all</button></div>
   </div>
   <h2><img class="service-icon" src="/assets/icons/Arch-Category_Management-Tools_64.svg" alt="" width="40" height="40" decoding="async"><span class="sec-title" data-sec-title="Other Services">Governance, Cost &amp; Other Services</span></h2>
